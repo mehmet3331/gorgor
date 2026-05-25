@@ -22,9 +22,7 @@ console.log(
 "Kullanıcı bağlandı"
 );
 
-socket.on(
-"chat-message",
-(msg)=>{
+socket.on("chat-message",(msg)=>{
 
 socket.broadcast.emit(
 "chat-message",

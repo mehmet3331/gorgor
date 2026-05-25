@@ -3,8 +3,14 @@ const socket = io();
 const myVideo =
 document.getElementById("myVideo");
 
-const messages =
-document.getElementById("messages");
+const remoteVideo =
+document.getElementById("remoteVideo");
+
+const chatToggle =
+document.getElementById("chatToggle");
+
+const chatPanel =
+document.getElementById("chatPanel");
 
 const input =
 document.getElementById("messageInput");
@@ -12,16 +18,19 @@ document.getElementById("messageInput");
 const sendBtn =
 document.getElementById("sendBtn");
 
-const chatToggle =
-document.getElementById("chatToggle");
+const messages =
+document.getElementById("messages");
 
-chatToggle.onclick = () => {
+const cameraBtn =
+document.getElementById("cameraBtn");
 
-document.body.classList.toggle(
-"chat-open"
-);
+const micBtn =
+document.getElementById("micBtn");
 
-};
+const volumeSlider =
+document.getElementById("volumeSlider");
+
+let localStream;
 
 navigator.mediaDevices
 .getUserMedia({
@@ -29,6 +38,8 @@ video:true,
 audio:true
 })
 .then(stream=>{
+
+localStream = stream;
 
 myVideo.srcObject = stream;
 
@@ -42,44 +53,159 @@ alert(
 
 });
 
-sendBtn.onclick = ()=>{
+chatToggle.onclick = ()=>{
 
-const text = input.value.trim();
+if(chatPanel.style.display==="flex"){
+
+chatPanel.style.display="none";
+
+document.body.classList.remove(
+"chat-open"
+);
+
+}else{
+
+chatPanel.style.display="flex";
+
+document.body.classList.add(
+"chat-open"
+);
+
+}
+
+};
+
+cameraBtn.onclick = ()=>{
+
+const track =
+localStream.getVideoTracks()[0];
+
+track.enabled =
+!track.enabled;
+
+cameraBtn.textContent =
+track.enabled
+? "📷 Açık"
+: "📷 Kapalı";
+
+};
+
+micBtn.onclick = ()=>{
+
+const track =
+localStream.getAudioTracks()[0];
+
+track.enabled =
+!track.enabled;
+
+micBtn.textContent =
+track.enabled
+? "🎤 Açık"
+: "🎤 Kapalı";
+
+};
+
+volumeSlider.oninput = ()=>{
+
+if(remoteVideo){
+
+remoteVideo.volume =
+volumeSlider.value / 100;
+
+}
+
+};
+
+function addMyMessage(text){
+
+const div =
+document.createElement("div");
+
+div.className =
+"myMessage";
+
+div.textContent =
+"BEN -> " + text;
+
+messages.appendChild(div);
+
+messages.scrollTop =
+messages.scrollHeight;
+
+}
+
+function addOtherMessage(text){
+
+const div =
+document.createElement("div");
+
+div.className =
+"otherMessage";
+
+div.textContent =
+"SEN -> " + text;
+
+messages.appendChild(div);
+
+messages.scrollTop =
+messages.scrollHeight;
+
+}
+
+function sendMessage(){
+
+const text =
+input.value.trim();
 
 if(!text) return;
+
+addMyMessage(text);
 
 socket.emit(
 "chat-message",
 text
 );
 
-messages.innerHTML +=
-`
-<div class="myMsg">
-BEN -> ${text}
-</div>
-`;
+input.value="";
 
-input.value = "";
+}
 
-messages.scrollTop =
-messages.scrollHeight;
+sendBtn.onclick =
+sendMessage;
 
-};
+input.addEventListener(
+"keydown",
+e=>{
 
-socket.on(
-"chat-message",
-(msg)=>{
+if(e.key==="Enter"){
 
-messages.innerHTML +=
-`
-<div class="otherMsg">
-SEN -> ${msg}
-</div>
-`;
+sendMessage();
 
-messages.scrollTop =
-messages.scrollHeight;
+}
 
 }
 );
+
+socket.on(
+"chat-message",
+msg=>{
+
+addOtherMessage(msg);
+
+}
+);
+
+document
+.querySelectorAll(".emoji")
+.forEach(emoji=>{
+
+emoji.onclick = ()=>{
+
+input.value +=
+emoji.textContent;
+
+input.focus();
+
+};
+
+});

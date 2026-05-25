@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Görüntülü Görüşme</title>
 
 <link rel="stylesheet" href="style.css">
@@ -11,43 +10,72 @@
 
 <body>
 
-<div id="videoArea">
+<video id="remoteVideo" autoplay playsinline></video>
 
-    <video
-        id="remoteVideo"
-        autoplay
-        playsinline>
-    </video>
+<video id="myVideo" autoplay playsinline muted></video>
 
-    <video
-        id="myVideo"
-        autoplay
-        muted
-        playsinline>
-    </video>
+<div id="topControls">
+
+<button id="cameraBtn">
+📷 Açık
+</button>
+
+<button id="micBtn">
+🎤 Açık
+</button>
+
+<div id="volumeBox">
+
+🔊
+
+<input
+type="range"
+id="volumeSlider"
+min="0"
+max="100"
+value="10"
+>
 
 </div>
-
-<div id="chatPanel">
-
-    <div id="messages"></div>
-
-    <div id="inputArea">
-        <input
-            id="messageInput"
-            type="text"
-            placeholder="Mesaj yaz...">
-
-        <button id="sendBtn">
-            Gönder
-        </button>
-    </div>
 
 </div>
 
 <button id="chatToggle">
-💬
+💬 Mesaj
 </button>
+
+<div id="chatPanel">
+
+<div id="messages"></div>
+
+<div id="emojiBar">
+
+<span class="emoji">😀</span>
+<span class="emoji">😂</span>
+<span class="emoji">😍</span>
+<span class="emoji">😎</span>
+<span class="emoji">👍</span>
+<span class="emoji">❤️</span>
+<span class="emoji">🎉</span>
+<span class="emoji">🔥</span>
+
+</div>
+
+<div id="inputArea">
+
+<input
+id="messageInput"
+placeholder="Mesaj yaz..."
+autocomplete="off"
+>
+
+<button id="sendBtn">
+Gönder
+</button>
+
+</div>
+
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="script.js"></script>
