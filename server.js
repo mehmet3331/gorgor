@@ -11,40 +11,52 @@ const io =
 new Server(server);
 
 app.use(
-    express.static("public")
+express.static("public")
 );
 
 io.on(
-    "connection",
-    socket=>{
+"connection",
+(socket)=>{
 
-        socket.on(
-            "chat-message",
-            msg=>{
+console.log(
+"Kullanıcı bağlandı"
+);
 
-                socket.broadcast.emit(
-                    "chat-message",
-                    msg
-                );
+socket.on(
+"chat-message",
+(msg)=>{
 
-            }
-        );
+socket.broadcast.emit(
+"chat-message",
+msg
+);
 
-    }
+});
+
+socket.on(
+"disconnect",
+()=>{
+
+console.log(
+"Kullanıcı ayrıldı"
+);
+
+});
+
+}
 );
 
 const PORT =
 process.env.PORT || 3000;
 
 server.listen(
-    PORT,
-    "0.0.0.0",
-    ()=>{
+PORT,
+"0.0.0.0",
+()=>{
 
-        console.log(
-            "Sunucu çalışıyor: "
-            + PORT
-        );
+console.log(
+"Sunucu çalışıyor: " + PORT
+);
 
-    }
+}
 );

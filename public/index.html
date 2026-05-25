@@ -1,62 +1,55 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Görüntülü Görüşme</title>
 
 <link rel="stylesheet" href="style.css">
-
 </head>
 
 <body>
 
-<video id="remoteVideo" autoplay playsinline></video>
+<div id="videoArea">
 
-<video id="myVideo" autoplay playsinline muted></video>
+    <video
+        id="remoteVideo"
+        autoplay
+        playsinline>
+    </video>
 
-<div class="controls">
-
-<button onclick="toggleCamera()">
-📷 Kamera
-</button>
-
-<button onclick="toggleMic()">
-🎤 Mikrofon
-</button>
-
-<button onclick="toggleChat()">
-💬 Mesajlar
-</button>
-
-<button onclick="changePassword()">
-🔒 Şifre
-</button>
+    <video
+        id="myVideo"
+        autoplay
+        muted
+        playsinline>
+    </video>
 
 </div>
 
 <div id="chatPanel">
 
-<div id="messages"></div>
+    <div id="messages"></div>
 
-<div class="chatInput">
+    <div id="inputArea">
+        <input
+            id="messageInput"
+            type="text"
+            placeholder="Mesaj yaz...">
 
-<input
-id="messageInput"
-placeholder="Mesaj yaz..."
->
+        <button id="sendBtn">
+            Gönder
+        </button>
+    </div>
 
-<button onclick="sendMessage()">
-Gönder
+</div>
+
+<button id="chatToggle">
+💬
 </button>
 
-</div>
-
-</div>
-
 <script src="/socket.io/socket.io.js"></script>
-
 <script src="script.js"></script>
 
 </body>
