@@ -1,18 +1,32 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport"
+content="width=device-width,initial-scale=1">
+
 <title>Görüntülü Görüşme</title>
 
 <link rel="stylesheet" href="style.css">
+
 </head>
 
 <body>
 
-<video id="remoteVideo" autoplay playsinline></video>
+<video
+id="remoteVideo"
+autoplay
+playsinline>
+</video>
 
-<video id="myVideo" autoplay playsinline muted></video>
+<video
+id="myVideo"
+autoplay
+playsinline
+muted>
+</video>
 
 <div id="topControls">
 
@@ -24,6 +38,10 @@
 🎤 Açık
 </button>
 
+<button id="chatToggle">
+💬 Mesaj
+</button>
+
 <div id="volumeBox">
 
 🔊
@@ -33,20 +51,17 @@ type="range"
 id="volumeSlider"
 min="0"
 max="100"
-value="10"
+value="0"
 >
 
 </div>
 
 </div>
 
-<button id="chatToggle">
-💬 Mesaj
-</button>
-
 <div id="chatPanel">
 
-<div id="messages"></div>
+<div id="messages">
+</div>
 
 <div id="emojiBar">
 
@@ -56,8 +71,8 @@ value="10"
 <span class="emoji">😎</span>
 <span class="emoji">👍</span>
 <span class="emoji">❤️</span>
-<span class="emoji">🎉</span>
 <span class="emoji">🔥</span>
+<span class="emoji">🎉</span>
 
 </div>
 
@@ -78,6 +93,7 @@ Gönder
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+
 <script src="script.js"></script>
 
 </body>

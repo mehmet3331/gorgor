@@ -32,6 +32,8 @@ document.getElementById("volumeSlider");
 
 let localStream;
 
+remoteVideo.volume = 0;
+
 navigator.mediaDevices
 .getUserMedia({
 video:true,
@@ -41,7 +43,8 @@ audio:true
 
 localStream = stream;
 
-myVideo.srcObject = stream;
+myVideo.srcObject =
+stream;
 
 })
 .catch(err=>{
@@ -85,8 +88,10 @@ track.enabled =
 
 cameraBtn.textContent =
 track.enabled
-? "📷 Açık"
-: "📷 Kapalı";
+?
+"📷 Açık"
+:
+"📷 Kapalı";
 
 };
 
@@ -100,19 +105,17 @@ track.enabled =
 
 micBtn.textContent =
 track.enabled
-? "🎤 Açık"
-: "🎤 Kapalı";
+?
+"🎤 Açık"
+:
+"🎤 Kapalı";
 
 };
 
 volumeSlider.oninput = ()=>{
 
-if(remoteVideo){
-
 remoteVideo.volume =
 volumeSlider.value / 100;
-
-}
 
 };
 

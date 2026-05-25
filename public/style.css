@@ -5,7 +5,7 @@ box-sizing:border-box;
 }
 
 body{
-background:#000;
+background:black;
 overflow:hidden;
 font-family:Arial,sans-serif;
 color:white;
@@ -42,17 +42,22 @@ top:10px;
 left:10px;
 display:flex;
 gap:10px;
-z-index:200;
+z-index:300;
 }
 
 #cameraBtn,
-#micBtn{
+#micBtn,
+#chatToggle{
 padding:10px 14px;
 border:none;
 border-radius:10px;
 background:#222;
 color:white;
 cursor:pointer;
+}
+
+#chatToggle{
+background:#2196f3;
 }
 
 #volumeBox{
@@ -68,24 +73,10 @@ border-radius:10px;
 width:100px;
 }
 
-#chatToggle{
-position:fixed;
-bottom:20px;
-right:20px;
-z-index:300;
-padding:12px 18px;
-border:none;
-border-radius:12px;
-background:#2196f3;
-color:white;
-cursor:pointer;
-font-size:16px;
-}
-
 #chatPanel{
 position:fixed;
-left:0;
 bottom:0;
+left:0;
 width:100%;
 height:40%;
 background:#111;
@@ -117,7 +108,6 @@ border-radius:12px;
 max-width:90%;
 word-break:break-word;
 overflow-wrap:anywhere;
-text-align:center;
 }
 
 .otherMessage{
@@ -129,7 +119,6 @@ border-radius:12px;
 max-width:90%;
 word-break:break-word;
 overflow-wrap:anywhere;
-text-align:left;
 }
 
 #emojiBar{
@@ -138,21 +127,17 @@ gap:8px;
 overflow-x:auto;
 padding:8px;
 background:#181818;
-border-top:1px solid #333;
-border-bottom:1px solid #333;
 }
 
 .emoji{
 font-size:24px;
 cursor:pointer;
-user-select:none;
 }
 
 #inputArea{
 display:flex;
 gap:8px;
 padding:10px;
-background:#111;
 }
 
 #messageInput{
@@ -162,7 +147,6 @@ border:none;
 border-radius:10px;
 padding:10px;
 font-size:15px;
-outline:none;
 }
 
 #sendBtn{
@@ -172,7 +156,6 @@ border-radius:10px;
 background:#00aa55;
 color:white;
 cursor:pointer;
-font-size:15px;
 }
 
 @media(max-width:700px){
