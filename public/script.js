@@ -706,10 +706,12 @@ chatToggle.classList.remove(
 micBtn.onclick =
 ()=>{
 
+if(!localStream){
+return;
+}
+
 micEnabled =
 !micEnabled;
-
-if(localStream){
 
 localStream
 .getAudioTracks()
@@ -720,7 +722,7 @@ micEnabled;
 
 });
 
-}
+};
 
 micBtn.textContent =
 micEnabled
@@ -736,10 +738,12 @@ micEnabled
 camBtn.onclick =
 ()=>{
 
+if(!localStream){
+return;
+}
+
 camEnabled =
 !camEnabled;
-
-if(localStream){
 
 localStream
 .getVideoTracks()
@@ -750,7 +754,7 @@ camEnabled;
 
 });
 
-}
+};
 
 camBtn.textContent =
 camEnabled
@@ -824,46 +828,59 @@ alert(
    SES
 ------------------- */
 
-remoteVideo.muted = true;
+remoteVideo.muted = false;
+remoteVideo.volume = 0.1;
 
-remoteVideo.volume = 0;
-
-volumeSlider.value = 0;
+volumeSlider.value = 0.1;
 
 volumeSlider.oninput =
 ()=>{
 
-remoteVideo.muted =
-false;
-
-remoteVideo.volume =
+const volume =
 parseFloat(
 volumeSlider.value
 );
 
-};
+remoteVideo.volume =
+volume;
 
-soundBtn.onclick =
-()=>{
+if(volume <= 0){
 
-if(
-remoteVideo.muted
-){
-
-remoteVideo.muted =
-false;
-
-soundBtn.textContent =
-"🔊 Açık";
+remoteVideo.muted = true;
+soundBtn.textContent = "🔇";
 
 }
 else{
 
-remoteVideo.muted =
-true;
+remoteVideo.muted = false;
+soundBtn.textContent = "🔊";
 
-soundBtn.textContent =
-"🔇 Kapalı";
+}
+
+};
+soundBtn.onclick =
+()=>{
+
+if(remoteVideo.muted){
+
+remoteVideo.muted = false;
+
+if(
+parseFloat(volumeSlider.value) === 0
+){
+
+volumeSlider.value = 0.5;
+remoteVideo.volume = 0.5;
+
+}
+
+soundBtn.textContent = "🔊";
+
+}
+else{
+
+remoteVideo.muted = true;
+soundBtn.textContent = "🔇";
 
 }
 
@@ -905,23 +922,7 @@ alert(
    EMOJİLER
 ------------------- */
 
-document
-.querySelectorAll(
-"#emojiPanel span"
-)
-.forEach(item=>{
 
-item.onclick =
-()=>{
-
-input.value +=
-item.textContent;
-
-input.focus();
-
-};
-
-});
 
 /* ------------------
    PING ÖLÇÜMÜ

@@ -19,6 +19,8 @@ href="style.css">
 
 <body>
 
+<!-- ODAYA GİRİŞ -->
+
 <div id="roomScreen">
 
 <h2>Odaya Katıl</h2>
@@ -38,6 +40,8 @@ Odaya Gir
 
 </div>
 
+<!-- ANA EKRAN -->
+
 <div id="mainScreen">
 
 <video
@@ -53,23 +57,65 @@ playsinline
 muted>
 </video>
 
-<div id="topBar">
+<!-- SOL ÜST AYARLAR -->
+
+<div id="settingsContainer">
+
+<button id="settingsBtn">
+⚙️
+</button>
+
+<div id="settingsMenu">
 
 <button id="micBtn">
-🎤 Açık
+🎤
 </button>
 
 <button id="camBtn">
-📷 Açık
-</button>
-
-<button id="switchCameraBtn">
-🔄 Kamera Çevir
+📷
 </button>
 
 <button id="soundBtn">
-🔊 Kapalı
+🔊
 </button>
+
+<button id="shareScreenBtn">
+📺
+</button>
+
+<button id="changePasswordBtn">
+🔐
+</button>
+
+<button id="shareScreenBtn">
+📺
+</button>
+
+<button id="changePasswordBtn">
+🔐
+</button>
+
+<div id="statusBar">
+
+<div class="statusBox">
+Ping:
+<span id="pingValue">
+-
+</span>
+</div>
+
+<div class="statusBox">
+Bağlantı:
+<span id="connectionQuality">
+-
+</span>
+</div>
+
+</div>
+
+</div>
+
+</div>
 
 <input
 type="range"
@@ -77,12 +123,32 @@ id="volumeSlider"
 min="0"
 max="1"
 step="0.01"
-value="0">
+value="0.5">
 
-<select id="qualitySelect">
+<!-- KÜÇÜK KAMERA ÜZERİ BUTONLAR -->
+
+<button
+id="switchCameraBtn"
+class="cameraOverlayBtn switchBtn">
+
+🔄
+
+</button>
+
+<button
+id="fullscreenBtn"
+class="cameraOverlayBtn fullscreenBtn">
+
+⛶
+
+</button>
+
+<select
+id="qualitySelect"
+class="qualitySelect">
 
 <option value="360">
-360p Tasarruf
+360p
 </option>
 
 <option value="480">
@@ -90,83 +156,25 @@ value="0">
 </option>
 
 <option value="720" selected>
-720p HD
+720p
 </option>
 
 <option value="1080">
-1080p Full HD
+1080p
 </option>
 
 </select>
 
-<button id="fullscreenBtn">
-🖥 Tam Ekran
-</button>
-
-<button id="shareScreenBtn">
-📺 Ekran Paylaş
-</button>
-
-<button id="changePasswordBtn">
-🔐 Şifre Değiştir
-</button>
+<!-- SOHBET -->
 
 <button id="chatToggle">
-💬 Mesaj
+💬
 </button>
-
-</div>
-
-<div id="statusBar">
-
-<div
-id="pingBox"
-class="statusBox">
-
-Ping:
-<span id="pingValue">
--
-</span>
-
-</div>
-
-<div
-id="qualityBox"
-class="statusBox">
-
-Bağlantı:
-<span id="connectionQuality">
--
-</span>
-
-</div>
-
-</div>
-
-<div id="emojiPanel">
-
-<span>😀</span>
-<span>😁</span>
-<span>😂</span>
-<span>🤣</span>
-<span>😊</span>
-<span>😍</span>
-<span>😘</span>
-<span>😎</span>
-<span>🤔</span>
-<span>😢</span>
-<span>😭</span>
-<span>😡</span>
-<span>👍</span>
-<span>👎</span>
-<span>👏</span>
-<span>❤️</span>
-
-</div>
 
 <div id="chatPanel">
 
 <div id="messages"></div>
+
 
 <div id="inputArea">
 
@@ -189,6 +197,41 @@ Gönder
 <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
 
 <script src="script.js"></script>
+
+<script>
+
+const settingsBtn =
+document.getElementById(
+"settingsBtn"
+);
+
+const settingsMenu =
+document.getElementById(
+"settingsMenu"
+);
+
+settingsBtn.onclick =
+()=>{
+
+if(
+settingsMenu.style.display
+==="flex"
+){
+
+settingsMenu.style.display =
+"none";
+
+}
+else{
+
+settingsMenu.style.display =
+"flex";
+
+}
+
+};
+
+</script>
 
 </body>
 </html>
