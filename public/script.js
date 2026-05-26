@@ -1,338 +1,615 @@
 const socket = io();
 
-const myVideo = document.getElementById("myVideo");
-const remoteVideo = document.getElementById("remoteVideo");
+const myVideo =
+document.getElementById("myVideo");
 
-const roomScreen = document.getElementById("roomScreen");
-const mainScreen = document.getElementById("mainScreen");
+const remoteVideo =
+document.getElementById("remoteVideo");
 
-const joinBtn = document.getElementById("joinBtn");
-const roomName = document.getElementById("roomName");
-const roomPassword = document.getElementById("roomPassword");
+const roomScreen =
+document.getElementById("roomScreen");
 
-const chatToggle = document.getElementById("chatToggle");
-const chatPanel = document.getElementById("chatPanel");
+const mainScreen =
+document.getElementById("mainScreen");
 
-const input = document.getElementById("messageInput");
-const sendBtn = document.getElementById("sendBtn");
-const messages = document.getElementById("messages");
+const joinBtn =
+document.getElementById("joinBtn");
 
-const micBtn = document.getElementById("micBtn");
-const camBtn = document.getElementById("camBtn");
-const soundBtn = document.getElementById("soundBtn");
-const volumeSlider = document.getElementById("volumeSlider");
-const changePasswordBtn = document.getElementById("changePasswordBtn");
+const roomName =
+document.getElementById("roomName");
 
-let localStream;
+const roomPassword =
+document.getElementById("roomPassword");
+
+const chatToggle =
+document.getElementById("chatToggle");
+
+const chatPanel =
+document.getElementById("chatPanel");
+
+const input =
+document.getElementById("messageInput");
+
+const sendBtn =
+document.getElementById("sendBtn");
+
+const messages =
+document.getElementById("messages");
+
+const micBtn =
+document.getElementById("micBtn");
+
+const camBtn =
+document.getElementById("camBtn");
+
+const soundBtn =
+document.getElementById("soundBtn");
+
+const volumeSlider =
+document.getElementById("volumeSlider");
+
+const changePasswordBtn =
+document.getElementById("changePasswordBtn");
+
+const qualitySelect =
+document.getElementById("qualitySelect");
+
+const fullscreenBtn =
+document.getElementById("fullscreenBtn");
+
+const shareScreenBtn =
+document.getElementById("shareScreenBtn");
+
 let peer = null;
+let localStream = null;
 
 let currentRoom = "";
 
 let micEnabled = true;
 let camEnabled = true;
 
-navigator.mediaDevices.getUserMedia({
-    video: true,
-    audio: true
-})
-.then(stream => {
+let currentQuality = 720;
 
-    localStream = stream;
-    myVideo.srcObject = stream;
+async function startCamera(height = 720){
 
-})
-.catch(err => {
+if(localStream){
 
-    alert(
-        "Kamera/Mikrofon açılamadı\n" +
-        err.message
-    );
+localStream
+.getTracks()
+.forEach(track=>track.stop());
+
+}
+
+localStream =
+await navigator.mediaDevices
+.getUserMedia({
+
+video:{
+
+width:{
+ideal:
+height===1080
+?1920
+:height===720
+?1280
+:height===480
+?854
+:640
+},
+
+height:{
+ideal:height
+},
+
+frameRate:{
+ideal:30,
+max:30
+}
+
+},
+
+audio:{
+echoCancellation:true,
+noiseSuppression:true,
+autoGainControl:true
+}
 
 });
 
-joinBtn.onclick = () => {
+myVideo.srcObject =
+localStream;
 
-    const room = roomName.value.trim();
-    const password = roomPassword.value.trim();
+}
 
-    if (!room || !password) {
+startCamera(currentQuality)
+.catch(err=>{
 
-        alert("Oda adı ve şifre gerekli");
-        return;
+alert(
+"Kamera açılamadı\n"+
+err.message
+);
 
-    }
+});
 
-    currentRoom = room;
+joinBtn.onclick = ()=>{
 
-    socket.emit("join-room", {
-        room,
-        password
-    });
+const room =
+roomName.value.trim();
+
+const password =
+roomPassword.value.trim();
+
+if(!room || !password){
+
+alert(
+"Oda adı ve şifre gerekli"
+);
+
+return;
+
+}
+
+currentRoom = room;
+
+socket.emit(
+"join-room",
+{
+room,
+password
+}
+);
 
 };
 
-socket.on("room-error", msg => {
+socket.on(
+"room-error",
+msg=>{
 
-    alert(msg);
+alert(msg);
 
-});
+}
+);
 
-socket.on("joined-room", count => {
+socket.on(
+"joined-room",
+count=>{
 
-    roomScreen.style.display = "none";
-    mainScreen.style.display = "block";
+roomScreen.style.display =
+"none";
 
-    if (count === 2) {
+mainScreen.style.display =
+"block";
 
-        createPeer(true);
+if(count===2){
 
-    }
-
-});
-
-socket.on("user-connected", () => {
-
-    if (!peer) {
-
-        createPeer(false);
-
-    }
-
-});
-
-function createPeer(initiator) {
-
-    peer = new SimplePeer({
-
-        initiator: initiator,
-
-        trickle: false,
-
-        stream: localStream,
-
-        config: {
-
-            iceServers: [
-
-                {
-                    urls: [
-                        "stun:stun.l.google.com:19302",
-                        "stun:stun1.l.google.com:19302"
-                    ]
-                }
-
-            ]
-
-        }
-
-    });
-
-    peer.on("signal", signal => {
-        console.log("SIGNAL ÜRETİLDİ");
-
-        socket.emit("signal", {
-            room: currentRoom,
-            signal
-        });
-
-    });
-
-    peer.on("stream", stream => {
-console.log("UZAK KAMERA GELDİ");
-        remoteVideo.srcObject = stream;
-
-    });
-
-    peer.on("connect", () => {
-
-        console.log("Peer bağlandı");
-
-    });
-
-    peer.on("error", err => {
-
-        console.log(err);
-
-    });
+createPeer(true);
 
 }
 
-socket.on("signal", signal => {
-console.log("SIGNAL GELDİ");
-    if (!peer) {
+}
+);
 
-        createPeer(false);
+socket.on(
+"user-connected",
+()=>{
 
-    }
+if(!peer){
 
-    peer.signal(signal);
-
-});
-
-socket.on("user-disconnected", () => {
-
-    remoteVideo.srcObject = null;
-
-    if (peer) {
-
-        peer.destroy();
-        peer = null;
-
-    }
-
-});
-
-function addMyMessage(text) {
-
-    const div = document.createElement("div");
-
-    div.className = "myMessage";
-    div.textContent = "BEN -> " + text;
-
-    messages.appendChild(div);
-
-    messages.scrollTop =
-        messages.scrollHeight;
+createPeer(false);
 
 }
 
-function addOtherMessage(text) {
+}
+);
 
-    const div = document.createElement("div");
+function createPeer(
+initiator
+){
 
-    div.className = "otherMessage";
-    div.textContent = "SEN -> " + text;
+peer =
+new SimplePeer({
 
-    messages.appendChild(div);
+initiator,
 
-    messages.scrollTop =
-        messages.scrollHeight;
+trickle:false,
 
-    if (
-        chatPanel.style.display !== "flex"
-    ) {
+stream:localStream,
 
-        chatToggle.classList.add(
-            "newMessageBlink"
-        );
+config:{
 
-    }
+iceServers:[
+
+{
+urls:[
+"stun:stun.l.google.com:19302",
+"stun:stun1.l.google.com:19302"
+]
+}
+
+]
 
 }
 
-sendBtn.onclick = () => {
+});
 
-    const text =
-        input.value.trim();
+peer.on(
+"signal",
+signal=>{
 
-    if (!text) return;
+socket.emit(
+"signal",
+{
+room:currentRoom,
+signal
+}
+);
 
-    socket.emit(
-        "chat-message",
-        text
-    );
+}
+);
 
-    addMyMessage(text);
+peer.on(
+"stream",
+stream=>{
 
-    input.value = "";
+remoteVideo.srcObject =
+stream;
+
+remoteVideo.play()
+.catch(()=>{});
+
+}
+);
+
+peer.on(
+"connect",
+()=>{
+
+console.log(
+"Peer bağlandı"
+);
+
+}
+);
+
+peer.on(
+"error",
+err=>{
+
+console.log(err);
+
+}
+);
+
+}
+
+socket.on(
+"signal",
+signal=>{
+
+if(!peer){
+
+createPeer(false);
+
+}
+
+peer.signal(signal);
+
+}
+);
+
+socket.on(
+"user-disconnected",
+()=>{
+
+remoteVideo.srcObject =
+null;
+
+if(peer){
+
+peer.destroy();
+
+peer = null;
+
+}
+
+}
+);
+
+qualitySelect.onchange =
+async ()=>{
+
+currentQuality =
+parseInt(
+qualitySelect.value
+);
+
+await startCamera(
+currentQuality
+);
+
+if(peer){
+
+const sender =
+peer._pc
+.getSenders()
+.find(
+s=>
+s.track &&
+s.track.kind==="video"
+);
+
+if(sender){
+
+await sender.replaceTrack(
+localStream
+.getVideoTracks()[0]
+);
+
+}
+
+}
+
+};
+
+fullscreenBtn.onclick =
+()=>{
+
+if(
+!document.fullscreenElement
+){
+
+document.documentElement
+.requestFullscreen();
+
+}
+else{
+
+document.exitFullscreen();
+
+}
+
+};
+
+shareScreenBtn.onclick =
+async ()=>{
+
+try{
+
+const screenStream =
+await navigator.mediaDevices
+.getDisplayMedia({
+
+video:true
+
+});
+
+const screenTrack =
+screenStream
+.getVideoTracks()[0];
+
+const sender =
+peer._pc
+.getSenders()
+.find(
+s=>
+s.track &&
+s.track.kind==="video"
+);
+
+if(sender){
+
+sender.replaceTrack(
+screenTrack
+);
+
+}
+
+myVideo.srcObject =
+screenStream;
+
+screenTrack.onended =
+async ()=>{
+
+await startCamera(
+currentQuality
+);
+
+const cameraTrack =
+localStream
+.getVideoTracks()[0];
+
+if(sender){
+
+sender.replaceTrack(
+cameraTrack
+);
+
+}
+
+};
+
+}
+catch(err){
+
+console.log(err);
+
+}
+
+};
+
+function addMyMessage(
+text
+){
+
+const div =
+document.createElement("div");
+
+div.className =
+"myMessage";
+
+div.textContent =
+"BEN -> " + text;
+
+messages.appendChild(div);
+
+messages.scrollTop =
+messages.scrollHeight;
+
+}
+
+function addOtherMessage(
+text
+){
+
+const div =
+document.createElement("div");
+
+div.className =
+"otherMessage";
+
+div.textContent =
+"SEN -> " + text;
+
+messages.appendChild(div);
+
+messages.scrollTop =
+messages.scrollHeight;
+
+if(
+chatPanel.style.display
+!=="flex"
+){
+
+chatToggle.classList.add(
+"newMessageBlink"
+);
+
+}
+
+}
+
+sendBtn.onclick = ()=>{
+
+const text =
+input.value.trim();
+
+if(!text) return;
+
+socket.emit(
+"chat-message",
+text
+);
+
+addMyMessage(text);
+
+input.value="";
 
 };
 
 input.addEventListener(
-    "keydown",
-    e => {
+"keydown",
+e=>{
 
-        if (e.key === "Enter") {
+if(e.key==="Enter"){
 
-            sendBtn.click();
+sendBtn.click();
 
-        }
+}
 
-    }
+}
 );
 
 socket.on(
-    "chat-message",
-    msg => {
+"chat-message",
+msg=>{
 
-        addOtherMessage(msg);
+addOtherMessage(msg);
 
-    }
+}
 );
 
-chatToggle.onclick = () => {
+chatToggle.onclick =
+()=>{
 
-    if (
-        chatPanel.style.display === "flex"
-    ) {
+if(
+chatPanel.style.display
+==="flex"
+){
 
-        chatPanel.style.display =
-            "none";
+chatPanel.style.display =
+"none";
 
-        chatToggle.textContent =
-            "💬 Mesaj";
+chatToggle.textContent =
+"💬 Mesaj";
 
-        document.body.classList.remove(
-            "chat-open"
-        );
+document.body
+.classList.remove(
+"chat-open"
+);
 
-    } else {
+}
+else{
 
-        chatPanel.style.display =
-            "flex";
+chatPanel.style.display =
+"flex";
 
-        chatToggle.textContent =
-            "❌ Sohbeti Gizle";
+chatToggle.textContent =
+"❌ Sohbeti Gizle";
 
-        document.body.classList.add(
-            "chat-open"
-        );
+document.body
+.classList.add(
+"chat-open"
+);
 
-        chatToggle.classList.remove(
-            "newMessageBlink"
-        );
+chatToggle.classList.remove(
+"newMessageBlink"
+);
 
-    }
-
-};
-
-micBtn.onclick = () => {
-
-    micEnabled = !micEnabled;
-
-    localStream
-        .getAudioTracks()
-        .forEach(track => {
-
-            track.enabled =
-                micEnabled;
-
-        });
-
-    micBtn.textContent =
-        micEnabled
-            ? "🎤 Açık"
-            : "🔇 Kapalı";
+}
 
 };
 
-camBtn.onclick = () => {
+micBtn.onclick =
+()=>{
 
-    camEnabled = !camEnabled;
+micEnabled =
+!micEnabled;
 
-    localStream
-        .getVideoTracks()
-        .forEach(track => {
+localStream
+.getAudioTracks()
+.forEach(track=>{
 
-            track.enabled =
-                camEnabled;
+track.enabled =
+micEnabled;
 
-        });
+});
 
-    camBtn.textContent =
-        camEnabled
-            ? "📷 Açık"
-            : "🚫 Kapalı";
+micBtn.textContent =
+micEnabled
+? "🎤 Açık"
+: "🔇 Kapalı";
+
+};
+
+camBtn.onclick =
+()=>{
+
+camEnabled =
+!camEnabled;
+
+localStream
+.getVideoTracks()
+.forEach(track=>{
+
+track.enabled =
+camEnabled;
+
+});
+
+camBtn.textContent =
+camEnabled
+? "📷 Açık"
+: "🚫 Kapalı";
 
 };
 
@@ -341,75 +618,85 @@ remoteVideo.volume = 0;
 
 volumeSlider.value = 0;
 
-volumeSlider.oninput = () => {
+volumeSlider.oninput =
+()=>{
 
-    remoteVideo.muted = false;
+remoteVideo.muted =
+false;
 
-    remoteVideo.volume =
-        parseFloat(
-            volumeSlider.value
-        );
-
-};
-
-soundBtn.onclick = () => {
-
-    if (remoteVideo.muted) {
-
-        remoteVideo.muted = false;
-
-        soundBtn.textContent =
-            "🔊 Açık";
-
-    } else {
-
-        remoteVideo.muted = true;
-
-        soundBtn.textContent =
-            "🔇 Kapalı";
-
-    }
+remoteVideo.volume =
+parseFloat(
+volumeSlider.value
+);
 
 };
 
-changePasswordBtn.onclick = () => {
+soundBtn.onclick =
+()=>{
 
-    const pass =
-        prompt("Yeni şifre");
+if(remoteVideo.muted){
 
-    if (!pass) return;
+remoteVideo.muted =
+false;
 
-    socket.emit(
-        "change-password",
-        pass
-    );
+soundBtn.textContent =
+"🔊 Açık";
+
+}
+else{
+
+remoteVideo.muted =
+true;
+
+soundBtn.textContent =
+"🔇 Kapalı";
+
+}
+
+};
+
+changePasswordBtn.onclick =
+()=>{
+
+const pass =
+prompt(
+"Yeni şifre"
+);
+
+if(!pass) return;
+
+socket.emit(
+"change-password",
+pass
+);
 
 };
 
 socket.on(
-    "password-changed",
-    () => {
+"password-changed",
+()=>{
 
-        alert(
-            "Şifre değiştirildi"
-        );
+alert(
+"Şifre değiştirildi"
+);
 
-    }
+}
 );
 
 document
 .querySelectorAll(
-    "#emojiPanel span"
+"#emojiPanel span"
 )
-.forEach(item => {
+.forEach(item=>{
 
-    item.onclick = () => {
+item.onclick =
+()=>{
 
-        input.value +=
-            item.textContent;
+input.value +=
+item.textContent;
 
-        input.focus();
+input.focus();
 
-    };
+};
 
 });
