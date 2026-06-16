@@ -154,7 +154,18 @@ autoGainControl:true
 
 myVideo.srcObject =
 localStream;
+if(facingMode === "user"){
 
+    myVideo.style.transform =
+    "scaleX(-1)";
+
+}
+else{
+
+    myVideo.style.transform =
+    "scaleX(1)";
+
+}
 }
 
 startCamera(
