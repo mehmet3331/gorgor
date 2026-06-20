@@ -352,3 +352,19 @@ transform:translateX(-50%);
 width:180px;
 z-index:1000;
 }
+.menu-btn.off{
+    position: relative;
+}
+
+.menu-btn.off::after{
+    content: "";
+    position: absolute;
+    width: 36px;
+    height: 3px;
+    background: red;
+    transform: rotate(-45deg);
+    left: -2px;
+    top: 16px;
+    border-radius: 2px;
+    pointer-events: none;
+}
