@@ -1118,6 +1118,54 @@ console.log(
 "Script tamamen yüklendi"
 );
 
+const localBox =
+document.querySelector(".local-video-box");
+
+let dragging = false;
+let offsetX = 0;
+let offsetY = 0;
+
+localBox.addEventListener("pointerdown", e=>{
+
+    dragging = true;
+
+    const rect =
+    localBox.getBoundingClientRect();
+
+    offsetX =
+    e.clientX - rect.left;
+
+    offsetY =
+    e.clientY - rect.top;
+
+    localBox.style.left =
+    rect.left + "px";
+
+    localBox.style.top =
+    rect.top + "px";
+
+    localBox.style.right = "auto";
+
+});
+
+document.addEventListener("pointermove", e=>{
+
+    if(!dragging) return;
+
+    localBox.style.left =
+    (e.clientX-offsetX)+"px";
+
+    localBox.style.top =
+    (e.clientY-offsetY)+"px";
+
+});
+
+document.addEventListener("pointerup", ()=>{
+
+    dragging = false;
+
+});
+
 if(
 pingValue &&
 connectionQuality
