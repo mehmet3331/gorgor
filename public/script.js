@@ -783,9 +783,12 @@ micEnabled;
 });
 
 micBtn.textContent =
-micEnabled
-? "🎤"
-: "🔇";
+micBtn.classList.toggle("off", !micEnabled);
+
+micBtn.innerHTML =
+'🎤 <span class="btn-status">' +
+(micEnabled ? "Açık" : "Kapalı") +
+'</span>';
 
 };
 
