@@ -817,10 +817,12 @@ camEnabled;
 
 });
 
-camBtn.textContent =
-camEnabled
-? "📷"
-: "🚫";
+camBtn.classList.toggle("off", !camEnabled);
+
+camBtn.innerHTML =
+'📷 <span class="btn-status">' +
+(camEnabled ? "Açık" : "Kapalı") +
+'</span>';
 
 };
 
