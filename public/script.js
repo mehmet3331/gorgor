@@ -1,4 +1,4 @@
-console.log("SCRIPT YÜKLENDİ - STABLE_V4");
+console.log("SCRIPT YÜKLENDİ - STABLE_V4.1");
 
 const socket = io();
 
@@ -14,6 +14,7 @@ const chatPanel = document.getElementById("chatPanel");
 const input = document.getElementById("messageInput");
 const sendBtn = document.getElementById("sendBtn");
 const messages = document.getElementById("messages");
+const settingsBtn = document.getElementById("settingsBtn");
 const micBtn = document.getElementById("micBtn");
 const camBtn = document.getElementById("camBtn");
 const soundBtn = document.getElementById("soundBtn");
@@ -34,53 +35,63 @@ let camEnabled = true;
 let currentQuality = 720;
 let currentFacingMode = "user";
 let pingTimer = null;
+let settingsOpen = true;
 
 micBtn.textContent = "🎤";
 camBtn.textContent = "📷";
 
 /* ------------------
-   KAMERA
+   AYARLAR MENÜ GİZLE/GÖSTER - ESKİ SİSTEM
+------------------- */
+settingsBtn.onclick = () => {
+    settingsOpen =!settingsOpen;
+    const buttons = [micBtn, camBtn, soundBtn, shareScreenBtn, changePasswordBtn, document.getElementById("statusBar")];
+    buttons.forEach(btn => {
+        if (btn) btn.style.display = settingsOpen? "block" : "none";
+    });
+};
+
+/* ------------------
+   KAMERA - HATA YÖNETİMLİ
 ------------------- */
 async function startCamera(height = 720, facingMode = currentFacingMode) {
-    if (localStream) {
-        localStream.getVideoTracks().forEach(track => track.stop());
-    }
-
-    localStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: { ideal: facingMode },
-            width: {
-                ideal: height === 1080? 1920 : height === 720? 1280 : height === 480? 854 : 640
-            },
-            height: { ideal: height },
-            frameRate: { ideal: 30, max: 30 }
-        },
-        audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+    try {
+        if (localStream) {
+            localStream.getVideoTracks().forEach(track => track.stop());
         }
-    });
 
-    myVideo.srcObject = localStream;
-    if (facingMode === "user") {
-        myVideo.style.transform = "scaleX(-1)";
-    } else {
-        myVideo.style.transform = "scaleX(1)";
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: facingMode },
+                width: {
+                    ideal: height === 1080? 1920 : height === 720? 1280 : height === 480? 854 : 640
+                },
+                height: { ideal: height },
+                frameRate: { ideal: 30, max: 30 }
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        });
+
+        myVideo.srcObject = localStream;
+        myVideo.style.transform = facingMode === "user"? "scaleX(-1)" : "scaleX(1)";
+        console.log("Kamera başlatıldı");
+    } catch (err) {
+        console.error("Kamera hatası:", err.message);
+        alert("Kamera/Mikrofon açılamadı: " + err.message + "\nİzinleri kontrol et.");
     }
 }
 
-startCamera(currentQuality).catch(err => {
-    alert("Kamera açılamadı\n" + err.message);
-});
+startCamera(currentQuality);
 
 /* ------------------
    PING ÖLÇÜMÜ
 ------------------- */
 function startPingMonitor() {
-    if (pingTimer) {
-        clearInterval(pingTimer);
-    }
+    if (pingTimer) clearInterval(pingTimer);
     pingTimer = setInterval(() => {
         socket.emit("ping-check", Date.now());
     }, 3000);
@@ -88,9 +99,7 @@ function startPingMonitor() {
 
 socket.on("pong-check", timestamp => {
     const ping = Date.now() - timestamp;
-    if (pingValue) {
-        pingValue.textContent = ping + " ms";
-    }
+    if (pingValue) pingValue.textContent = ping + " ms";
     if (!connectionQuality) return;
 
     if (ping < 100) {
@@ -119,29 +128,28 @@ joinBtn.onclick = () => {
     socket.emit("join-room", { room, password });
 };
 
-socket.on("room-error", msg => {
-    alert(msg);
-});
+socket.on("room-error", msg => alert(msg));
 
 socket.on("joined-room", count => {
     roomScreen.style.display = "none";
     mainScreen.style.display = "block";
     startPingMonitor();
-    if (count === 2) {
-        createPeer(true);
-    }
+    if (count === 2) createPeer(true);
 });
 
 socket.on("user-connected", () => {
-    if (!peer) {
-        createPeer(false);
-    }
+    if (!peer) createPeer(false);
 });
 
 /* ------------------
    PEER
 ------------------- */
 function createPeer(initiator) {
+    if (!localStream) {
+        alert("Kamera başlatılamadı. Mik/Kamera çalışmaz.");
+        return;
+    }
+
     peer = new SimplePeer({
         initiator,
         trickle: false,
@@ -162,23 +170,13 @@ function createPeer(initiator) {
         remoteVideo.play().catch(() => {});
     });
 
-    peer.on("connect", () => {
-        console.log("Peer bağlandı");
-    });
-
-    peer.on("close", () => {
-        console.log("Peer kapandı");
-    });
-
-    peer.on("error", err => {
-        console.log("Peer hata:", err);
-    });
+    peer.on("connect", () => console.log("Peer bağlandı"));
+    peer.on("close", () => console.log("Peer kapandı"));
+    peer.on("error", err => console.log("Peer hata:", err));
 }
 
 socket.on("signal", signal => {
-    if (!peer) {
-        createPeer(false);
-    }
+    if (!peer) createPeer(false);
     peer.signal(signal);
 });
 
@@ -200,11 +198,9 @@ qualitySelect.onchange = async () => {
     socket.emit("quality-change", currentQuality);
     await startCamera(currentQuality, currentFacingMode);
 
-    if (peer) {
+    if (peer && localStream) {
         const sender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
-        if (sender) {
-            await sender.replaceTrack(localStream.getVideoTracks()[0]);
-        }
+        if (sender) await sender.replaceTrack(localStream.getVideoTracks()[0]);
     }
 };
 
@@ -236,20 +232,16 @@ if (shareScreenBtn) {
 
             if (peer) {
                 const videoSender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
-                if (videoSender) {
-                    await videoSender.replaceTrack(screenTrack);
-                }
+                if (videoSender) await videoSender.replaceTrack(screenTrack);
             }
 
             myVideo.srcObject = screenStream;
 
             screenTrack.onended = async () => {
                 await startCamera(currentQuality, currentFacingMode);
-                if (peer) {
+                if (peer && localStream) {
                     const sender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
-                    if (sender) {
-                        sender.replaceTrack(localStream.getVideoTracks()[0]);
-                    }
+                    if (sender) sender.replaceTrack(localStream.getVideoTracks()[0]);
                 }
             };
         } catch (err) {
@@ -289,14 +281,10 @@ sendBtn.onclick = () => {
 };
 
 input.addEventListener("keydown", e => {
-    if (e.key === "Enter") {
-        sendBtn.click();
-    }
+    if (e.key === "Enter") sendBtn.click();
 });
 
-socket.on("chat-message", msg => {
-    addOtherMessage(msg);
-});
+socket.on("chat-message", msg => addOtherMessage(msg));
 
 chatToggle.onclick = () => {
     if (chatPanel.style.display === "flex") {
@@ -312,22 +300,29 @@ chatToggle.onclick = () => {
 };
 
 /* ------------------
-   MİKROFON
+   MİKROFON - DÜZELTİLDİ
 ------------------- */
 micBtn.onclick = () => {
-    if (!localStream) return;
+    if (!localStream) {
+        alert("Mikrofon başlatılamadı. Sayfayı yenileyip izin ver.");
+        return;
+    }
     micEnabled =!micEnabled;
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
     });
     micBtn.textContent = micEnabled? "🎤" : "🔇";
+    console.log("Mikrofon:", micEnabled? "Açık" : "Kapalı");
 };
 
 /* ------------------
    KAMERA
 ------------------- */
 camBtn.onclick = () => {
-    if (!localStream) return;
+    if (!localStream) {
+        alert("Kamera başlatılamadı. Sayfayı yenileyip izin ver.");
+        return;
+    }
     camEnabled =!camEnabled;
     localStream.getVideoTracks().forEach(track => {
         track.enabled = camEnabled;
@@ -343,11 +338,9 @@ if (switchCameraBtn) {
         try {
             currentFacingMode = currentFacingMode === "user"? "environment" : "user";
             await startCamera(currentQuality, currentFacingMode);
-            if (peer) {
+            if (peer && localStream) {
                 const videoSender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
-                if (videoSender) {
-                    await videoSender.replaceTrack(localStream.getVideoTracks()[0]);
-                }
+                if (videoSender) await videoSender.replaceTrack(localStream.getVideoTracks()[0]);
             }
         } catch (err) {
             console.log("Kamera çevrilemedi:", err);
@@ -398,20 +391,14 @@ changePasswordBtn.onclick = () => {
     socket.emit("change-password", pass);
 };
 
-socket.on("password-changed", () => {
-    alert("Şifre değiştirildi");
-});
+socket.on("password-changed", () => alert("Şifre değiştirildi"));
 
 /* ------------------
    SAYFA KAPANIRKEN
 ------------------- */
 window.addEventListener("beforeunload", () => {
-    if (peer) {
-        peer.destroy();
-    }
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
+    if (peer) peer.destroy();
+    if (localStream) localStream.getTracks().forEach(track => track.stop());
 });
 
 console.log("Script tamamen yüklendi");
