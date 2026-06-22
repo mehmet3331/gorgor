@@ -1,5 +1,5 @@
 console.log("SCRIPT YÜKLENDİ - ESKI STABIL");
-alert("SCRIPT CALISTI");
+
 const socket = io();
 
 const myVideo = document.getElementById("myVideo");
@@ -26,6 +26,7 @@ const switchCameraBtn = document.getElementById("switchCameraBtn");
 const pingValue = document.getElementById("pingValue");
 const connectionQuality = document.getElementById("connectionQuality");
 const settingsBtn = document.getElementById("settingsBtn");
+const settingsContainer = document.getElementById("settingsContainer");
 
 let peer = null;
 let localStream = null;
@@ -40,7 +41,7 @@ micBtn.textContent = "🎤";
 camBtn.textContent = "📷";
 
 /* ------------------
-   KAMERA - SADECE ODAYA GİRİNCE ÇALIŞIR
+   KAMERA - YOKSA DA DEVAM ET
 ------------------- */
 async function startCamera(height = 720, facingMode = currentFacingMode) {
     try {
@@ -72,14 +73,8 @@ async function startCamera(height = 720, facingMode = currentFacingMode) {
         }
         return true;
     } catch (err) {
-console.error(err);
-
-alert(
-err.name +
-"\n\n" +
-err.message
-);
-        alert("Kamera/Mikrofon açılamadı: " + err.message + "\nİzinleri kontrol et.");
+        console.log("Kamera/Mikrofon hatası:", err);
+        alert("Kamera/Mikrofon bulunamadı veya izin verilmedi.\nSadece karşı tarafı göreceksiniz.");
         return false;
     }
 }
@@ -116,7 +111,7 @@ socket.on("pong-check", timestamp => {
 });
 
 /* ------------------
-   ODAYA GİR
+   ODAYA GİR - KAMERA YOKSA DA GİRER
 ------------------- */
 joinBtn.onclick = async () => {
     const room = roomName.value.trim();
@@ -126,7 +121,7 @@ joinBtn.onclick = async () => {
         return;
     }
 
-    // Kamerayı şimdi aç, yoksa da devam et
+    // Kamera yoksa da devam et
     const cameraOK = await startCamera(currentQuality);
     if (!cameraOK) {
         console.log("Kamera olmadan devam ediliyor");
@@ -217,7 +212,7 @@ qualitySelect.onchange = async () => {
     socket.emit("quality-change", currentQuality);
     await startCamera(currentQuality, currentFacingMode);
 
-    if (peer) {
+    if (peer && localStream) {
         const sender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
         if (sender) {
             await sender.replaceTrack(localStream.getVideoTracks()[0]);
@@ -230,22 +225,10 @@ socket.on("quality-change", quality => {
 });
 
 /* ------------------
-   AYARLAR MENÜ AÇ KAPA - ESKİ MANTIK
+   AYARLAR MENÜ AÇ KAPA - DÜZELTİLDİ
 ------------------- */
 settingsBtn.onclick = () => {
-
-    const menu = document.getElementById("settingsMenu");
-
-    if (menu.style.display === "flex") {
-
-        menu.style.display = "none";
-
-    } else {
-
-        menu.style.display = "flex";
-
-    }
-
+    settingsContainer.classList.toggle("menu-open");
 };
 
 /* ------------------
@@ -281,7 +264,7 @@ if (shareScreenBtn) {
 
             screenTrack.onended = async () => {
                 await startCamera(currentQuality, currentFacingMode);
-                if (peer) {
+                if (peer && localStream) {
                     const sender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
                     if (sender) {
                         sender.replaceTrack(localStream.getVideoTracks()[0]);
@@ -351,50 +334,32 @@ chatToggle.onclick = () => {
    MİKROFON
 ------------------- */
 micBtn.onclick = () => {
-
     if (!localStream) return;
-
-    micEnabled = !micEnabled;
-
+    micEnabled =!micEnabled;
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
     });
-
     if (micEnabled) {
-
         micBtn.classList.remove("offIcon");
-
     } else {
-
         micBtn.classList.add("offIcon");
-
     }
-
 };
 
 /* ------------------
    KAMERA
 ------------------- */
 camBtn.onclick = () => {
-
     if (!localStream) return;
-
-    camEnabled = !camEnabled;
-
+    camEnabled =!camEnabled;
     localStream.getVideoTracks().forEach(track => {
         track.enabled = camEnabled;
     });
-
     if (camEnabled) {
-
         camBtn.classList.remove("offIcon");
-
     } else {
-
         camBtn.classList.add("offIcon");
-
     }
-
 };
 
 /* ------------------
@@ -405,7 +370,7 @@ if (switchCameraBtn) {
         try {
             currentFacingMode = currentFacingMode === "user"? "environment" : "user";
             await startCamera(currentQuality, currentFacingMode);
-            if (peer) {
+            if (peer && localStream) {
                 const videoSender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
                 if (videoSender) {
                     await videoSender.replaceTrack(localStream.getVideoTracks()[0]);
@@ -475,15 +440,5 @@ window.addEventListener("beforeunload", () => {
         localStream.getTracks().forEach(track => track.stop());
     }
 });
-/* ==========================
-   AYAR MENÜSÜ
-========================== */
 
-const settingsMenu = document.getElementById("settingsMenu");
-
-settingsBtn.onclick = function () {
-
-    settingsMenu.classList.toggle("open");
-
-};
 console.log("Script tamamen yüklendi");

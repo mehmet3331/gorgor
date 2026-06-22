@@ -33,7 +33,7 @@ io.on("connection", (socket) => {
 
         } else {
 
-            if (rooms[room].password !== password) {
+            if (rooms[room].password!== password) {
 
                 socket.emit(
                     "room-error",
@@ -82,8 +82,8 @@ io.on("connection", (socket) => {
     socket.on("signal", (data) => {
 
         socket
-            .to(data.room)
-            .emit(
+          .to(data.room)
+          .emit(
                 "signal",
                 data.signal
             );
@@ -96,8 +96,8 @@ io.on("connection", (socket) => {
             return;
 
         socket
-            .to(socket.room)
-            .emit(
+          .to(socket.room)
+          .emit(
                 "chat-message",
                 msg
             );
@@ -134,8 +134,8 @@ io.on("connection", (socket) => {
                 return;
 
             socket
-                .to(socket.room)
-                .emit(
+              .to(socket.room)
+              .emit(
                     "quality-change",
                     quality
                 );
@@ -171,12 +171,12 @@ io.on("connection", (socket) => {
 
             rooms[room].users =
                 rooms[room].users.filter(
-                    id => id !== socket.id
+                    id => id!== socket.id
                 );
 
             socket
-                .to(room)
-                .emit(
+              .to(room)
+              .emit(
                     "user-disconnected"
                 );
 

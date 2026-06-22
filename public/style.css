@@ -80,12 +80,15 @@ body {
     z-index: 100;
 }
 
-/* AYARLAR */
+/* AYARLAR - DÜZELTİLDİ */
 #settingsContainer {
     position: fixed;
     top: 10px;
     left: 10px;
     z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 #settingsBtn {
@@ -99,14 +102,10 @@ body {
     color: white;
 }
 
-#settingsMenu {
+/* VİDA DIŞINDAKİ BUTONLAR BAŞLANGIÇTA GİZLİ */
+#settingsContainer > button:not(#settingsBtn),
+#settingsContainer > #statusBar {
     display: none;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-#settingsMenu button {
     width: 50px;
     height: 50px;
     border: none;
@@ -117,12 +116,21 @@ body {
     color: white;
 }
 
+/* VİDAYA BASINCA AÇILIR */
+#settingsContainer.menu-open > button:not(#settingsBtn),
+#settingsContainer.menu-open > #statusBar {
+    display: block;
+}
+
 /* DURUM */
 #statusBar {
     display: flex;
     flex-direction: column;
     gap: 6px;
     margin-top: 5px;
+    width: auto;
+    height: auto;
+    background: none;
 }
 
 .statusBox {
@@ -131,6 +139,7 @@ body {
     border-radius: 10px;
     font-size: 12px;
     color: white;
+    width: max-content;
 }
 
 /* KAMERA ÜZERİ BUTONLAR */
@@ -332,6 +341,7 @@ body {
     width: 180px;
     z-index: 1000;
 }
+
 /* ------------------
    KAPALI İKONLARI
 ------------------- */
@@ -351,27 +361,4 @@ body {
     transform:rotate(-45deg);
     border-radius:5px;
     pointer-events:none;
-}
-/*==========================
- AYAR MENÜSÜ
-==========================*/
-
-
-
-#settingsMenu{
-
-display:none;
-
-flex-direction:column;
-
-gap:8px;
-
-margin-top:8px;
-
-}
-
-#settingsMenu.open{
-
-display:flex;
-
 }
