@@ -227,8 +227,19 @@ socket.on("quality-change", quality => {
    AYARLAR MENÜ AÇ KAPA - ESKİ MANTIK
 ------------------- */
 settingsBtn.onclick = () => {
-    const settingsContainer = document.getElementById("settingsContainer");
-    settingsContainer.classList.toggle("menu-open");
+
+    const menu = document.getElementById("settingsMenu");
+
+    if (menu.style.display === "flex") {
+
+        menu.style.display = "none";
+
+    } else {
+
+        menu.style.display = "flex";
+
+    }
+
 };
 
 /* ------------------
@@ -334,24 +345,50 @@ chatToggle.onclick = () => {
    MİKROFON
 ------------------- */
 micBtn.onclick = () => {
+
     if (!localStream) return;
-    micEnabled =!micEnabled;
+
+    micEnabled = !micEnabled;
+
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
     });
-    micBtn.textContent = micEnabled? "🎤" : "🔇";
+
+    if (micEnabled) {
+
+        micBtn.classList.remove("offIcon");
+
+    } else {
+
+        micBtn.classList.add("offIcon");
+
+    }
+
 };
 
 /* ------------------
    KAMERA
 ------------------- */
 camBtn.onclick = () => {
+
     if (!localStream) return;
-    camEnabled =!camEnabled;
+
+    camEnabled = !camEnabled;
+
     localStream.getVideoTracks().forEach(track => {
         track.enabled = camEnabled;
     });
-    camBtn.textContent = camEnabled? "📷" : "🚫";
+
+    if (camEnabled) {
+
+        camBtn.classList.remove("offIcon");
+
+    } else {
+
+        camBtn.classList.add("offIcon");
+
+    }
+
 };
 
 /* ------------------

@@ -343,13 +343,14 @@ body {
 .offIcon::after{
     content:"";
     position:absolute;
-    left:2px;
-    top:50%;
-    width:28px;
-    height:3px;
-    background:red;
+    left:3px;
+    top:22px;
+    width:34px;
+    height:4px;
+    background:#ff0000;
     transform:rotate(-45deg);
-    border-radius:3px;
+    border-radius:5px;
+    pointer-events:none;
 }
 /*==========================
  AYAR MENÜSÜ
