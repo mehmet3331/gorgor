@@ -8,7 +8,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: "*"
-    }
+    },
+    maxHttpBufferSize: 1e7 // 10MB - BUNU EKLE
 });
 
 app.use(express.static("public"));
@@ -82,8 +83,8 @@ io.on("connection", (socket) => {
     socket.on("signal", (data) => {
 
         socket
-         .to(data.room)
-         .emit(
+       .to(data.room)
+       .emit(
                 "signal",
                 data.signal
             );
@@ -96,21 +97,21 @@ io.on("connection", (socket) => {
             return;
 
         socket
-         .to(socket.room)
-         .emit(
+       .to(socket.room)
+       .emit(
                 "chat-message",
                 msg
             );
 
     });
 
-    // MEDYA GÖNDERME - YENİ
+    // MEDYA GÖNDERME
     socket.on("chat-media", (data) => {
         if (!socket.room) return;
         socket.to(socket.room).emit("chat-media", data);
     });
 
-    // ŞİFRELİ İNDİRME - YENİ
+    // ŞİFRELİ İNDİRME
     socket.on("verify-download", (data, callback) => {
         const room = socket.room;
         if (!room ||!rooms[room]) {
@@ -142,10 +143,6 @@ io.on("connection", (socket) => {
 
     });
 
-    /* ------------------
-       KALİTE DEĞİŞİMİ
-    ------------------- */
-
     socket.on(
         "quality-change",
         (quality) => {
@@ -154,18 +151,14 @@ io.on("connection", (socket) => {
                 return;
 
             socket
-             .to(socket.room)
-             .emit(
+           .to(socket.room)
+           .emit(
                     "quality-change",
                     quality
                 );
 
         }
     );
-
-    /* ------------------
-       PING TESTİ
-    ------------------- */
 
     socket.on(
         "ping-check",
@@ -195,8 +188,8 @@ io.on("connection", (socket) => {
                 );
 
             socket
-             .to(room)
-             .emit(
+           .to(room)
+           .emit(
                     "user-disconnected"
                 );
 
