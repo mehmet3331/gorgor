@@ -82,8 +82,8 @@ io.on("connection", (socket) => {
     socket.on("signal", (data) => {
 
         socket
-          .to(data.room)
-          .emit(
+         .to(data.room)
+         .emit(
                 "signal",
                 data.signal
             );
@@ -96,12 +96,32 @@ io.on("connection", (socket) => {
             return;
 
         socket
-          .to(socket.room)
-          .emit(
+         .to(socket.room)
+         .emit(
                 "chat-message",
                 msg
             );
 
+    });
+
+    // MEDYA GÖNDERME - YENİ
+    socket.on("chat-media", (data) => {
+        if (!socket.room) return;
+        socket.to(socket.room).emit("chat-media", data);
+    });
+
+    // ŞİFRELİ İNDİRME - YENİ
+    socket.on("verify-download", (data, callback) => {
+        const room = socket.room;
+        if (!room ||!rooms[room]) {
+            callback(false);
+            return;
+        }
+        if (rooms[room].password === data.password) {
+            callback(true);
+        } else {
+            callback(false);
+        }
     });
 
     socket.on("change-password", (newPassword) => {
@@ -134,8 +154,8 @@ io.on("connection", (socket) => {
                 return;
 
             socket
-              .to(socket.room)
-              .emit(
+             .to(socket.room)
+             .emit(
                     "quality-change",
                     quality
                 );
@@ -175,8 +195,8 @@ io.on("connection", (socket) => {
                 );
 
             socket
-              .to(room)
-              .emit(
+             .to(room)
+             .emit(
                     "user-disconnected"
                 );
 

@@ -20,9 +20,21 @@
     <!-- ANA EKRAN -->
     <div id="mainScreen">
         <video id="remoteVideo" autoplay playsinline></video>
-        <video id="myVideo" autoplay playsinline muted></video>
 
-        <!-- SOL ÜST AYARLAR - settingsMenu YOK -->
+        <!-- KÜÇÜK KAMERA KONTEYNERİ - YENİ -->
+        <div id="myVideoContainer">
+            <video id="myVideo" autoplay playsinline muted></video>
+            <button id="switchCameraBtn" class="cameraOverlayBtn">🔄</button>
+            <button id="fullscreenBtn" class="cameraOverlayBtn">⛶</button>
+            <select id="qualitySelect" class="qualitySelect">
+                <option value="360">360p</option>
+                <option value="480">480p</option>
+                <option value="720" selected>720p</option>
+                <option value="1080">1080p</option>
+            </select>
+        </div>
+
+        <!-- SOL ÜST AYARLAR -->
         <div id="settingsContainer">
             <button id="settingsBtn">⚙</button>
             <button id="micBtn">🎤</button>
@@ -43,25 +55,24 @@
 
         <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.1">
 
-        <!-- KÜÇÜK KAMERA ÜZERİ BUTONLAR -->
-        <button id="switchCameraBtn" class="cameraOverlayBtn switchBtn">🔄</button>
-        <button id="fullscreenBtn" class="cameraOverlayBtn fullscreenBtn">⛶</button>
-
-        <select id="qualitySelect" class="qualitySelect">
-            <option value="360">360p</option>
-            <option value="480">480p</option>
-            <option value="720" selected>720p</option>
-            <option value="1080">1080p</option>
-        </select>
-
         <!-- SOHBET -->
         <button id="chatToggle">💬</button>
         <div id="chatPanel">
             <div id="messages"></div>
             <div id="inputArea">
+                <button id="mediaBtn">📎</button>
+                <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none">
                 <input id="messageInput" placeholder="Mesaj yaz...">
                 <button id="sendBtn">Gönder</button>
             </div>
+        </div>
+
+        <!-- MEDYA ÖNİZLEME - YENİ -->
+        <div id="mediaPreview">
+            <span id="closePreview">✖</span>
+            <img id="previewImg">
+            <video id="previewVideo" controls></video>
+            <button id="downloadMediaBtn">İndir</button>
         </div>
     </div>
 

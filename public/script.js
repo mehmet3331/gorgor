@@ -1,4 +1,4 @@
-console.log("SCRIPT YÜKLENDİ - ESKI STABIL");
+console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + MEDYA");
 
 const socket = io();
 
@@ -27,6 +27,15 @@ const pingValue = document.getElementById("pingValue");
 const connectionQuality = document.getElementById("connectionQuality");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsContainer = document.getElementById("settingsContainer");
+// YENİ EKLENENLER
+const myVideoContainer = document.getElementById("myVideoContainer");
+const mediaBtn = document.getElementById("mediaBtn");
+const mediaInput = document.getElementById("mediaInput");
+const mediaPreview = document.getElementById("mediaPreview");
+const previewImg = document.getElementById("previewImg");
+const previewVideo = document.getElementById("previewVideo");
+const closePreview = document.getElementById("closePreview");
+const downloadMediaBtn = document.getElementById("downloadMediaBtn");
 
 let peer = null;
 let localStream = null;
@@ -36,6 +45,7 @@ let camEnabled = true;
 let currentQuality = 720;
 let currentFacingMode = "user";
 let pingTimer = null;
+let currentMediaData = null; // YENİ
 
 micBtn.textContent = "🎤";
 camBtn.textContent = "📷";
@@ -121,7 +131,6 @@ joinBtn.onclick = async () => {
         return;
     }
 
-    // Kamera yoksa da devam et
     const cameraOK = await startCamera(currentQuality);
     if (!cameraOK) {
         console.log("Kamera olmadan devam ediliyor");
@@ -225,7 +234,7 @@ socket.on("quality-change", quality => {
 });
 
 /* ------------------
-   AYARLAR MENÜ AÇ KAPA - DÜZELTİLDİ
+   AYARLAR MENÜ AÇ KAPA
 ------------------- */
 settingsBtn.onclick = () => {
     settingsContainer.classList.toggle("menu-open");
@@ -428,6 +437,176 @@ changePasswordBtn.onclick = () => {
 socket.on("password-changed", () => {
     alert("Şifre değiştirildi");
 });
+
+/* ------------------
+   KÜÇÜK KAMERAYI SÜRÜKLE + BÜYÜT KÜÇÜLT - YENİ
+------------------- */
+let isDragging = false;
+let startX, startY, startLeft, startTop;
+let startDistance = 0;
+let startWidth = 0;
+let startHeight = 0;
+
+myVideoContainer.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startLeft = myVideoContainer.offsetLeft;
+        startTop = myVideoContainer.offsetTop;
+    } else if (e.touches.length === 2) {
+        isDragging = false;
+        startDistance = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        startWidth = myVideoContainer.offsetWidth;
+        startHeight = myVideoContainer.offsetHeight;
+    }
+});
+
+myVideoContainer.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        myVideoContainer.style.left = startLeft + dx + "px";
+        myVideoContainer.style.top = startTop + dy + "px";
+        myVideoContainer.style.right = "auto";
+    } else if (e.touches.length === 2) {
+        const distance = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        const scale = distance / startDistance;
+        let newWidth = startWidth * scale;
+        let newHeight = startHeight * scale;
+
+        if (newWidth < 100) newWidth = 100;
+        if (newWidth > 300) newWidth = 300;
+        if (newHeight < 130) newHeight = 130;
+        if (newHeight > 400) newHeight = 400;
+
+        myVideoContainer.style.width = newWidth + "px";
+        myVideoContainer.style.height = newHeight + "px";
+    }
+});
+
+myVideoContainer.addEventListener("touchend", () => {
+    isDragging = false;
+});
+
+/* ------------------
+   MEDYA GÖNDERME - YENİ
+------------------- */
+mediaBtn.onclick = () => {
+    mediaInput.click();
+};
+
+mediaInput.onchange = async () => {
+    const file = mediaInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const data = {
+            type: file.type.split('/')[0],
+            data: e.target.result,
+            name: file.name
+        };
+        socket.emit("chat-media", data);
+        addMyMediaMessage(data);
+    };
+    reader.readAsDataURL(file);
+    mediaInput.value = "";
+};
+
+function addMyMediaMessage(data) {
+    const div = document.createElement("div");
+    div.className = "myMessage";
+    if (data.type === "image") {
+        const img = document.createElement("img");
+        img.src = data.data;
+        img.className = "mediaMessage";
+        img.onclick = () => openPreview(data);
+        div.appendChild(img);
+    } else if (data.type === "video") {
+        const video = document.createElement("video");
+        video.src = data.data;
+        video.className = "mediaMessage";
+        video.controls = true;
+        div.appendChild(video);
+    } else if (data.type === "audio") {
+        const audio = document.createElement("audio");
+        audio.src = data.data;
+        audio.controls = true;
+        div.appendChild(audio);
+    }
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+socket.on("chat-media", (data) => {
+    const div = document.createElement("div");
+    div.className = "otherMessage";
+    if (data.type === "image") {
+        const img = document.createElement("img");
+        img.src = data.data;
+        img.className = "mediaMessage";
+        img.onclick = () => openPreview(data);
+        div.appendChild(img);
+    } else if (data.type === "video") {
+        const video = document.createElement("video");
+        video.src = data.data;
+        video.className = "mediaMessage";
+        video.controls = true;
+        div.appendChild(video);
+    } else if (data.type === "audio") {
+        const audio = document.createElement("audio");
+        audio.src = data.data;
+        audio.controls = true;
+        div.appendChild(audio);
+    }
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    if (chatPanel.style.display!== "flex") {
+        chatToggle.classList.add("newMessageBlink");
+    }
+});
+
+function openPreview(data) {
+    currentMediaData = data;
+    mediaPreview.style.display = "flex";
+    if (data.type === "image") {
+        previewImg.src = data.data;
+        previewImg.style.display = "block";
+        previewVideo.style.display = "none";
+    } else if (data.type === "video") {
+        previewVideo.src = data.data;
+        previewVideo.style.display = "block";
+        previewImg.style.display = "none";
+    }
+}
+
+closePreview.onclick = () => {
+    mediaPreview.style.display = "none";
+    previewVideo.pause();
+};
+
+downloadMediaBtn.onclick = () => {
+    const pass = prompt("İndirmek için oda şifresini girin:");
+    if (!pass) return;
+    socket.emit("verify-download", { password: pass }, (ok) => {
+        if (ok) {
+            const a = document.createElement("a");
+            a.href = currentMediaData.data;
+            a.download = currentMediaData.name;
+            a.click();
+        } else {
+            alert("Şifre yanlış. İndirilemez.");
+        }
+    });
+};
 
 /* ------------------
    SAYFA KAPANIRKEN
