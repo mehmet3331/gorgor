@@ -1,5 +1,5 @@
 console.log("SCRIPT YÜKLENDİ - ESKI STABIL");
-
+alert("SCRIPT CALISTI");
 const socket = io();
 
 const myVideo = document.getElementById("myVideo");
@@ -469,5 +469,15 @@ window.addEventListener("beforeunload", () => {
         localStream.getTracks().forEach(track => track.stop());
     }
 });
+/* ==========================
+   AYAR MENÜSÜ
+========================== */
 
+const settingsMenu = document.getElementById("settingsMenu");
+
+settingsBtn.onclick = function () {
+
+    settingsMenu.classList.toggle("open");
+
+};
 console.log("Script tamamen yüklendi");
