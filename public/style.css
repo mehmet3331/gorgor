@@ -356,16 +356,22 @@ body {
  AYAR MENÜSÜ
 ==========================*/
 
+
+
 #settingsMenu{
-    display:none;
-    flex-direction:column;
-    gap:8px;
-    margin-top:8px;
+
+display:none;
+
+flex-direction:column;
+
+gap:8px;
+
+margin-top:8px;
+
 }
 
-#settingsMenu {
-display:none;
-flex-direction:column;
-gap:8px;
-margin-top:8px;
+#settingsMenu.open{
+
+display:flex;
+
 }
