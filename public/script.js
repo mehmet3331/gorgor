@@ -72,7 +72,13 @@ async function startCamera(height = 720, facingMode = currentFacingMode) {
         }
         return true;
     } catch (err) {
-        console.log("Kamera/Mikrofon hatası:", err);
+console.error(err);
+
+alert(
+err.name +
+"\n\n" +
+err.message
+);
         alert("Kamera/Mikrofon açılamadı: " + err.message + "\nİzinleri kontrol et.");
         return false;
     }
