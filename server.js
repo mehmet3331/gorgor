@@ -9,7 +9,7 @@ const io = new Server(server, {
     cors: {
         origin: "*"
     },
-    maxHttpBufferSize: 1e7 // 10MB - BUNU EKLE
+    maxHttpBufferSize: 15e6 // 15MB - TEK DEĞİŞİKLİK BURASI
 });
 
 app.use(express.static("public"));
@@ -83,8 +83,8 @@ io.on("connection", (socket) => {
     socket.on("signal", (data) => {
 
         socket
-       .to(data.room)
-       .emit(
+      .to(data.room)
+      .emit(
                 "signal",
                 data.signal
             );
@@ -97,8 +97,8 @@ io.on("connection", (socket) => {
             return;
 
         socket
-       .to(socket.room)
-       .emit(
+      .to(socket.room)
+      .emit(
                 "chat-message",
                 msg
             );
@@ -151,8 +151,8 @@ io.on("connection", (socket) => {
                 return;
 
             socket
-           .to(socket.room)
-           .emit(
+          .to(socket.room)
+          .emit(
                     "quality-change",
                     quality
                 );
@@ -188,8 +188,8 @@ io.on("connection", (socket) => {
                 );
 
             socket
-           .to(room)
-           .emit(
+          .to(room)
+          .emit(
                     "user-disconnected"
                 );
 

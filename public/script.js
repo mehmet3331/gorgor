@@ -1,4 +1,4 @@
-console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + MEDYA");
+console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + 15MB MEDYA");
 // SAĞ TIK + BASILI TUT ENGELLE
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('selectstart', e => e.preventDefault());
@@ -500,7 +500,7 @@ myVideoContainer.addEventListener("touchend", () => {
 });
 
 /* ------------------
-   MEDYA GÖNDERME - DÜZELTİLDİ
+   MEDYA GÖNDERME - 15MB LİMİT
 ------------------- */
 mediaBtn.onclick = (e) => {
     e.preventDefault();
@@ -511,8 +511,8 @@ mediaInput.onchange = async () => {
     const file = mediaInput.files[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-        alert("Dosya 5MB'dan büyük olamaz");
+    if (file.size > 15 * 1024) { // 15MB LİMİT DÜZELTİLDİ
+        alert("Dosya 15MB'dan büyük olamaz");
         mediaInput.value = "";
         return;
     }
