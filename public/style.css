@@ -413,3 +413,33 @@ body {
     border-radius:5px;
     pointer-events:none;
 }
+/* ------------------
+   EKRAN GÖRÜNTÜSÜ + KAYDET ENGEL
+------------------- */
+body {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+img, video {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    pointer-events: auto;
+}
+
+.mediaMessage {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 10px;
+    cursor: pointer;
+    margin: 5px 0;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}

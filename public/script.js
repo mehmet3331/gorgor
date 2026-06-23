@@ -1,5 +1,8 @@
 console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + MEDYA");
-
+// SAĞ TIK + BASILI TUT ENGELLE
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('selectstart', e => e.preventDefault());
+document.addEventListener('dragstart', e => e.preventDefault());
 const socket = io();
 
 const myVideo = document.getElementById("myVideo");
@@ -497,15 +500,22 @@ myVideoContainer.addEventListener("touchend", () => {
 });
 
 /* ------------------
-   MEDYA GÖNDERME - YENİ
+   MEDYA GÖNDERME - DÜZELTİLDİ
 ------------------- */
-mediaBtn.onclick = () => {
+mediaBtn.onclick = (e) => {
+    e.preventDefault();
     mediaInput.click();
 };
 
 mediaInput.onchange = async () => {
     const file = mediaInput.files[0];
     if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+        alert("Dosya 5MB'dan büyük olamaz");
+        mediaInput.value = "";
+        return;
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -529,17 +539,22 @@ function addMyMediaMessage(data) {
         img.src = data.data;
         img.className = "mediaMessage";
         img.onclick = () => openPreview(data);
+        img.oncontextmenu = e => e.preventDefault();
+        img.draggable = false;
         div.appendChild(img);
     } else if (data.type === "video") {
         const video = document.createElement("video");
         video.src = data.data;
         video.className = "mediaMessage";
         video.controls = true;
+        video.oncontextmenu = e => e.preventDefault();
+        video.controlsList = "nodownload";
         div.appendChild(video);
     } else if (data.type === "audio") {
         const audio = document.createElement("audio");
         audio.src = data.data;
         audio.controls = true;
+        audio.controlsList = "nodownload";
         div.appendChild(audio);
     }
     messages.appendChild(div);
@@ -554,17 +569,22 @@ socket.on("chat-media", (data) => {
         img.src = data.data;
         img.className = "mediaMessage";
         img.onclick = () => openPreview(data);
+        img.oncontextmenu = e => e.preventDefault();
+        img.draggable = false;
         div.appendChild(img);
     } else if (data.type === "video") {
         const video = document.createElement("video");
         video.src = data.data;
         video.className = "mediaMessage";
         video.controls = true;
+        video.oncontextmenu = e => e.preventDefault();
+        video.controlsList = "nodownload";
         div.appendChild(video);
     } else if (data.type === "audio") {
         const audio = document.createElement("audio");
         audio.src = data.data;
         audio.controls = true;
+        audio.controlsList = "nodownload";
         div.appendChild(audio);
     }
     messages.appendChild(div);
