@@ -9,7 +9,9 @@ const io = new Server(server, {
     cors: {
         origin: "*"
     },
-    maxHttpBufferSize: 25e6 // 25MB - BASE64 İÇİN DÜZELTİLDİ
+    maxHttpBufferSize: 1e8, // 100MB - ABARTIYORUZ
+    pingTimeout: 60000, // 60 saniye - BÜYÜK DOSYA İÇİN
+    pingInterval: 25000 // 25 saniye
 });
 
 app.use(express.static("public"));
@@ -83,8 +85,8 @@ io.on("connection", (socket) => {
     socket.on("signal", (data) => {
 
         socket
-     .to(data.room)
-     .emit(
+   .to(data.room)
+   .emit(
                 "signal",
                 data.signal
             );
@@ -97,17 +99,18 @@ io.on("connection", (socket) => {
             return;
 
         socket
-     .to(socket.room)
-     .emit(
+   .to(socket.room)
+   .emit(
                 "chat-message",
                 msg
             );
 
     });
 
-    // MEDYA GÖNDERME
+    // MEDYA GÖNDERME - LOG EKLENDİ
     socket.on("chat-media", (data) => {
         if (!socket.room) return;
+        console.log("Medya geldi, boyut:", data.data.length, "karakter");
         socket.to(socket.room).emit("chat-media", data);
     });
 
@@ -151,8 +154,8 @@ io.on("connection", (socket) => {
                 return;
 
             socket
-         .to(socket.room)
-         .emit(
+       .to(socket.room)
+       .emit(
                     "quality-change",
                     quality
                 );
@@ -172,7 +175,9 @@ io.on("connection", (socket) => {
         }
     );
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
+
+        console.log("Ayrıldı:", socket.id, "Sebep:", reason);
 
         const room =
             socket.room;
@@ -188,8 +193,8 @@ io.on("connection", (socket) => {
                 );
 
             socket
-         .to(room)
-         .emit(
+       .to(room)
+       .emit(
                     "user-disconnected"
                 );
 
@@ -202,11 +207,6 @@ io.on("connection", (socket) => {
             }
 
         }
-
-        console.log(
-            "Ayrıldı:",
-            socket.id
-        );
 
     });
 
