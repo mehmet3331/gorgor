@@ -3,7 +3,14 @@ console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + 15MB MEDYA");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('selectstart', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
-const socket = io();
+
+// DÜZELTME: TIMEOUT 60 SANİYE
+const socket = io({
+    timeout: 60000,
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 5
+});
 
 const myVideo = document.getElementById("myVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -500,7 +507,7 @@ myVideoContainer.addEventListener("touchend", () => {
 });
 
 /* ------------------
-   MEDYA GÖNDERME - 15MB LİMİT
+   MEDYA GÖNDERME - DEBUG EKLENDİ
 ------------------- */
 mediaBtn.onclick = (e) => {
     e.preventDefault();
@@ -511,11 +518,9 @@ mediaInput.onchange = async () => {
     const file = mediaInput.files[0];
     if (!file) return;
 
-    if (file.size > 15 * 1024) { // 15MB LİMİT DÜZELTİLDİ
-        alert("Dosya 15MB'dan büyük olamaz");
-        mediaInput.value = "";
-        return;
-    }
+    console.log("Seçilen dosya:", file.name, "Boyut:", (file.size / 1024).toFixed(2), "MB");
+
+const MAX_FILE_SIZE = 1024 * 1024 * 1024;
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -524,8 +529,13 @@ mediaInput.onchange = async () => {
             data: e.target.result,
             name: file.name
         };
+        console.log("Gönderiliyor... Base64 boyut:", (e.target.result.length / 1024 / 1024).toFixed(2), "MB");
         socket.emit("chat-media", data);
         addMyMediaMessage(data);
+    };
+    reader.onerror = (err) => {
+        console.log("FileReader hatası:", err);
+        alert("Dosya okunamadı");
     };
     reader.readAsDataURL(file);
     mediaInput.value = "";
@@ -562,6 +572,7 @@ function addMyMediaMessage(data) {
 }
 
 socket.on("chat-media", (data) => {
+    console.log("Medya alındı:", data.name);
     const div = document.createElement("div");
     div.className = "otherMessage";
     if (data.type === "image") {

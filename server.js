@@ -6,16 +6,24 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
+
+    maxHttpBufferSize: 1024 * 1024 * 1024,
+
     cors: {
         origin: "*"
-    },
-    maxHttpBufferSize: 1e8, // 100MB - ABARTIYORUZ
-    pingTimeout: 60000, // 60 saniye - BÜYÜK DOSYA İÇİN
-    pingInterval: 25000 // 25 saniye
+    }
+
 });
 
 app.use(express.static("public"));
+app.use(express.json({
+    limit: "1024mb"
+}));
 
+app.use(express.urlencoded({
+    extended: true,
+    limit: "1024mb"
+}));
 const rooms = {};
 
 io.on("connection", (socket) => {
