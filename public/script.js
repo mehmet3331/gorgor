@@ -1,4 +1,4 @@
-console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + 15MB MEDYA");
+console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + 15MB MEDYA + TITREME");
 // SAĞ TIK + BASILI TUT ENGELLE
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('selectstart', e => e.preventDefault());
@@ -297,7 +297,7 @@ if (shareScreenBtn) {
 }
 
 /* ------------------
-   MESAJLAR
+   MESAJLAR - TITREME EKLENDI
 ------------------- */
 function addMyMessage(text) {
     const div = document.createElement("div");
@@ -313,8 +313,14 @@ function addOtherMessage(text) {
     div.textContent = "SEN → " + text;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
+    
+    // YENİ: Chat kapalıysa titret + ışık yak
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("newMessageBlink");
+        chatToggle.classList.add("shake");
+        setTimeout(() => {
+            chatToggle.classList.remove("shake");
+        }, 600);
     }
 }
 
@@ -345,6 +351,7 @@ chatToggle.onclick = () => {
         chatPanel.style.display = "flex";
         document.body.classList.add("chat-open");
         chatToggle.classList.remove("newMessageBlink");
+        chatToggle.classList.remove("shake"); // YENİ: Titremeyi durdur
         chatToggle.textContent = "✖";
     }
 };
@@ -529,7 +536,7 @@ const MAX_FILE_SIZE = 1024 * 1024 * 1024;
             data: e.target.result,
             name: file.name
         };
-        console.log("Gönderiliyor... Base64 boyut:", (e.target.result.length / 1024 / 1024).toFixed(2), "MB");
+        console.log("Gönderiliyor... Base64 boyut:", (e.target.result.length / 1024).toFixed(2), "MB");
         socket.emit("chat-media", data);
         addMyMediaMessage(data);
     };
@@ -600,8 +607,14 @@ socket.on("chat-media", (data) => {
     }
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
+    
+    // YENİ: Medya gelince de titret
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("newMessageBlink");
+        chatToggle.classList.add("shake");
+        setTimeout(() => {
+            chatToggle.classList.remove("shake");
+        }, 600);
     }
 });
 
