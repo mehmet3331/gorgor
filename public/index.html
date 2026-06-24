@@ -21,7 +21,7 @@
     <div id="mainScreen">
         <video id="remoteVideo" autoplay playsinline webkit-playsinline></video>
 
-        <!-- KÜÇÜK KAMERA KONTEYNERİ - YENİ -->
+        <!-- KÜÇÜK KAMERA KONTEYNERİ -->
         <div id="myVideoContainer">
             <video id="myVideo" autoplay playsinline webkit-playsinline muted></video>
             <button id="switchCameraBtn" class="cameraOverlayBtn" aria-label="Kamerayı değiştir">🔄</button>
@@ -63,11 +63,21 @@
                 <button id="mediaBtn" aria-label="Dosya ekle">📎</button>
                 <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none" aria-label="Medya dosyası seç">
                 <input id="messageInput" placeholder="Mesaj yaz..." aria-label="Mesaj">
+                <button id="nudgeBtn" title="Dürt">👉</button>
+                <button id="emojiBtn" aria-label="Emoji">😂</button>
                 <button id="sendBtn" aria-label="Gönder">Gönder</button>
+            </div>
+            <div id="emojiPanel">
+                <span class="flyEmoji">👍</span>
+                <span class="flyEmoji">❤️</span>
+                <span class="flyEmoji">😂</span>
+                <span class="flyEmoji">🔥</span>
+                <span class="flyEmoji">😢</span>
+                <span class="flyEmoji">😮</span>
             </div>
         </div>
 
-        <!-- MEDYA ÖNİZLEME - YENİ -->
+        <!-- MEDYA ÖNİZLEME -->
         <div id="mediaPreview">
             <span id="closePreview" aria-label="Önizlemeyi kapat">✖</span>
             <img id="previewImg" alt="Medya önizleme">
