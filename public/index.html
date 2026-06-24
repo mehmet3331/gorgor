@@ -12,21 +12,21 @@
     <!-- ODAYA GİRİŞ -->
     <div id="roomScreen">
         <h2>Odaya Katıl</h2>
-        <input id="roomName" placeholder="Oda adı">
-        <input id="roomPassword" type="password" placeholder="Oda şifresi">
+        <input id="roomName" placeholder="Oda adı" aria-label="Oda adı">
+        <input id="roomPassword" type="password" placeholder="Oda şifresi" aria-label="Oda şifresi">
         <button id="joinBtn">Odaya Gir</button>
     </div>
 
     <!-- ANA EKRAN -->
     <div id="mainScreen">
-        <video id="remoteVideo" autoplay playsinline></video>
+        <video id="remoteVideo" autoplay playsinline webkit-playsinline></video>
 
         <!-- KÜÇÜK KAMERA KONTEYNERİ - YENİ -->
         <div id="myVideoContainer">
-            <video id="myVideo" autoplay playsinline muted></video>
-            <button id="switchCameraBtn" class="cameraOverlayBtn">🔄</button>
-            <button id="fullscreenBtn" class="cameraOverlayBtn">⛶</button>
-            <select id="qualitySelect" class="qualitySelect">
+            <video id="myVideo" autoplay playsinline webkit-playsinline muted></video>
+            <button id="switchCameraBtn" class="cameraOverlayBtn" aria-label="Kamerayı değiştir">🔄</button>
+            <button id="fullscreenBtn" class="cameraOverlayBtn" aria-label="Tam ekran">⛶</button>
+            <select id="qualitySelect" class="qualitySelect" aria-label="Görüntü kalitesi">
                 <option value="360">360p</option>
                 <option value="480">480p</option>
                 <option value="720" selected>720p</option>
@@ -36,12 +36,12 @@
 
         <!-- SOL ÜST AYARLAR -->
         <div id="settingsContainer">
-            <button id="settingsBtn">⚙</button>
-            <button id="micBtn">🎤</button>
-            <button id="camBtn">📷</button>
-            <button id="soundBtn">🔊</button>
-            <button id="shareScreenBtn">📺</button>
-            <button id="changePasswordBtn">🔐</button>
+            <button id="settingsBtn" aria-label="Ayarlar">⚙</button>
+            <button id="micBtn" aria-label="Mikrofon">🎤</button>
+            <button id="camBtn" aria-label="Kamera">📷</button>
+            <button id="soundBtn" aria-label="Ses">🔊</button>
+            <button id="shareScreenBtn" aria-label="Ekran paylaş">📺</button>
+            <button id="changePasswordBtn" aria-label="Şifre değiştir">🔐</button>
 
             <div id="statusBar">
                 <div class="statusBox">
@@ -53,26 +53,26 @@
             </div>
         </div>
 
-        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.1">
+        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.1" aria-label="Ses seviyesi">
 
         <!-- SOHBET -->
-        <button id="chatToggle">💬</button>
+        <button id="chatToggle" aria-label="Sohbeti aç">💬</button>
         <div id="chatPanel">
             <div id="messages"></div>
             <div id="inputArea">
-                <button id="mediaBtn">📎</button>
-                <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none">
-                <input id="messageInput" placeholder="Mesaj yaz...">
-                <button id="sendBtn">Gönder</button>
+                <button id="mediaBtn" aria-label="Dosya ekle">📎</button>
+                <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none" aria-label="Medya dosyası seç">
+                <input id="messageInput" placeholder="Mesaj yaz..." aria-label="Mesaj">
+                <button id="sendBtn" aria-label="Gönder">Gönder</button>
             </div>
         </div>
 
         <!-- MEDYA ÖNİZLEME - YENİ -->
         <div id="mediaPreview">
-            <span id="closePreview">✖</span>
-            <img id="previewImg">
+            <span id="closePreview" aria-label="Önizlemeyi kapat">✖</span>
+            <img id="previewImg" alt="Medya önizleme">
             <video id="previewVideo" controls></video>
-            <button id="downloadMediaBtn">İndir</button>
+            <button id="downloadMediaBtn" aria-label="Medyayı indir">İndir</button>
         </div>
     </div>
 
