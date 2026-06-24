@@ -357,18 +357,31 @@ chatToggle.onclick = () => {
 };
 
 /* ------------------
-   MİKROFON
+   MİKROFON - DÜZELTME
 ------------------- */
 micBtn.onclick = () => {
     if (!localStream) return;
-    micEnabled =!micEnabled;
+    micEnabled = !micEnabled;
+    
+    // 1. Tüm audio track'leri kapat
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
     });
+
+    // 2. Peer'a da söyle: track'i değiştir
+    if (peer && localStream) {
+        const audioSender = peer._pc.getSenders().find(s => s.track && s.track.kind === "audio");
+        if (audioSender && audioSender.track) {
+            audioSender.track.enabled = micEnabled;
+        }
+    }
+
     if (micEnabled) {
         micBtn.classList.remove("offIcon");
+        micBtn.textContent = "🎤";
     } else {
         micBtn.classList.add("offIcon");
+        micBtn.textContent = "🔇";
     }
 };
 
