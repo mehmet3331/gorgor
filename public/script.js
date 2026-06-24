@@ -64,7 +64,7 @@ let currentMediaData = null;
 let typingTimer;
 let isTyping = false;
 let messageIdCounter = 0;
-const sentMessages = new Map(); // msgId -> element
+const sentMessages = new Map();
 
 micBtn.textContent = "🎤";
 camBtn.textContent = "📷";
@@ -364,7 +364,7 @@ socket.on("chat-message", data => {
     addOtherMessage(data.text, data.msgId);
 });
 
-// OKUNDU BİLGİSİ GELİNCE
+// OKUNDU BİLGİSİ GELİNCE - TEK MESAJ
 socket.on("message-read", (msgId) => {
     const msgElement = sentMessages.get(msgId);
     if (msgElement) {
@@ -376,7 +376,7 @@ socket.on("message-read", (msgId) => {
     }
 });
 
-// TÜMÜ OKUNDU GELİNCE
+// TÜMÜ OKUNDU GELİNCE - CHAT SONRADAN AÇILINCA
 socket.on("messages-read-all", () => {
     sentMessages.forEach((msgElement) => {
         const tick = msgElement.querySelector(".message-tick");
@@ -705,7 +705,7 @@ mediaInput.onchange = async () => {
 
     console.log("Seçilen dosya:", file.name, "Boyut:", (file.size / 1024).toFixed(2), "MB");
 
-    const MAX_FILE_SIZE = 1024 * 1024 * 1024;
+    const MAX_FILE_SIZE = 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
         alert("Dosya çok büyük! Max 1GB");
         return;
