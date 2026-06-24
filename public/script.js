@@ -306,7 +306,7 @@ if (shareScreenBtn) {
 }
 
 /* ------------------
-   MESAJLAR - OKUNDU TIKI EKLENDI
+   MESAJLAR - OKUNDU TIKI FİX
 ------------------- */
 function addMyMessage(text) {
     const msgId = `msg-${Date.now()}-${messageIdCounter++}`;
@@ -328,8 +328,8 @@ function addOtherMessage(text, msgId) {
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
     
-    // Okundu bilgisi gönder
-    if (msgId) {
+    // Chat açıksa hemen okundu gönder
+    if (msgId && chatPanel.style.display === "flex") {
         socket.emit("message-read", msgId);
     }
     
@@ -376,6 +376,17 @@ socket.on("message-read", (msgId) => {
     }
 });
 
+// TÜMÜ OKUNDU GELİNCE
+socket.on("messages-read-all", () => {
+    sentMessages.forEach((msgElement) => {
+        const tick = msgElement.querySelector(".message-tick");
+        if (tick) {
+            tick.textContent = "✓✓";
+            tick.classList.add("read");
+        }
+    });
+});
+
 chatToggle.onclick = () => {
     if (chatPanel.style.display === "flex") {
         chatPanel.style.display = "none";
@@ -387,11 +398,14 @@ chatToggle.onclick = () => {
         chatToggle.classList.remove("newMessageBlink");
         chatToggle.classList.remove("shake");
         chatToggle.textContent = "✖";
+        
+        // Chat açılınca karşı tarafa tüm mesajları okudum de
+        socket.emit("messages-read-all");
     }
 };
 
 /* ------------------
-   YAZIYOR ANİMASYONU - YENİ
+   YAZIYOR ANİMASYONU
 ------------------- */
 input.addEventListener('input', () => {
     if (!isTyping && input.value.trim()) {
@@ -425,7 +439,7 @@ socket.on('typing', (typing) => {
 });
 
 /* ------------------
-   MSN TİTREŞİM - YENİ
+   MSN TİTREŞİM
 ------------------- */
 if (nudgeBtn) {
     nudgeBtn.onclick = () => {
@@ -453,7 +467,7 @@ socket.on("nudge", () => {
 });
 
 /* ------------------
-   UÇAN EMOJİ - YENİ
+   UÇAN EMOJİ
 ------------------- */
 if (emojiBtn) {
     emojiBtn.onclick = () => {
@@ -499,7 +513,7 @@ document.addEventListener('click', (e) => {
 });
 
 /* ------------------
-   MİKROFON - DÜZELTME
+   MİKROFON
 ------------------- */
 micBtn.onclick = () => {
     if (!localStream) return;
@@ -678,7 +692,7 @@ myVideoContainer.addEventListener("touchend", () => {
 });
 
 /* ------------------
-   MEDYA GÖNDERME - DEBUG EKLENDİ
+   MEDYA GÖNDERME
 ------------------- */
 mediaBtn.onclick = (e) => {
     e.preventDefault();
