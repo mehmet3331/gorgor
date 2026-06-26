@@ -1,10 +1,12 @@
-console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + 15MB MEDYA + TITREME + MSN DURT + YAZIYOR + OKUNDU + UCAN EMOJI");
+console.log("SCRIPT YÜKLENDİ - v1.1.4-stabil + SURUKLE + 15MB MEDYA + TITREME + MSN DURT + YAZIYOR + OKUNDU + UCAN EMOJI");
 // SAĞ TIK + BASILI TUT ENGELLE
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('selectstart', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
 
-// DÜZELTME: TIMEOUT 60 SANİYE
+// AES ŞİFRELEME
+const AES_KEY = "GorgorSecretKey2024";
+
 const socket = io({
     timeout: 60000,
     reconnection: true,
@@ -37,7 +39,6 @@ const pingValue = document.getElementById("pingValue");
 const connectionQuality = document.getElementById("connectionQuality");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsContainer = document.getElementById("settingsContainer");
-// YENİ EKLENENLER
 const myVideoContainer = document.getElementById("myVideoContainer");
 const mediaBtn = document.getElementById("mediaBtn");
 const mediaInput = document.getElementById("mediaInput");
@@ -46,10 +47,20 @@ const previewImg = document.getElementById("previewImg");
 const previewVideo = document.getElementById("previewVideo");
 const closePreview = document.getElementById("closePreview");
 const downloadMediaBtn = document.getElementById("downloadMediaBtn");
-// YENİ ÖZELLİKLER
 const nudgeBtn = document.getElementById("nudgeBtn");
 const emojiBtn = document.getElementById("emojiBtn");
 const emojiPanel = document.getElementById("emojiPanel");
+// v1.2.0 YENİ
+const nightLightBtn = document.getElementById("nightLightBtn");
+const nightLight = document.getElementById("nightLight");
+const youtubeBtn = document.getElementById("youtubeBtn");
+const youtubeContainer = document.getElementById("youtubeContainer");
+const youtubeModal = document.getElementById("youtubeModal");
+const youtubeUrl = document.getElementById("youtubeUrl");
+const youtubeStartBtn = document.getElementById("youtubeStartBtn");
+const youtubeCancelBtn = document.getElementById("youtubeCancelBtn");
+const closeYoutubeBtn = document.getElementById("closeYoutubeBtn");
+const locationBtn = document.getElementById("locationBtn");
 
 let peer = null;
 let localStream = null;
@@ -60,14 +71,33 @@ let currentQuality = 720;
 let currentFacingMode = "user";
 let pingTimer = null;
 let currentMediaData = null;
-// YENİ
 let typingTimer;
 let isTyping = false;
 let messageIdCounter = 0;
 const sentMessages = new Map();
+let nightLightOn = false;
+let ytPlayer = null;
+let ytPlayerReady = false;
 
 micBtn.textContent = "🎤";
 camBtn.textContent = "📷";
+
+/* ------------------
+   AES ŞİFRELEME
+------------------- */
+function encryptMessage(text) {
+    return CryptoJS.AES.encrypt(text, AES_KEY).toString();
+}
+
+function decryptMessage(ciphertext) {
+    try {
+        const bytes = CryptoJS.AES.decrypt(ciphertext, AES_KEY);
+        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+        return decrypted || ciphertext;
+    } catch {
+        return ciphertext;
+    }
+}
 
 /* ------------------
    KAMERA - YOKSA DA DEVAM ET
@@ -306,7 +336,7 @@ if (shareScreenBtn) {
 }
 
 /* ------------------
-   MESAJLAR - OKUNDU TIKI FİX
+   MESAJLAR - OKUNDU TIKI FİX + AES
 ------------------- */
 function addMyMessage(text) {
     const msgId = `msg-${Date.now()}-${messageIdCounter++}`;
@@ -316,7 +346,7 @@ function addMyMessage(text) {
     div.innerHTML = `BEN → ${text}<span class="message-tick">✓</span>`;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-    
+
     sentMessages.set(msgId, div);
     return msgId;
 }
@@ -327,12 +357,12 @@ function addOtherMessage(text, msgId) {
     div.textContent = "SEN → " + text;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-    
+
     // Chat açıksa hemen okundu gönder
     if (msgId && chatPanel.style.display === "flex") {
         socket.emit("message-read", msgId);
     }
-    
+
     // Chat kapalıysa titret + ışık yak
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("newMessageBlink");
@@ -347,7 +377,8 @@ sendBtn.onclick = () => {
     const text = input.value.trim();
     if (!text) return;
     const msgId = addMyMessage(text);
-    socket.emit("chat-message", { text, msgId });
+    const encrypted = encryptMessage(text);
+    socket.emit("chat-message", { text: encrypted, msgId });
     input.value = "";
     // Yazıyor'u durdur
     socket.emit('typing', false);
@@ -361,7 +392,8 @@ input.addEventListener("keydown", e => {
 });
 
 socket.on("chat-message", data => {
-    addOtherMessage(data.text, data.msgId);
+    const decrypted = decryptMessage(data.text);
+    addOtherMessage(decrypted, data.msgId);
 });
 
 // OKUNDU BİLGİSİ GELİNCE - TEK MESAJ
@@ -398,7 +430,7 @@ chatToggle.onclick = () => {
         chatToggle.classList.remove("newMessageBlink");
         chatToggle.classList.remove("shake");
         chatToggle.textContent = "✖";
-        
+
         // Chat açılınca karşı tarafa tüm mesajları okudum de
         socket.emit("messages-read-all");
     }
@@ -412,7 +444,7 @@ input.addEventListener('input', () => {
         socket.emit('typing', true);
         isTyping = true;
     }
-    
+
     clearTimeout(typingTimer);
     typingTimer = setTimeout(() => {
         socket.emit('typing', false);
@@ -428,7 +460,7 @@ socket.on('typing', (typing) => {
         typingDiv.className = 'otherMessage';
         messages.appendChild(typingDiv);
     }
-    
+
     if (typing) {
         typingDiv.textContent = 'SEN yazıyor...';
         typingDiv.style.display = 'block';
@@ -458,7 +490,7 @@ socket.on("nudge", () => {
     setTimeout(() => {
         document.body.classList.remove("screen-shake");
     }, 800);
-    
+
     // Chat kapalıysa butonu da titret
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("shake");
@@ -492,14 +524,14 @@ function createFlyingEmoji(emoji, isMine) {
     const flyEmoji = document.createElement('div');
     flyEmoji.className = 'flying-emoji';
     flyEmoji.textContent = emoji;
-    
+
     // Pozisyon
     const x = isMine? window.innerWidth - 100 : 100;
     flyEmoji.style.left = x + 'px';
     flyEmoji.style.bottom = '100px';
-    
+
     document.body.appendChild(flyEmoji);
-    
+
     setTimeout(() => {
         flyEmoji.remove();
     }, 2000);
@@ -518,7 +550,7 @@ document.addEventListener('click', (e) => {
 micBtn.onclick = () => {
     if (!localStream) return;
     micEnabled =!micEnabled;
-    
+
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
     });
@@ -545,7 +577,7 @@ micBtn.onclick = () => {
 camBtn.onclick = () => {
     if (!localStream) return;
     camEnabled =!camEnabled;
-    
+
     localStream.getVideoTracks().forEach(track => {
         track.enabled = camEnabled;
     });
@@ -705,7 +737,7 @@ mediaInput.onchange = async () => {
 
     console.log("Seçilen dosya:", file.name, "Boyut:", (file.size / 1024).toFixed(2), "MB");
 
-    const MAX_FILE_SIZE = 1024 * 1024;
+    const MAX_FILE_SIZE = 1024 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
         alert("Dosya çok büyük! Max 1GB");
         return;
@@ -789,7 +821,7 @@ socket.on("chat-media", (data) => {
     }
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-    
+
     // Medya gelince de titret
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("newMessageBlink");
@@ -835,6 +867,77 @@ downloadMediaBtn.onclick = () => {
 };
 
 /* ------------------
+   v1.2.0 YENİ ÖZELLİKLER - HAZIRLIK
+------------------- */
+
+// 1. GECE IŞIĞI
+if (nightLightBtn) {
+    nightLightBtn.onclick = () => {
+        nightLightOn =!nightLightOn;
+        nightLight.classList.toggle("active", nightLightOn);
+        nightLightBtn.classList.toggle("active", nightLightOn);
+    };
+}
+
+// 2. KONUM PAYLAŞ - TODO
+if (locationBtn) {
+    locationBtn.onclick = () => {
+        if (!navigator.geolocation) {
+            alert("Tarayıcı konum desteklemiyor");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const link = `https://maps.google.com/?q=${lat},${lon}`;
+            const msgId = addMyMessage(`Konum: ${link}`);
+            socket.emit("chat-message", { text: encryptMessage(link), msgId, type: "location" });
+        });
+    };
+}
+
+socket.on('location-share', (coords) => {
+    const link = `https://maps.google.com/?q=${coords.lat},${coords.lon}`;
+    const div = document.createElement("div");
+    div.className = "otherMessage locationMessage";
+    div.innerHTML = `SEN → <a href="${link}" target="_blank">Konumu Aç</a>`;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+});
+
+// 3. YOUTUBE - TODO
+if (youtubeBtn) {
+    youtubeBtn.onclick = () => {
+        youtubeModal.classList.add("active");
+    };
+}
+
+if (youtubeCancelBtn) {
+    youtubeCancelBtn.onclick = () => {
+        youtubeModal.classList.remove("active");
+    };
+}
+
+if (youtubeStartBtn) {
+    youtubeStartBtn.onclick = () => {
+        const url = youtubeUrl.value.trim();
+        if (!url) return;
+        youtubeModal.classList.remove("active");
+        youtubeContainer.classList.add("active");
+        youtubeBtn.classList.add("active");
+        // YouTube player yükleme kodu buraya gelecek
+        alert("YouTube özelliği v1.2.0'da aktif olacak aslanım!");
+    };
+}
+
+if (closeYoutubeBtn) {
+    closeYoutubeBtn.onclick = () => {
+        youtubeContainer.classList.remove("active");
+        youtubeBtn.classList.remove("active");
+    };
+}
+
+/* ------------------
    SAYFA KAPANIRKEN
 ------------------- */
 window.addEventListener("beforeunload", () => {
@@ -846,4 +949,4 @@ window.addEventListener("beforeunload", () => {
     }
 });
 
-console.log("Script tamamen yüklendi");
+console.log("Script tamamen yüklendi - v1.1.4-stabil");

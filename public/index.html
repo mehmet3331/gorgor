@@ -9,6 +9,9 @@
 </head>
 
 <body>
+    <!-- GECE MODU IŞIK -->
+    <div id="nightLight"></div>
+
     <!-- ODAYA GİRİŞ -->
     <div id="roomScreen">
         <h2>Odaya Katıl</h2>
@@ -20,6 +23,12 @@
     <!-- ANA EKRAN -->
     <div id="mainScreen">
         <video id="remoteVideo" autoplay playsinline webkit-playsinline></video>
+
+        <!-- YOUTUBE PLAYER -->
+        <div id="youtubeContainer">
+            <div id="youtubePlayer"></div>
+            <button id="closeYoutubeBtn">✖</button>
+        </div>
 
         <!-- KÜÇÜK KAMERA KONTEYNERİ -->
         <div id="myVideoContainer">
@@ -41,6 +50,8 @@
             <button id="camBtn" aria-label="Kamera">📷</button>
             <button id="soundBtn" aria-label="Ses">🔊</button>
             <button id="shareScreenBtn" aria-label="Ekran paylaş">📺</button>
+            <button id="nightLightBtn" aria-label="Gece Işığı">💡</button>
+            <button id="youtubeBtn" aria-label="YouTube İzle">▶</button>
             <button id="changePasswordBtn" aria-label="Şifre değiştir">🔐</button>
 
             <div id="statusBar">
@@ -62,6 +73,7 @@
             <div id="inputArea">
                 <button id="mediaBtn" aria-label="Dosya ekle">📎</button>
                 <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none" aria-label="Medya dosyası seç">
+                <button id="locationBtn" aria-label="Konum gönder">📍</button>
                 <input id="messageInput" placeholder="Mesaj yaz..." aria-label="Mesaj">
                 <button id="nudgeBtn" title="Dürt">👉</button>
                 <button id="emojiBtn" aria-label="Emoji">😂</button>
@@ -69,7 +81,7 @@
             </div>
             <div id="emojiPanel">
                 <span class="flyEmoji">👍</span>
-                <span class="flyEmoji">❤️</span>
+                <span class="flyEmoji">❤</span>
                 <span class="flyEmoji">😂</span>
                 <span class="flyEmoji">🔥</span>
                 <span class="flyEmoji">😢</span>
@@ -84,8 +96,22 @@
             <video id="previewVideo" controls></video>
             <button id="downloadMediaBtn" aria-label="Medyayı indir">İndir</button>
         </div>
+
+        <!-- YOUTUBE URL MODAL -->
+        <div id="youtubeModal">
+            <div class="modalContent">
+                <h3>YouTube Linki Gir</h3>
+                <input id="youtubeUrl" placeholder="https://youtube.com/watch?v=..." type="text">
+                <div class="modalButtons">
+                    <button id="youtubeStartBtn">Başlat</button>
+                    <button id="youtubeCancelBtn">İptal</button>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
     <script src="script.js"></script>

@@ -11,6 +11,21 @@ body {
     overflow: hidden;
 }
 
+/* GECE MODU IŞIK */
+#nightLight {
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    z-index: 5;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+#nightLight.active {
+    opacity: 0.85;
+}
+
 /* ODAYA GİRİŞ */
 #roomScreen {
     position: fixed;
@@ -64,6 +79,47 @@ body {
     object-fit: contain;
     background: #000;
     z-index: 1;
+}
+
+/* YOUTUBE CONTAINER */
+#youtubeContainer {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 900px;
+    height: 60%;
+    background: #000;
+    z-index: 500;
+    display: none;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 3px solid #ff0000;
+}
+
+#youtubeContainer.active {
+    display: block;
+}
+
+#youtubePlayer {
+    width: 100%;
+    height: 100%;
+}
+
+#closeYoutubeBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 510;
 }
 
 /* KÜÇÜK KAMERA KONTEYNERİ */
@@ -144,7 +200,7 @@ body {
     border-radius: 50%;
     font-size: 22px;
     cursor: pointer;
-    background: rgba(0, 0, 0, .7);
+    background: rgba(0, 0, 0,.7);
     color: white;
 }
 
@@ -157,13 +213,21 @@ body {
     border-radius: 12px;
     font-size: 22px;
     cursor: pointer;
-    background: rgba(0, 0, 0, .8);
+    background: rgba(0, 0, 0,.8);
     color: white;
 }
 
 #settingsContainer.menu-open > button:not(#settingsBtn),
 #settingsContainer.menu-open > #statusBar {
     display: block;
+}
+
+#nightLightBtn.active {
+    background: rgba(255, 255, 0, 0.3);
+}
+
+#youtubeBtn.active {
+    background: rgba(255, 0, 0, 0.3);
 }
 
 #statusBar {
@@ -177,7 +241,7 @@ body {
 }
 
 .statusBox {
-    background: rgba(0, 0, 0, .75);
+    background: rgba(0, 0, 0,.75);
     padding: 8px;
     border-radius: 10px;
     font-size: 12px;
@@ -200,7 +264,7 @@ body {
     font-weight: bold;
     cursor: pointer;
     z-index: 1000;
-    box-shadow: 0 0 15px rgba(0, 0, 0, .4);
+    box-shadow: 0 0 15px rgba(0, 0, 0,.4);
 }
 
 /* SOHBET PANELİ */
@@ -256,6 +320,12 @@ body {
     word-break: break-word;
 }
 
+.locationMessage {
+    color: #ff9800;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 /* MESAJ ALANI */
 #inputArea {
     display: flex;
@@ -286,7 +356,7 @@ body {
 }
 
 /* MEDYA BUTONU */
-#mediaBtn {
+#mediaBtn, #locationBtn {
     width: 40px;
     height: 40px;
     border: none;
@@ -295,6 +365,10 @@ body {
     color: white;
     font-size: 18px;
     cursor: pointer;
+}
+
+#locationBtn {
+    background: #ff9800;
 }
 
 /* MEDYA ÖNİZLEME */
@@ -335,6 +409,68 @@ body {
     cursor: pointer;
 }
 
+/* YOUTUBE MODAL */
+#youtubeModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+}
+
+#youtubeModal.active {
+    display: flex;
+}
+
+.modalContent {
+    background: #222;
+    padding: 30px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 500px;
+}
+
+.modalContent h3 {
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+#youtubeUrl {
+    width: 100%;
+    height: 45px;
+    padding: 10px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
+.modalButtons {
+    display: flex;
+    gap: 10px;
+}
+
+.modalButtons button {
+    flex: 1;
+    height: 45px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#youtubeStartBtn {
+    background: #ff0000;
+    color: white;
+}
+
+#youtubeCancelBtn {
+    background: #555;
+    color: white;
+}
+
 /* MEDYA MESAJLARI */
 .mediaMessage {
     max-width: 200px;
@@ -349,7 +485,7 @@ body {
 
 /* YENİ MESAJ */
 .newMessageBlink {
-    animation: blink .8s infinite;
+    animation: blink.8s infinite;
 }
 
 @keyframes blink {
@@ -373,6 +509,10 @@ body {
         width: 50px;
         height: 50px;
         font-size: 20px;
+    }
+    #youtubeContainer {
+        width: 95%;
+        height: 50%;
     }
 }
 
@@ -427,8 +567,6 @@ img, video {
 .shake {
   animation: shake 0.6s;
 }
-
-/* ==================== YENİ ÖZELLİKLER ==================== */
 
 /* MSN Titreşim efekti */
 @keyframes screenShake {
