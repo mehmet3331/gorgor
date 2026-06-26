@@ -144,11 +144,10 @@ async function startCamera(height = 720, facingMode = currentFacingMode) {
             myVideo.style.transform = "scaleX(1)";
         }
         return true;
-    } catch (err) {
-        console.log("Kamera/Mikrofon hatası:", err);
-        alert("Kamera/Mikrofon bulunamadı veya izin verilmedi.\nSadece karşı tarafı göreceksiniz.");
-        return false;
-    }
+} catch (err) {
+    console.log("Kamera/Mikrofon hatası:", err);
+    return false;
+}
 }
 
 /* ------------------
@@ -183,12 +182,13 @@ socket.on("pong-check", timestamp => {
 });
 
 /* ------------------
-   ODAYA GİR - KAMERA YOKSA DA GİRER
+/* ------------------
+   ODAYA GİR - ESKİ ÇALIŞAN
 ------------------- */
 joinBtn.onclick = async () => {
     const room = roomName.value.trim();
     const password = roomPassword.value.trim();
-    if (!room ||!password) {
+    if (!room || !password) {
         alert("Oda adı ve şifre gerekli");
         return;
     }
@@ -201,10 +201,6 @@ joinBtn.onclick = async () => {
     currentRoom = room;
     socket.emit("join-room", { room, password });
 };
-
-socket.on("room-error", msg => {
-    alert(msg);
-});
 
 socket.on("joined-room", count => {
     roomScreen.style.display = "none";
