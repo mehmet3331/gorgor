@@ -11,15 +11,12 @@ body {
     overflow: hidden;
 }
 
-/* GECE MODU IŞIK */
-#nightLight {
-    position: fixed;
-    inset: 0;
-    background: #fff;
-    z-index: 5;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
+/* YENİ GECE IŞIĞI - ÇERÇEVE */
+body.night-light-active #remoteVideo {
+    transform: scale(0.85);
+    box-shadow: 0 0 0 200vmax rgba(255,255,255,0.95);
+    border-radius: 20px;
+    transition: all 0.3s;
 }
 
 #nightLight.active {
@@ -669,4 +666,12 @@ img, video {
   animation: typingBlink 1.5s infinite;
   font-style: italic;
   opacity: 0.7;
+}
+
+/* GECE IŞIĞI ÇERÇEVE - YENİ */
+body.night-light-active #remoteVideo {
+    transform: scale(0.85);
+    box-shadow: 0 0 0 200vmax rgba(255,255,255,0.92);
+    border-radius: 24px;
+    transition: all 0.3s ease;
 }

@@ -527,6 +527,17 @@ if (emojiBtn) {
     emojiBtn.onclick = () => {
         emojiPanel.classList.toggle("show");
     };
+}const customEmoji = document.getElementById("customEmoji");
+if (customEmoji) {
+    customEmoji.onchange = () => {
+        const emoji = customEmoji.value.trim();
+        if (emoji) {
+            socket.emit('fly-emoji', emoji);
+            createFlyingEmoji(emoji, true);
+            customEmoji.value = '';
+            emojiPanel.classList.remove("show");
+        }
+    };
 }
 
 document.querySelectorAll('.flyEmoji').forEach(emoji => {
@@ -894,7 +905,7 @@ downloadMediaBtn.onclick = () => {
 
 
 
-// YENİSİ
+// YENİSİ ÖN KAMERA AYDINLATMA
 if (nightLightBtn) {
     nightLightBtn.onclick = () => {
         nightLightOn =!nightLightOn;
@@ -910,14 +921,21 @@ if (locationBtn) {
             alert("Tarayıcı konum desteklemiyor");
             return;
         }
+
+        // ÖNCE ONAY SOR
+        if (!confirm("Konumunu paylaşmak istiyor musun?")) return;
+
         navigator.geolocation.getCurrentPosition((pos) => {
-            const lat = pos.coords.latitude;
-            const lon = pos.coords.longitude;
+            const lat = pos.coords.latitude.toFixed(6);
+            const lon = pos.coords.longitude.toFixed(6);
             const link = `https://maps.google.com/?q=${lat},${lon}`;
-            const msgId = addMyMessage(link);
-            socket.emit("chat-message", { text: encryptMessage(link), msgId });
-            // Karşı tarafa da location-share gönder
-            socket.emit("location-share", { lat, lon });
+
+            // ÖNİZLEME GÖSTER
+            if (confirm(`Konum: ${lat}, ${lon}\nGönderilsin mi?`)) {
+                const msgId = addMyMessage(link);
+                socket.emit("chat-message", { text: encryptMessage(link), msgId });
+                socket.emit("location-share", { lat, lon });
+            }
         }, () => alert("Konum alınamadı"));
     };
 }
@@ -931,28 +949,44 @@ socket.on('location-share', (coords) => {
     messages.scrollTop = messages.scrollHeight;
 });
 
-// 3. YOUTUBE - TODO
-if (youtubeBtn) {
-    youtubeBtn.onclick = () => {
-        youtubeModal.classList.add("active");
-    };
-}
+// YOUTUBE - TAM ÇALIŞAN VERSİYON
+let ytPlayer = null;
 
-if (youtubeCancelBtn) {
-    youtubeCancelBtn.onclick = () => {
-        youtubeModal.classList.remove("active");
-    };
-}
+window.onYouTubeIframeAPIReady = function() {
+    ytPlayerReady = true;
+};
 
 if (youtubeStartBtn) {
     youtubeStartBtn.onclick = () => {
         const url = youtubeUrl.value.trim();
         if (!url) return;
+
+        // Video ID çıkar
+        let videoId = '';
+        if (url.includes('v=')) {
+            videoId = url.split('v=')[1].split('&')[0];
+        } else if (url.includes('youtu.be/')) {
+            videoId = url.split('youtu.be/')[1].split('?')[0];
+        } else {
+            alert('Geçerli YouTube linki gir');
+            return;
+        }
+
         youtubeModal.classList.remove("active");
         youtubeContainer.classList.add("active");
         youtubeBtn.classList.add("active");
-        // YouTube player yükleme kodu buraya gelecek
-        alert("YouTube özelliği v1.2.0'da aktif olacak aslanım!");
+
+        // Player oluştur
+        if (ytPlayer) ytPlayer.destroy();
+        ytPlayer = new YT.Player('youtubePlayer', {
+            videoId: videoId,
+            playerVars: { autoplay: 1, controls: 1 },
+            events: {
+                'onReady': () => {
+                    socket.emit('youtube-sync', { action: 'play', videoId, time: 0 });
+                }
+            }
+        });
     };
 }
 
@@ -960,8 +994,24 @@ if (closeYoutubeBtn) {
     closeYoutubeBtn.onclick = () => {
         youtubeContainer.classList.remove("active");
         youtubeBtn.classList.remove("active");
+        if (ytPlayer) {
+            ytPlayer.destroy();
+            ytPlayer = null;
+        }
     };
 }
+
+// Karşı taraf senkron
+socket.on('youtube-sync', (data) => {
+    if (data.videoId &&!ytPlayer) {
+        youtubeContainer.classList.add("active");
+        youtubeBtn.classList.add("active");
+        ytPlayer = new YT.Player('youtubePlayer', {
+            videoId: data.videoId,
+            playerVars: { autoplay: 1 }
+        });
+    }
+});
 
 /* ------------------
    SAYFA KAPANIRKEN
@@ -975,4 +1025,4 @@ window.addEventListener("beforeunload", () => {
     }
 });
 
-console.log("Script tamamen yüklendi - v1.1.4-stabil");
+console.log("Script tamamen yüklendi - v1.1.5");
