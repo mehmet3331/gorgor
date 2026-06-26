@@ -117,11 +117,17 @@ io.on("connection", (socket) => {
         socket.to(socket.room).emit('typing', typing);
     });
 
-    // 3. Okundu Bilgisi
-    socket.on('message-read', (msgId) => {
-        if (!socket.room) return;
-        socket.to(socket.room).emit('message-read', msgId);
-    });
+// Tek mesaj okundu
+socket.on('message-read', (msgId) => {
+    if (!socket.room) return;
+    socket.to(socket.room).emit('message-read', msgId);
+});
+
+// Chat açılınca tümü okundu
+socket.on('messages-read-all', () => {
+    if (!socket.room) return;
+    socket.to(socket.room).emit('messages-read-all');
+});
 
     // 4. Uçan Emoji
     socket.on('fly-emoji', (emoji) => {
