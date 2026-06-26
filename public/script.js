@@ -1,8 +1,21 @@
 console.log("SCRIPT YÜKLENDİ - v1.1.4-stabil + SURUKLE + 15MB MEDYA + TITREME + MSN DURT + YAZIYOR + OKUNDU + UCAN EMOJI");
-// SAĞ TIK + BASILI TUT ENGELLE
-document.addEventListener('contextmenu', e => e.preventDefault());
-document.addEventListener('selectstart', e => e.preventDefault());
-document.addEventListener('dragstart', e => e.preventDefault());
+// ESKİ - HEPSİNİ ENGELLİYORDU
+// document.addEventListener('contextmenu', e => e.preventDefault());
+// document.addEventListener('selectstart', e => e.preventDefault());
+// document.addEventListener('dragstart', e => e.preventDefault());
+
+// YENİ - SADECE VİDEO VE RESİM
+document.addEventListener('contextmenu', e => {
+    if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO') {
+        e.preventDefault();
+    }
+});
+document.addEventListener('dragstart', e => {
+    if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO') {
+        e.preventDefault();
+    }
+});
+// selectstart'ı tamamen kaldır - input'lara yapıştırma için
 
 // AES ŞİFRELEME
 const AES_KEY = "GorgorSecretKey2024";
@@ -343,27 +356,36 @@ function addMyMessage(text) {
     const div = document.createElement("div");
     div.className = "myMessage";
     div.id = msgId;
-    div.innerHTML = `BEN → ${text}<span class="message-tick">✓</span>`;
+    
+    if (text.includes("maps.google.com")) {
+        div.innerHTML = `BEN → <a href="${text}" target="_blank" style="color:#00ff88">Konum</a><span class="message-tick">✓</span>`;
+    } else {
+        div.innerHTML = `BEN → ${text}<span class="message-tick">✓</span>`;
+    }
+    
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-
     sentMessages.set(msgId, div);
     return msgId;
 }
-
 function addOtherMessage(text, msgId) {
     const div = document.createElement("div");
     div.className = "otherMessage";
-    div.textContent = "SEN → " + text;
+    
+    // Konum linki ise tıklanabilir yap
+    if (text.includes("maps.google.com")) {
+        div.innerHTML = `SEN → <a href="${text}" target="_blank" style="color:#ff9800;text-decoration:underline">Konumu Aç</a>`;
+    } else {
+        div.textContent = "SEN → " + text;
+    }
+    
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-
-    // Chat açıksa hemen okundu gönder
+    
     if (msgId && chatPanel.style.display === "flex") {
         socket.emit("message-read", msgId);
     }
-
-    // Chat kapalıysa titret + ışık yak
+    
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("newMessageBlink");
         chatToggle.classList.add("shake");
@@ -870,11 +892,13 @@ downloadMediaBtn.onclick = () => {
    v1.2.0 YENİ ÖZELLİKLER - HAZIRLIK
 ------------------- */
 
-// 1. GECE IŞIĞI
+
+
+// YENİSİ
 if (nightLightBtn) {
     nightLightBtn.onclick = () => {
         nightLightOn =!nightLightOn;
-        nightLight.classList.toggle("active", nightLightOn);
+        document.body.classList.toggle("night-light-active", nightLightOn);
         nightLightBtn.classList.toggle("active", nightLightOn);
     };
 }
@@ -890,9 +914,11 @@ if (locationBtn) {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
             const link = `https://maps.google.com/?q=${lat},${lon}`;
-            const msgId = addMyMessage(`Konum: ${link}`);
-            socket.emit("chat-message", { text: encryptMessage(link), msgId, type: "location" });
-        });
+            const msgId = addMyMessage(link);
+            socket.emit("chat-message", { text: encryptMessage(link), msgId });
+            // Karşı tarafa da location-share gönder
+            socket.emit("location-share", { lat, lon });
+        }, () => alert("Konum alınamadı"));
     };
 }
 
