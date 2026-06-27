@@ -286,7 +286,7 @@ body {
 }
 
 /* MEDYA BUTONU */
-#mediaBtn {
+#mediaBtn, #locationBtn {
     width: 40px;
     height: 40px;
     border: none;
@@ -296,6 +296,8 @@ body {
     font-size: 18px;
     cursor: pointer;
 }
+
+#locationBtn { background: #ff9800; }
 
 /* MEDYA ÖNİZLEME */
 #mediaPreview {
@@ -474,6 +476,8 @@ img, video {
   padding: 10px;
   gap: 10px;
   z-index: 100;
+  flex-wrap: wrap;
+  max-width: 280px;
 }
 
 #emojiPanel.show {
@@ -491,23 +495,11 @@ img, video {
 }
 
 /* Uçan Emoji Animasyonu */
-@keyframes flyUp {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-300px) scale(1.5);
-  }
-}
-
 .flying-emoji {
   position: fixed;
   font-size: 40px;
   z-index: 9999;
   pointer-events: none;
-  animation: flyUp 2s ease-out forwards;
 }
 
 /* Okundu Tiki */
@@ -532,3 +524,42 @@ img, video {
   font-style: italic;
   opacity: 0.7;
 }
+
+/* GECE MODU */
+#remoteVideo.light-mode {
+    width: 85%;
+    height: 85%;
+    top: 7.5%;
+    left: 7.5%;
+    border: 3px solid #fff;
+    border-radius: 20px;
+    box-shadow: 0 0 40px rgba(255,255,255,0.3);
+    background: #111;
+    transition: all 0.4s ease;
+}
+
+/* EKRAN PAYLAŞ GİZLE */
+#shareScreenBtn { display: none !important; }
+
+/* MSN EFEKTLERİ */
+@keyframes fly-heart { 0% { transform: translateY(0) scale(1); opacity:1; } 100% { transform: translateY(-300px) scale(1.5); opacity:0; } }
+@keyframes fly-kiss { 0% { transform: translateY(0) rotate(0); opacity:1; } 100% { transform: translateY(-250px) translateX(100px) rotate(360deg); opacity:0; } }
+@keyframes fly-laugh { 0% { transform: translateY(0); } 25% { transform: translateY(-80px) rotate(-20deg); } 50% { transform: translateY(-160px) rotate(20deg); } 75% { transform: translateY(-240px) rotate(-10deg); } 100% { transform: translateY(-300px); opacity:0; } }
+@keyframes fly-thumbs { 0% { transform: translateY(0); } 100% { transform: translateY(-280px); opacity:0; } }
+@keyframes fly-cry { 0% { transform: translateY(0); opacity:1; } 100% { transform: translateY(280px); opacity:0; } }
+@keyframes fly-wow { 0% { transform: scale(0.5); opacity:0; } 50% { transform: scale(1.5); opacity:1; } 100% { transform: scale(1) translateY(-250px); opacity:0; } }
+@keyframes fly-flower { 0% { transform: rotate(0) translateY(0); } 100% { transform: rotate(720deg) translateY(-300px); opacity:0; } }
+@keyframes fly-fire { 0% { transform: translateY(0); } 100% { transform: translateY(-300px) scale(1.3); opacity:0; } }
+@keyframes fly-love { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1) translateY(-280px); opacity:0; } }
+@keyframes fly-hug { 0% { transform: translateY(0) rotate(0); } 100% { transform: translateY(-260px) rotate(-30deg); opacity:0; } }
+
+.flying-emoji.heart { animation: fly-heart 2s forwards; }
+.flying-emoji.kiss { animation: fly-kiss 2s forwards; }
+.flying-emoji.laugh { animation: fly-laugh 2s forwards; }
+.flying-emoji.thumbs { animation: fly-thumbs 1.8s forwards; }
+.flying-emoji.cry { animation: fly-cry 2.2s forwards; }
+.flying-emoji.wow { animation: fly-wow 1.8s forwards; }
+.flying-emoji.flower { animation: fly-flower 2.3s linear forwards; }
+.flying-emoji.fire { animation: fly-fire 1.9s forwards; }
+.flying-emoji.love { animation: fly-love 2s forwards; }
+.flying-emoji.hug { animation: fly-hug 2s forwards; }

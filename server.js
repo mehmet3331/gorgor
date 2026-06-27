@@ -6,7 +6,7 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-    maxHttpBufferSize: 1024 * 1024 * 1024,
+    maxHttpBufferSize: 1024 * 1024,
     cors: {
         origin: "*"
     }
@@ -66,7 +66,7 @@ io.on("connection", (socket) => {
         socket.to(socket.room).emit("chat-message", msg);
     });
 
-    // MEDYA GÖNDERME - LOG EKLENDİ
+    // MEDYA GÖNDERME
     socket.on("chat-media", (data) => {
         if (!socket.room) return;
         console.log("Medya geldi, boyut:", data.data.length, "karakter");
@@ -103,39 +103,41 @@ io.on("connection", (socket) => {
         socket.emit("pong-check", timestamp);
     });
 
-    // ========== YENİ ÖZELLİKLER ==========
-    
-    // 1. MSN Titreşim - Dürt
+    // MSN Titreşim
     socket.on('nudge', () => {
         if (!socket.room) return;
         socket.to(socket.room).emit('nudge');
     });
 
-    // 2. Yazıyor...
+    // Yazıyor...
     socket.on('typing', (typing) => {
         if (!socket.room) return;
         socket.to(socket.room).emit('typing', typing);
     });
 
-// Tek mesaj okundu
-socket.on('message-read', (msgId) => {
-    if (!socket.room) return;
-    socket.to(socket.room).emit('message-read', msgId);
-});
-
-// Chat açılınca tümü okundu
-socket.on('messages-read-all', () => {
-    if (!socket.room) return;
-    socket.to(socket.room).emit('messages-read-all');
-});
-
-    // 4. Uçan Emoji
-    socket.on('fly-emoji', (emoji) => {
+    // Tek mesaj okundu
+    socket.on('message-read', (msgId) => {
         if (!socket.room) return;
-        socket.to(socket.room).emit('fly-emoji', emoji);
+        socket.to(socket.room).emit('message-read', msgId);
     });
 
-    // =====================================
+    // Chat açılınca tümü okundu
+    socket.on('messages-read-all', () => {
+        if (!socket.room) return;
+        socket.to(socket.room).emit('messages-read-all');
+    });
+
+    // Uçan Emoji - YENİ FORMAT
+    socket.on('fly-emoji', (data) => {
+        if (!socket.room) return;
+        socket.to(socket.room).emit('fly-emoji', data);
+    });
+
+    // KONUM PAYLAŞ - YENİ
+    socket.on('share-location', (data) => {
+        if (!socket.room) return;
+        socket.to(socket.room).emit('share-location', data);
+    });
 
     socket.on("disconnect", (reason) => {
         console.log("Ayrıldı:", socket.id, "Sebep:", reason);

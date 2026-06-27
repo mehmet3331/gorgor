@@ -1,10 +1,9 @@
-console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + 15MB MEDYA + TITREME + MSN DURT + YAZIYOR + OKUNDU + UCAN EMOJI");
+console.log("SCRIPT YÜKLENDİ - V8 MSN EFEKT + KONUM + GECE MODU");
 // SAĞ TIK + BASILI TUT ENGELLE
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('selectstart', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
 
-// DÜZELTME: TIMEOUT 60 SANİYE
 const socket = io({
     timeout: 60000,
     reconnection: true,
@@ -37,7 +36,6 @@ const pingValue = document.getElementById("pingValue");
 const connectionQuality = document.getElementById("connectionQuality");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsContainer = document.getElementById("settingsContainer");
-// YENİ EKLENENLER
 const myVideoContainer = document.getElementById("myVideoContainer");
 const mediaBtn = document.getElementById("mediaBtn");
 const mediaInput = document.getElementById("mediaInput");
@@ -46,10 +44,11 @@ const previewImg = document.getElementById("previewImg");
 const previewVideo = document.getElementById("previewVideo");
 const closePreview = document.getElementById("closePreview");
 const downloadMediaBtn = document.getElementById("downloadMediaBtn");
-// YENİ ÖZELLİKLER
 const nudgeBtn = document.getElementById("nudgeBtn");
 const emojiBtn = document.getElementById("emojiBtn");
 const emojiPanel = document.getElementById("emojiPanel");
+const lightModeBtn = document.getElementById("lightModeBtn");
+const locationBtn = document.getElementById("locationBtn");
 
 let peer = null;
 let localStream = null;
@@ -60,7 +59,6 @@ let currentQuality = 720;
 let currentFacingMode = "user";
 let pingTimer = null;
 let currentMediaData = null;
-// YENİ
 let typingTimer;
 let isTyping = false;
 let messageIdCounter = 0;
@@ -69,37 +67,22 @@ const sentMessages = new Map();
 micBtn.textContent = "🎤";
 camBtn.textContent = "📷";
 
-/* ------------------
-   KAMERA - YOKSA DA DEVAM ET
-------------------- */
 async function startCamera(height = 720, facingMode = currentFacingMode) {
     try {
         if (localStream) {
             localStream.getVideoTracks().forEach(track => track.stop());
         }
-
         localStream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: { ideal: facingMode },
-                width: {
-                    ideal: height === 1080? 1920 : height === 720? 1280 : height === 480? 854 : 640
-                },
+                width: { ideal: height === 1080? 1920 : height === 720? 1280 : height === 480? 854 : 640 },
                 height: { ideal: height },
                 frameRate: { ideal: 30, max: 30 }
             },
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            }
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         });
-
         myVideo.srcObject = localStream;
-        if (facingMode === "user") {
-            myVideo.style.transform = "scaleX(-1)";
-        } else {
-            myVideo.style.transform = "scaleX(1)";
-        }
+        myVideo.style.transform = facingMode === "user"? "scaleX(-1)" : "scaleX(1)";
         return true;
     } catch (err) {
         console.log("Kamera/Mikrofon hatası:", err);
@@ -108,206 +91,101 @@ async function startCamera(height = 720, facingMode = currentFacingMode) {
     }
 }
 
-/* ------------------
-   PING ÖLÇÜMÜ
-------------------- */
 function startPingMonitor() {
-    if (pingTimer) {
-        clearInterval(pingTimer);
-    }
-    pingTimer = setInterval(() => {
-        socket.emit("ping-check", Date.now());
-    }, 3000);
+    if (pingTimer) clearInterval(pingTimer);
+    pingTimer = setInterval(() => socket.emit("ping-check", Date.now()), 3000);
 }
 
 socket.on("pong-check", timestamp => {
     const ping = Date.now() - timestamp;
-    if (pingValue) {
-        pingValue.textContent = ping + " ms";
-    }
+    if (pingValue) pingValue.textContent = ping + " ms";
     if (!connectionQuality) return;
-
-    if (ping < 100) {
-        connectionQuality.textContent = "Mükemmel";
-        connectionQuality.className = "good";
-    } else if (ping < 200) {
-        connectionQuality.textContent = "İyi";
-        connectionQuality.className = "medium";
-    } else {
-        connectionQuality.textContent = "Zayıf";
-        connectionQuality.className = "bad";
-    }
+    if (ping < 100) { connectionQuality.textContent = "Mükemmel"; connectionQuality.className = "good"; }
+    else if (ping < 200) { connectionQuality.textContent = "İyi"; connectionQuality.className = "medium"; }
+    else { connectionQuality.textContent = "Zayıf"; connectionQuality.className = "bad"; }
 });
 
-/* ------------------
-   ODAYA GİR - KAMERA YOKSA DA GİRER
-------------------- */
 joinBtn.onclick = async () => {
     const room = roomName.value.trim();
     const password = roomPassword.value.trim();
-    if (!room ||!password) {
-        alert("Oda adı ve şifre gerekli");
-        return;
-    }
-
-    const cameraOK = await startCamera(currentQuality);
-    if (!cameraOK) {
-        console.log("Kamera olmadan devam ediliyor");
-    }
-
+    if (!room ||!password) { alert("Oda adı ve şifre gerekli"); return; }
+    await startCamera(currentQuality);
     currentRoom = room;
     socket.emit("join-room", { room, password });
 };
 
-socket.on("room-error", msg => {
-    alert(msg);
-});
-
+socket.on("room-error", msg => alert(msg));
 socket.on("joined-room", count => {
     roomScreen.style.display = "none";
     mainScreen.style.display = "block";
     startPingMonitor();
-    if (count === 2) {
-        createPeer(true);
-    }
+    if (count === 2) createPeer(true);
 });
+socket.on("user-connected", () => { if (!peer) createPeer(false); });
 
-socket.on("user-connected", () => {
-    if (!peer) {
-        createPeer(false);
-    }
-});
-
-/* ------------------
-   PEER
-------------------- */
 function createPeer(initiator) {
     peer = new SimplePeer({
         initiator,
         trickle: false,
         stream: localStream,
-        config: {
-            iceServers: [
-                { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
-            ]
-        }
+        config: { iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }] }
     });
-
-    peer.on("signal", signal => {
-        socket.emit("signal", { room: currentRoom, signal });
-    });
-
-    peer.on("stream", stream => {
-        remoteVideo.srcObject = stream;
-        remoteVideo.play().catch(() => {});
-    });
-
-    peer.on("connect", () => {
-        console.log("Peer bağlandı");
-    });
-
-    peer.on("close", () => {
-        console.log("Peer kapandı");
-    });
-
-    peer.on("error", err => {
-        console.log("Peer hata:", err);
-    });
+    peer.on("signal", signal => socket.emit("signal", { room: currentRoom, signal }));
+    peer.on("stream", stream => { remoteVideo.srcObject = stream; remoteVideo.play().catch(() => {}); });
+    peer.on("connect", () => console.log("Peer bağlandı"));
+    peer.on("close", () => console.log("Peer kapandı"));
+    peer.on("error", err => console.log("Peer hata:", err));
 }
 
-socket.on("signal", signal => {
-    if (!peer) {
-        createPeer(false);
-    }
-    peer.signal(signal);
-});
-
+socket.on("signal", signal => { if (!peer) createPeer(false); peer.signal(signal); });
 socket.on("user-disconnected", () => {
     remoteVideo.srcObject = null;
-    if (peer) {
-        peer.destroy();
-        peer = null;
-    }
+    if (peer) { peer.destroy(); peer = null; }
     connectionQuality.textContent = "Bağlantı Yok";
     connectionQuality.className = "bad";
 });
 
-/* ------------------
-   KALİTE DEĞİŞTİR
-------------------- */
 qualitySelect.onchange = async () => {
     currentQuality = parseInt(qualitySelect.value);
     socket.emit("quality-change", currentQuality);
     await startCamera(currentQuality, currentFacingMode);
-
     if (peer && localStream) {
         const sender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
-        if (sender) {
-            await sender.replaceTrack(localStream.getVideoTracks()[0]);
-        }
+        if (sender) await sender.replaceTrack(localStream.getVideoTracks()[0]);
     }
 };
+socket.on("quality-change", quality => console.log("Karşı taraf kalite istedi:", quality));
 
-socket.on("quality-change", quality => {
-    console.log("Karşı taraf kalite istedi:", quality);
-});
+settingsBtn.onclick = () => settingsContainer.classList.toggle("menu-open");
 
-/* ------------------
-   AYARLAR MENÜ AÇ KAPA
-------------------- */
-settingsBtn.onclick = () => {
-    settingsContainer.classList.toggle("menu-open");
-};
-
-/* ------------------
-   TAM EKRAN
-------------------- */
 if (fullscreenBtn) {
     fullscreenBtn.onclick = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen();
-        } else {
-            document.exitFullscreen();
-        }
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
     };
 }
 
-/* ------------------
-   EKRAN PAYLAŞ
-------------------- */
 if (shareScreenBtn) {
     shareScreenBtn.onclick = async () => {
         try {
             const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
             const screenTrack = screenStream.getVideoTracks()[0];
-
             if (peer) {
                 const videoSender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
-                if (videoSender) {
-                    await videoSender.replaceTrack(screenTrack);
-                }
+                if (videoSender) await videoSender.replaceTrack(screenTrack);
             }
-
             myVideo.srcObject = screenStream;
-
             screenTrack.onended = async () => {
                 await startCamera(currentQuality, currentFacingMode);
                 if (peer && localStream) {
                     const sender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
-                    if (sender) {
-                        sender.replaceTrack(localStream.getVideoTracks()[0]);
-                    }
+                    if (sender) sender.replaceTrack(localStream.getVideoTracks()[0]);
                 }
             };
-        } catch (err) {
-            console.log(err);
-        }
+        } catch (err) { console.log(err); }
     };
 }
 
-/* ------------------
-   MESAJLAR - OKUNDU TIKI FİX
-------------------- */
 function addMyMessage(text) {
     const msgId = `msg-${Date.now()}-${messageIdCounter++}`;
     const div = document.createElement("div");
@@ -316,7 +194,6 @@ function addMyMessage(text) {
     div.innerHTML = `BEN → ${text}<span class="message-tick">✓</span>`;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-    
     sentMessages.set(msgId, div);
     return msgId;
 }
@@ -327,19 +204,10 @@ function addOtherMessage(text, msgId) {
     div.textContent = "SEN → " + text;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-    
-    // Chat açıksa hemen okundu gönder
-    if (msgId && chatPanel.style.display === "flex") {
-        socket.emit("message-read", msgId);
-    }
-    
-    // Chat kapalıysa titret + ışık yak
+    if (msgId && chatPanel.style.display === "flex") socket.emit("message-read", msgId);
     if (chatPanel.style.display!== "flex") {
-        chatToggle.classList.add("newMessageBlink");
-        chatToggle.classList.add("shake");
-        setTimeout(() => {
-            chatToggle.classList.remove("shake");
-        }, 600);
+        chatToggle.classList.add("newMessageBlink", "shake");
+        setTimeout(() => chatToggle.classList.remove("shake"), 600);
     }
 }
 
@@ -349,41 +217,25 @@ sendBtn.onclick = () => {
     const msgId = addMyMessage(text);
     socket.emit("chat-message", { text, msgId });
     input.value = "";
-    // Yazıyor'u durdur
     socket.emit('typing', false);
     isTyping = false;
 };
 
-input.addEventListener("keydown", e => {
-    if (e.key === "Enter") {
-        sendBtn.click();
-    }
-});
+input.addEventListener("keydown", e => { if (e.key === "Enter") sendBtn.click(); });
+socket.on("chat-message", data => addOtherMessage(data.text, data.msgId));
 
-socket.on("chat-message", data => {
-    addOtherMessage(data.text, data.msgId);
-});
-
-// OKUNDU BİLGİSİ GELİNCE - TEK MESAJ
 socket.on("message-read", (msgId) => {
     const msgElement = sentMessages.get(msgId);
     if (msgElement) {
         const tick = msgElement.querySelector(".message-tick");
-        if (tick) {
-            tick.textContent = "✓✓";
-            tick.classList.add("read");
-        }
+        if (tick) { tick.textContent = "✓✓"; tick.classList.add("read"); }
     }
 });
 
-// TÜMÜ OKUNDU GELİNCE - CHAT SONRADAN AÇILINCA
 socket.on("messages-read-all", () => {
     sentMessages.forEach((msgElement) => {
         const tick = msgElement.querySelector(".message-tick");
-        if (tick) {
-            tick.textContent = "✓✓";
-            tick.classList.add("read");
-        }
+        if (tick) { tick.textContent = "✓✓"; tick.classList.add("read"); }
     });
 });
 
@@ -395,29 +247,16 @@ chatToggle.onclick = () => {
     } else {
         chatPanel.style.display = "flex";
         document.body.classList.add("chat-open");
-        chatToggle.classList.remove("newMessageBlink");
-        chatToggle.classList.remove("shake");
+        chatToggle.classList.remove("newMessageBlink", "shake");
         chatToggle.textContent = "✖";
-        
-        // Chat açılınca karşı tarafa tüm mesajları okudum de
         socket.emit("messages-read-all");
     }
 };
 
-/* ------------------
-   YAZIYOR ANİMASYONU
-------------------- */
 input.addEventListener('input', () => {
-    if (!isTyping && input.value.trim()) {
-        socket.emit('typing', true);
-        isTyping = true;
-    }
-    
+    if (!isTyping && input.value.trim()) { socket.emit('typing', true); isTyping = true; }
     clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => {
-        socket.emit('typing', false);
-        isTyping = false;
-    }, 1000);
+    typingTimer = setTimeout(() => { socket.emit('typing', false); isTyping = false; }, 1000);
 });
 
 socket.on('typing', (typing) => {
@@ -428,147 +267,83 @@ socket.on('typing', (typing) => {
         typingDiv.className = 'otherMessage';
         messages.appendChild(typingDiv);
     }
-    
-    if (typing) {
-        typingDiv.textContent = 'SEN yazıyor...';
-        typingDiv.style.display = 'block';
-        messages.scrollTop = messages.scrollHeight;
-    } else {
-        typingDiv.style.display = 'none';
-    }
+    typingDiv.textContent = typing? 'SEN yazıyor...' : '';
+    typingDiv.style.display = typing? 'block' : 'none';
+    messages.scrollTop = messages.scrollHeight;
 });
 
-/* ------------------
-   MSN TİTREŞİM
-------------------- */
 if (nudgeBtn) {
     nudgeBtn.onclick = () => {
         socket.emit("nudge");
-        // Kendini de salla
         document.body.classList.add("screen-shake");
-        setTimeout(() => {
-            document.body.classList.remove("screen-shake");
-        }, 800);
+        setTimeout(() => document.body.classList.remove("screen-shake"), 800);
     };
 }
 
 socket.on("nudge", () => {
     document.body.classList.add("screen-shake");
     if (navigator.vibrate) navigator.vibrate(500);
-    setTimeout(() => {
-        document.body.classList.remove("screen-shake");
-    }, 800);
-    
-    // Chat kapalıysa butonu da titret
+    setTimeout(() => document.body.classList.remove("screen-shake"), 800);
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("shake");
         setTimeout(() => chatToggle.classList.remove("shake"), 600);
     }
 });
 
-/* ------------------
-   UÇAN EMOJİ
-------------------- */
-if (emojiBtn) {
-    emojiBtn.onclick = () => {
-        emojiPanel.classList.toggle("show");
-    };
-}
+if (emojiBtn) emojiBtn.onclick = () => emojiPanel.classList.toggle("show");
 
 document.querySelectorAll('.flyEmoji').forEach(emoji => {
     emoji.onclick = () => {
         const emojiText = emoji.textContent;
-        socket.emit('fly-emoji', emojiText);
-        createFlyingEmoji(emojiText, true);
+        const effect = emoji.dataset.effect;
+        socket.emit('fly-emoji', { emoji: emojiText, effect });
+        createFlyingEmoji(emojiText, effect, true);
         emojiPanel.classList.remove("show");
     };
 });
 
-socket.on('fly-emoji', (emoji) => {
-    createFlyingEmoji(emoji, false);
-});
+socket.on('fly-emoji', (data) => createFlyingEmoji(data.emoji, data.effect, false));
 
-function createFlyingEmoji(emoji, isMine) {
+function createFlyingEmoji(emoji, effect, isMine) {
     const flyEmoji = document.createElement('div');
-    flyEmoji.className = 'flying-emoji';
+    flyEmoji.className = `flying-emoji ${effect}`;
     flyEmoji.textContent = emoji;
-    
-    // Pozisyon
     const x = isMine? window.innerWidth - 100 : 100;
     flyEmoji.style.left = x + 'px';
     flyEmoji.style.bottom = '100px';
-    
     document.body.appendChild(flyEmoji);
-    
-    setTimeout(() => {
-        flyEmoji.remove();
-    }, 2000);
+    setTimeout(() => flyEmoji.remove(), 2500);
 }
 
-// Panel dışına tıklayınca kapat
 document.addEventListener('click', (e) => {
     if (emojiPanel &&!emojiPanel.contains(e.target) && e.target!== emojiBtn) {
         emojiPanel.classList.remove("show");
     }
 });
 
-/* ------------------
-   MİKROFON
-------------------- */
 micBtn.onclick = () => {
     if (!localStream) return;
     micEnabled =!micEnabled;
-    
-    localStream.getAudioTracks().forEach(track => {
-        track.enabled = micEnabled;
-    });
-
+    localStream.getAudioTracks().forEach(track => track.enabled = micEnabled);
     if (peer && localStream) {
         const audioSender = peer._pc.getSenders().find(s => s.track && s.track.kind === "audio");
-        if (audioSender && audioSender.track) {
-            audioSender.track.enabled = micEnabled;
-        }
+        if (audioSender && audioSender.track) audioSender.track.enabled = micEnabled;
     }
-
-    if (micEnabled) {
-        micBtn.classList.remove("offIcon");
-        micBtn.textContent = "🎤";
-    } else {
-        micBtn.classList.add("offIcon");
-        micBtn.textContent = "🔇";
-    }
+    micBtn.classList.toggle("offIcon",!micEnabled);
+    micBtn.textContent = micEnabled? "🎤" : "🔇";
 };
 
-/* ------------------
-   KAMERA
-------------------- */
 camBtn.onclick = () => {
     if (!localStream) return;
     camEnabled =!camEnabled;
-    
-    localStream.getVideoTracks().forEach(track => {
-        track.enabled = camEnabled;
-    });
-
+    localStream.getVideoTracks().forEach(track => track.enabled = camEnabled);
     if (peer && localStream) {
         const videoSender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
-        if (videoSender && videoSender.track) {
-            videoSender.track.enabled = camEnabled;
-        }
+        if (videoSender && videoSender.track) videoSender.track.enabled = camEnabled;
     }
-
-    if (camEnabled) {
-        camBtn.classList.remove("offIcon");
-        camBtn.textContent = "📷";
-    } else {
-        camBtn.classList.add("offIcon");
-        camBtn.textContent = "📷";
-    }
+    camBtn.classList.toggle("offIcon",!camEnabled);
 };
 
-/* ------------------
-   KAMERA ÇEVİR
-------------------- */
 if (switchCameraBtn) {
     switchCameraBtn.onclick = async () => {
         try {
@@ -576,9 +351,7 @@ if (switchCameraBtn) {
             await startCamera(currentQuality, currentFacingMode);
             if (peer && localStream) {
                 const videoSender = peer._pc.getSenders().find(s => s.track && s.track.kind === "video");
-                if (videoSender) {
-                    await videoSender.replaceTrack(localStream.getVideoTracks()[0]);
-                }
+                if (videoSender) await videoSender.replaceTrack(localStream.getVideoTracks()[0]);
             }
         } catch (err) {
             console.log("Kamera çevrilemedi:", err);
@@ -587,9 +360,6 @@ if (switchCameraBtn) {
     };
 }
 
-/* ------------------
-   SES
-------------------- */
 remoteVideo.muted = false;
 remoteVideo.volume = 0.1;
 volumeSlider.value = 0.1;
@@ -597,253 +367,138 @@ volumeSlider.value = 0.1;
 volumeSlider.oninput = () => {
     const volume = parseFloat(volumeSlider.value);
     remoteVideo.volume = volume;
-    if (volume <= 0) {
-        remoteVideo.muted = true;
-        soundBtn.textContent = "🔇";
-    } else {
-        remoteVideo.muted = false;
-        soundBtn.textContent = "🔊";
-    }
+    remoteVideo.muted = volume <= 0;
+    soundBtn.textContent = volume <= 0? "🔇" : "🔊";
 };
 
 soundBtn.onclick = () => {
-    if (remoteVideo.muted) {
-        remoteVideo.muted = false;
-        if (parseFloat(volumeSlider.value) === 0) {
-            volumeSlider.value = 0.5;
-            remoteVideo.volume = 0.5;
-        }
-        soundBtn.textContent = "🔊";
-    } else {
-        remoteVideo.muted = true;
-        soundBtn.textContent = "🔇";
+    remoteVideo.muted =!remoteVideo.muted;
+    if (!remoteVideo.muted && parseFloat(volumeSlider.value) === 0) {
+        volumeSlider.value = 0.5;
+        remoteVideo.volume = 0.5;
     }
+    soundBtn.textContent = remoteVideo.muted? "🔇" : "🔊";
 };
 
-/* ------------------
-   ŞİFRE DEĞİŞTİR
-------------------- */
 changePasswordBtn.onclick = () => {
     const pass = prompt("Yeni şifre");
     if (!pass) return;
     socket.emit("change-password", pass);
 };
+socket.on("password-changed", () => alert("Şifre değiştirildi"));
 
-socket.on("password-changed", () => {
-    alert("Şifre değiştirildi");
-});
-
-/* ------------------
-   KÜÇÜK KAMERAYI SÜRÜKLE + BÜYÜT KÜÇÜLT
-------------------- */
-let isDragging = false;
-let startX, startY, startLeft, startTop;
-let startDistance = 0;
-let startWidth = 0;
-let startHeight = 0;
-
+let isDragging = false, startX, startY, startLeft, startTop, startDistance = 0, startWidth = 0, startHeight = 0;
 myVideoContainer.addEventListener("touchstart", (e) => {
     if (e.touches.length === 1) {
         isDragging = true;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-        startLeft = myVideoContainer.offsetLeft;
-        startTop = myVideoContainer.offsetTop;
+        startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+        startLeft = myVideoContainer.offsetLeft; startTop = myVideoContainer.offsetTop;
     } else if (e.touches.length === 2) {
         isDragging = false;
-        startDistance = Math.hypot(
-            e.touches[0].clientX - e.touches[1].clientX,
-            e.touches[0].clientY - e.touches[1].clientY
-        );
-        startWidth = myVideoContainer.offsetWidth;
-        startHeight = myVideoContainer.offsetHeight;
+        startDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        startWidth = myVideoContainer.offsetWidth; startHeight = myVideoContainer.offsetHeight;
     }
 });
-
 myVideoContainer.addEventListener("touchmove", (e) => {
     e.preventDefault();
     if (e.touches.length === 1 && isDragging) {
-        const dx = e.touches[0].clientX - startX;
-        const dy = e.touches[0].clientY - startY;
-        myVideoContainer.style.left = startLeft + dx + "px";
-        myVideoContainer.style.top = startTop + dy + "px";
+        myVideoContainer.style.left = startLeft + (e.touches[0].clientX - startX) + "px";
+        myVideoContainer.style.top = startTop + (e.touches[0].clientY - startY) + "px";
         myVideoContainer.style.right = "auto";
     } else if (e.touches.length === 2) {
-        const distance = Math.hypot(
-            e.touches[0].clientX - e.touches[1].clientX,
-            e.touches[0].clientY - e.touches[1].clientY
-        );
+        const distance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         const scale = distance / startDistance;
-        let newWidth = startWidth * scale;
-        let newHeight = startHeight * scale;
-
-        if (newWidth < 100) newWidth = 100;
-        if (newWidth > 300) newWidth = 300;
-        if (newHeight < 130) newHeight = 130;
-        if (newHeight > 400) newHeight = 400;
-
+        let newWidth = Math.min(300, Math.max(100, startWidth * scale));
+        let newHeight = Math.min(400, Math.max(130, startHeight * scale));
         myVideoContainer.style.width = newWidth + "px";
         myVideoContainer.style.height = newHeight + "px";
     }
 });
+myVideoContainer.addEventListener("touchend", () => isDragging = false);
 
-myVideoContainer.addEventListener("touchend", () => {
-    isDragging = false;
-});
-
-/* ------------------
-   MEDYA GÖNDERME
-------------------- */
-mediaBtn.onclick = (e) => {
-    e.preventDefault();
-    mediaInput.click();
-};
-
+mediaBtn.onclick = (e) => { e.preventDefault(); mediaInput.click(); };
 mediaInput.onchange = async () => {
-    const file = mediaInput.files[0];
-    if (!file) return;
-
-    console.log("Seçilen dosya:", file.name, "Boyut:", (file.size / 1024).toFixed(2), "MB");
-
+    const file = mediaInput.files[0]; if (!file) return;
     const MAX_FILE_SIZE = 1024 * 1024;
-    if (file.size > MAX_FILE_SIZE) {
-        alert("Dosya çok büyük! Max 1GB");
-        return;
-    }
-
+    if (file.size > MAX_FILE_SIZE) { alert("Dosya çok büyük! Max 1GB"); return; }
     const reader = new FileReader();
     reader.onload = (e) => {
-        const data = {
-            type: file.type.split('/')[0],
-            data: e.target.result,
-            name: file.name
-        };
-        console.log("Gönderiliyor... Base64 boyut:", (e.target.result.length / 1024).toFixed(2), "MB");
+        const data = { type: file.type.split('/')[0], data: e.target.result, name: file.name };
         socket.emit("chat-media", data);
         addMyMediaMessage(data);
-    };
-    reader.onerror = (err) => {
-        console.log("FileReader hatası:", err);
-        alert("Dosya okunamadı");
     };
     reader.readAsDataURL(file);
     mediaInput.value = "";
 };
 
 function addMyMediaMessage(data) {
-    const div = document.createElement("div");
-    div.className = "myMessage";
+    const div = document.createElement("div"); div.className = "myMessage";
     if (data.type === "image") {
-        const img = document.createElement("img");
-        img.src = data.data;
-        img.className = "mediaMessage";
-        img.onclick = () => openPreview(data);
-        img.oncontextmenu = e => e.preventDefault();
-        img.draggable = false;
-        div.appendChild(img);
+        const img = document.createElement("img"); img.src = data.data; img.className = "mediaMessage";
+        img.onclick = () => openPreview(data); img.oncontextmenu = e => e.preventDefault(); img.draggable = false; div.appendChild(img);
     } else if (data.type === "video") {
-        const video = document.createElement("video");
-        video.src = data.data;
-        video.className = "mediaMessage";
-        video.controls = true;
-        video.oncontextmenu = e => e.preventDefault();
-        video.controlsList = "nodownload";
-        div.appendChild(video);
+        const video = document.createElement("video"); video.src = data.data; video.className = "mediaMessage"; video.controls = true; video.oncontextmenu = e => e.preventDefault(); video.controlsList = "nodownload"; div.appendChild(video);
     } else if (data.type === "audio") {
-        const audio = document.createElement("audio");
-        audio.src = data.data;
-        audio.controls = true;
-        audio.controlsList = "nodownload";
-        div.appendChild(audio);
+        const audio = document.createElement("audio"); audio.src = data.data; audio.controls = true; audio.controlsList = "nodownload"; div.appendChild(audio);
     }
-    messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
+    messages.appendChild(div); messages.scrollTop = messages.scrollHeight;
 }
 
 socket.on("chat-media", (data) => {
-    console.log("Medya alındı:", data.name);
-    const div = document.createElement("div");
-    div.className = "otherMessage";
+    const div = document.createElement("div"); div.className = "otherMessage";
     if (data.type === "image") {
-        const img = document.createElement("img");
-        img.src = data.data;
-        img.className = "mediaMessage";
-        img.onclick = () => openPreview(data);
-        img.oncontextmenu = e => e.preventDefault();
-        img.draggable = false;
-        div.appendChild(img);
+        const img = document.createElement("img"); img.src = data.data; img.className = "mediaMessage";
+        img.onclick = () => openPreview(data); img.oncontextmenu = e => e.preventDefault(); img.draggable = false; div.appendChild(img);
     } else if (data.type === "video") {
-        const video = document.createElement("video");
-        video.src = data.data;
-        video.className = "mediaMessage";
-        video.controls = true;
-        video.oncontextmenu = e => e.preventDefault();
-        video.controlsList = "nodownload";
-        div.appendChild(video);
+        const video = document.createElement("video"); video.src = data.data; video.className = "mediaMessage"; video.controls = true; video.oncontextmenu = e => e.preventDefault(); video.controlsList = "nodownload"; div.appendChild(video);
     } else if (data.type === "audio") {
-        const audio = document.createElement("audio");
-        audio.src = data.data;
-        audio.controls = true;
-        audio.controlsList = "nodownload";
-        div.appendChild(audio);
+        const audio = document.createElement("audio"); audio.src = data.data; audio.controls = true; audio.controlsList = "nodownload"; div.appendChild(audio);
     }
-    messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
-    
-    // Medya gelince de titret
+    messages.appendChild(div); messages.scrollTop = messages.scrollHeight;
     if (chatPanel.style.display!== "flex") {
-        chatToggle.classList.add("newMessageBlink");
-        chatToggle.classList.add("shake");
-        setTimeout(() => {
-            chatToggle.classList.remove("shake");
-        }, 600);
+        chatToggle.classList.add("newMessageBlink", "shake");
+        setTimeout(() => chatToggle.classList.remove("shake"), 600);
     }
 });
 
 function openPreview(data) {
     currentMediaData = data;
     mediaPreview.style.display = "flex";
-    if (data.type === "image") {
-        previewImg.src = data.data;
-        previewImg.style.display = "block";
-        previewVideo.style.display = "none";
-    } else if (data.type === "video") {
-        previewVideo.src = data.data;
-        previewVideo.style.display = "block";
-        previewImg.style.display = "none";
-    }
+    if (data.type === "image") { previewImg.src = data.data; previewImg.style.display = "block"; previewVideo.style.display = "none"; }
+    else if (data.type === "video") { previewVideo.src = data.data; previewVideo.style.display = "block"; previewImg.style.display = "none"; }
 }
-
-closePreview.onclick = () => {
-    mediaPreview.style.display = "none";
-    previewVideo.pause();
-};
-
+closePreview.onclick = () => { mediaPreview.style.display = "none"; previewVideo.pause(); };
 downloadMediaBtn.onclick = () => {
     const pass = prompt("İndirmek için oda şifresini girin:");
     if (!pass) return;
     socket.emit("verify-download", { password: pass }, (ok) => {
-        if (ok) {
-            const a = document.createElement("a");
-            a.href = currentMediaData.data;
-            a.download = currentMediaData.name;
-            a.click();
-        } else {
-            alert("Şifre yanlış. İndirilemez.");
-        }
+        if (ok) { const a = document.createElement("a"); a.href = currentMediaData.data; a.download = currentMediaData.name; a.click(); }
+        else alert("Şifre yanlış. İndirilemez.");
     });
 };
 
-/* ------------------
-   SAYFA KAPANIRKEN
-------------------- */
+// GECE MODU
+if (lightModeBtn) lightModeBtn.onclick = () => remoteVideo.classList.toggle("light-mode");
+
+// KONUM PAYLAŞ
+if (locationBtn) {
+    locationBtn.onclick = () => {
+        if (!navigator.geolocation) { alert("Konum desteklenmiyor"); return; }
+        navigator.geolocation.getCurrentPosition(pos => {
+            const lat = pos.coords.latitude.toFixed(6);
+            const lon = pos.coords.longitude.toFixed(6);
+            const url = `https://maps.google.com/?q=${lat},${lon}`;
+            const msgId = addMyMessage(`📍 Konumum`);
+            socket.emit("chat-message", { text: `📍 Konumum: ${url}`, msgId });
+            socket.emit("share-location", { lat, lon, url });
+        }, () => alert("Konum alınamadı"));
+    };
+}
+socket.on("share-location", data => addOtherMessage(`📍 Konum: ${data.url}`));
+
 window.addEventListener("beforeunload", () => {
-    if (peer) {
-        peer.destroy();
-    }
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
+    if (peer) peer.destroy();
+    if (localStream) localStream.getTracks().forEach(track => track.stop());
 });
 
 console.log("Script tamamen yüklendi");

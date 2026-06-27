@@ -42,6 +42,7 @@
             <button id="soundBtn" aria-label="Ses">🔊</button>
             <button id="shareScreenBtn" aria-label="Ekran paylaş">📺</button>
             <button id="changePasswordBtn" aria-label="Şifre değiştir">🔐</button>
+            <button id="lightModeBtn" aria-label="Gece/Gündüz">💡</button>
 
             <div id="statusBar">
                 <div class="statusBox">
@@ -61,6 +62,7 @@
             <div id="messages"></div>
             <div id="inputArea">
                 <button id="mediaBtn" aria-label="Dosya ekle">📎</button>
+                <button id="locationBtn" aria-label="Konum gönder">📍</button>
                 <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none" aria-label="Medya dosyası seç">
                 <input id="messageInput" placeholder="Mesaj yaz..." aria-label="Mesaj">
                 <button id="nudgeBtn" title="Dürt">👉</button>
@@ -68,12 +70,16 @@
                 <button id="sendBtn" aria-label="Gönder">Gönder</button>
             </div>
             <div id="emojiPanel">
-                <span class="flyEmoji">👍</span>
-                <span class="flyEmoji">❤</span>
-                <span class="flyEmoji">😂</span>
-                <span class="flyEmoji">🔥</span>
-                <span class="flyEmoji">😢</span>
-                <span class="flyEmoji">😮</span>
+                <span class="flyEmoji" data-effect="heart">❤</span>
+                <span class="flyEmoji" data-effect="kiss">😘</span>
+                <span class="flyEmoji" data-effect="laugh">😂</span>
+                <span class="flyEmoji" data-effect="thumbs">👍</span>
+                <span class="flyEmoji" data-effect="cry">😢</span>
+                <span class="flyEmoji" data-effect="wow">😮</span>
+                <span class="flyEmoji" data-effect="flower">🌸</span>
+                <span class="flyEmoji" data-effect="fire">🔥</span>
+                <span class="flyEmoji" data-effect="love">😍</span>
+                <span class="flyEmoji" data-effect="hug">🫶</span>
             </div>
         </div>
 
