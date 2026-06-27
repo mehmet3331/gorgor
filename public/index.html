@@ -1,15 +1,12 @@
 <!DOCTYPE html>
 <html lang="tr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GORGOR</title>
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    <!-- ODAYA GİRİŞ -->
     <div id="roomScreen">
         <h2>Odaya Katıl</h2>
         <input id="roomName" placeholder="Oda adı" aria-label="Oda adı">
@@ -17,11 +14,9 @@
         <button id="joinBtn">Odaya Gir</button>
     </div>
 
-    <!-- ANA EKRAN -->
     <div id="mainScreen">
         <video id="remoteVideo" autoplay playsinline webkit-playsinline></video>
 
-        <!-- KÜÇÜK KAMERA KONTEYNERİ -->
         <div id="myVideoContainer">
             <video id="myVideo" autoplay playsinline webkit-playsinline muted></video>
             <button id="switchCameraBtn" class="cameraOverlayBtn" aria-label="Kamerayı değiştir">🔄</button>
@@ -34,7 +29,6 @@
             </select>
         </div>
 
-        <!-- SOL ÜST AYARLAR -->
         <div id="settingsContainer">
             <button id="settingsBtn" aria-label="Ayarlar">⚙</button>
             <button id="micBtn" aria-label="Mikrofon">🎤</button>
@@ -43,20 +37,14 @@
             <button id="shareScreenBtn" aria-label="Ekran paylaş">📺</button>
             <button id="changePasswordBtn" aria-label="Şifre değiştir">🔐</button>
             <button id="lightModeBtn" aria-label="Gece/Gündüz">💡</button>
-
             <div id="statusBar">
-                <div class="statusBox">
-                    Ping: <span id="pingValue">-</span>
-                </div>
-                <div class="statusBox">
-                    Bağlantı: <span id="connectionQuality">-</span>
-                </div>
+                <div class="statusBox">Ping: <span id="pingValue">-</span></div>
+                <div class="statusBox">Bağlantı: <span id="connectionQuality">-</span></div>
             </div>
         </div>
 
         <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.1" aria-label="Ses seviyesi">
 
-        <!-- SOHBET -->
         <button id="chatToggle" aria-label="Sohbeti aç">💬</button>
         <div id="chatPanel">
             <div id="messages"></div>
@@ -80,10 +68,10 @@
                 <span class="flyEmoji" data-effect="fire">🔥</span>
                 <span class="flyEmoji" data-effect="love">😍</span>
                 <span class="flyEmoji" data-effect="hug">🫶</span>
+                <span id="addCustomEmoji" class="flyEmoji" style="background:#333;border-radius:6px;padding:2px 6px;">+</span>
             </div>
         </div>
 
-        <!-- MEDYA ÖNİZLEME -->
         <div id="mediaPreview">
             <span id="closePreview" aria-label="Önizlemeyi kapat">✖</span>
             <img id="previewImg" alt="Medya önizleme">
@@ -96,5 +84,4 @@
     <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
     <script src="script.js"></script>
 </body>
-
 </html>
