@@ -167,7 +167,46 @@ myVideoContainer.addEventListener("touchmove", (e) => { e.preventDefault(); if (
 myVideoContainer.addEventListener("touchend", () => isDragging = false);
 
 mediaBtn.onclick = (e) => { e.preventDefault(); mediaInput.click(); };
-mediaInput.onchange = async () => { const file = mediaInput.files[0]; if (!file) return; const MAX_FILE_SIZE = 1024 * 1024 * 1024; if (file.size > MAX_FILE_SIZE) { alert("Dosya çok büyük! Max 1GB"); return; } const reader = new FileReader(); reader.onload = (e) => { const data = { type: file.type.split('/')[0], data: e.target.result, name: file.name }; socket.emit("chat-media", data); addMyMediaMessage(data); }; reader.readAsDataURL(file); mediaInput.value = ""; };
+mediaInput.onchange = async () => {
+    const file = mediaInput.files[0];
+    if (!file) return;
+
+    // YENİ: 5 MB üstü yasakla
+    const MAX_FILE_SIZE = 5 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+        alert("Dosya çok büyük! Max 5MB (fotoğrafı küçült)");
+        return;
+    }
+
+    // YENİ: resmi küçült
+    if (file.type.startsWith('image/')) {
+        const img = await createImageBitmap(file);
+        const canvas = document.createElement('canvas');
+        const max = 1280;
+        let w = img.width, h = img.height;
+        if (w > max) { h = h * max / w; w = max; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = { type: 'image', data: e.target.result, name: file.name };
+            socket.emit("chat-media", data);
+            addMyMediaMessage(data);
+        };
+        reader.readAsDataURL(blob);
+    } else {
+        // video/audio eski yöntem
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = { type: file.type.split('/')[0], data: e.target.result, name: file.name };
+            socket.emit("chat-media", data);
+            addMyMediaMessage(data);
+        };
+        reader.readAsDataURL(file);
+    }
+    mediaInput.value = "";
+};
 function addMyMediaMessage(data) { const div = document.createElement("div"); div.className = "myMessage"; if (data.type === "image") { const img = document.createElement("img"); img.src = data.data; img.className = "mediaMessage"; img.onclick = () => openPreview(data); img.oncontextmenu = e => e.preventDefault(); img.draggable = false; div.appendChild(img); } else if (data.type === "video") { const video = document.createElement("video"); video.src = data.data; video.className = "mediaMessage"; video.controls = true; video.oncontextmenu = e => e.preventDefault(); video.controlsList = "nodownload"; div.appendChild(video); } else if (data.type === "audio") { const audio = document.createElement("audio"); audio.src = data.data; audio.controls = true; audio.controlsList = "nodownload"; div.appendChild(audio); } messages.appendChild(div); messages.scrollTop = messages.scrollHeight; }
 socket.on("chat-media", (data) => { const div = document.createElement("div"); div.className = "otherMessage"; if (data.type === "image") { const img = document.createElement("img"); img.src = data.data; img.className = "mediaMessage"; img.onclick = () => openPreview(data); img.oncontextmenu = e => e.preventDefault(); img.draggable = false; div.appendChild(img); } else if (data.type === "video") { const video = document.createElement("video"); video.src = data.data; video.className = "mediaMessage"; video.controls = true; video.oncontextmenu = e => e.preventDefault(); video.controlsList = "nodownload"; div.appendChild(video); } else if (data.type === "audio") { const audio = document.createElement("audio"); audio.src = data.data; audio.controls = true; audio.controlsList = "nodownload"; div.appendChild(audio); } messages.appendChild(div); messages.scrollTop = messages.scrollHeight; if (chatPanel.style.display!== "flex") { chatToggle.classList.add("newMessageBlink", "shake"); setTimeout(() => chatToggle.classList.remove("shake"), 600); } });
 
