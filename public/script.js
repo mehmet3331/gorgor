@@ -191,7 +191,8 @@ function addMyMessage(text) {
     const div = document.createElement("div");
     div.className = "myMessage";
     div.id = msgId;
-    div.innerHTML = `BEN → ${text}<span class="message-tick">✓</span>`;
+    const linked = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
+    div.innerHTML = `BEN → ${linked}<span class="message-tick">✓</span>`;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
     sentMessages.set(msgId, div);
@@ -201,12 +202,17 @@ function addMyMessage(text) {
 function addOtherMessage(text, msgId) {
     const div = document.createElement("div");
     div.className = "otherMessage";
-    div.textContent = "SEN → " + text;
+    const linked = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
+    div.innerHTML = "SEN → " + linked;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-    if (msgId && chatPanel.style.display === "flex") socket.emit("message-read", msgId);
+    
+    if (msgId && chatPanel.style.display === "flex") {
+        socket.emit("message-read", msgId);
+    }
     if (chatPanel.style.display!== "flex") {
-        chatToggle.classList.add("newMessageBlink", "shake");
+        chatToggle.classList.add("newMessageBlink");
+        chatToggle.classList.add("shake");
         setTimeout(() => chatToggle.classList.remove("shake"), 600);
     }
 }
@@ -478,21 +484,24 @@ downloadMediaBtn.onclick = () => {
 };
 
 // GECE MODU
-if (lightModeBtn) lightModeBtn.onclick = () => remoteVideo.classList.toggle("light-mode");
+if (lightModeBtn) lightModeBtn.onclick = () => {
+    remoteVideo.classList.toggle("light-mode");
+    document.body.classList.toggle("light-bg");
+};
 
 // KONUM PAYLAŞ
 if (locationBtn) {
-    locationBtn.onclick = () => {
-        if (!navigator.geolocation) { alert("Konum desteklenmiyor"); return; }
-        navigator.geolocation.getCurrentPosition(pos => {
-            const lat = pos.coords.latitude.toFixed(6);
-            const lon = pos.coords.longitude.toFixed(6);
-            const url = `https://maps.google.com/?q=${lat},${lon}`;
-            const msgId = addMyMessage(`📍 Konumum`);
-            socket.emit("chat-message", { text: `📍 Konumum: ${url}`, msgId });
-            socket.emit("share-location", { lat, lon, url });
-        }, () => alert("Konum alınamadı"));
-    };
+locationBtn.onclick = () => {
+    if (!navigator.geolocation) {
+        alert("Konum desteklenmiyor");
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(pos => {
+        const url = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+        const msgId = addMyMessage("📍 Konumum: " + url);
+        socket.emit("chat-message", { text: "📍 Konumum: " + url, msgId });
+    });
+};
 }
 socket.on("share-location", data => addOtherMessage(`📍 Konum: ${data.url}`));
 
