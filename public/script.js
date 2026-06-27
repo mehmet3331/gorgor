@@ -172,7 +172,7 @@ mediaInput.onchange = async () => {
     if (!file) return;
 
     // YENİ: 5 MB üstü yasakla
-    const MAX_FILE_SIZE = 5 * 1024;
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
         alert("Dosya çok büyük! Max 5MB (fotoğrafı küçült)");
         return;
