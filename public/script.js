@@ -1,25 +1,10 @@
-console.log("SCRIPT YÜKLENDİ - v1.1.4-stabil + SURUKLE + 15MB MEDYA + TITREME + MSN DURT + YAZIYOR + OKUNDU + UCAN EMOJI");
-// ESKİ - HEPSİNİ ENGELLİYORDU
-// document.addEventListener('contextmenu', e => e.preventDefault());
-// document.addEventListener('selectstart', e => e.preventDefault());
-// document.addEventListener('dragstart', e => e.preventDefault());
+console.log("SCRIPT YÜKLENDİ - STABIL + SURUKLE + 15MB MEDYA + TITREME + MSN DURT + YAZIYOR + OKUNDU + UCAN EMOJI");
+// SAĞ TIK + BASILI TUT ENGELLE
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('selectstart', e => e.preventDefault());
+document.addEventListener('dragstart', e => e.preventDefault());
 
-// YENİ - SADECE VİDEO VE RESİM
-document.addEventListener('contextmenu', e => {
-    if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO') {
-        e.preventDefault();
-    }
-});
-document.addEventListener('dragstart', e => {
-    if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO') {
-        e.preventDefault();
-    }
-});
-// selectstart'ı tamamen kaldır - input'lara yapıştırma için
-
-// AES ŞİFRELEME
-const AES_KEY = "GorgorSecretKey2024";
-
+// DÜZELTME: TIMEOUT 60 SANİYE
 const socket = io({
     timeout: 60000,
     reconnection: true,
@@ -47,11 +32,62 @@ const changePasswordBtn = document.getElementById("changePasswordBtn");
 const qualitySelect = document.getElementById("qualitySelect");
 const fullscreenBtn = document.getElementById("fullscreenBtn");
 const shareScreenBtn = document.getElementById("shareScreenBtn");
+const nightModeBtn = document.getElementById("nightModeBtn");
 const switchCameraBtn = document.getElementById("switchCameraBtn");
 const pingValue = document.getElementById("pingValue");
 const connectionQuality = document.getElementById("connectionQuality");
 const settingsBtn = document.getElementById("settingsBtn");
+const nightModeBtn = document.getElementById("nightModeBtn");
 const settingsContainer = document.getElementById("settingsContainer");
+const locationBtn = document.getElementById("locationBtn");
+locationBtn.onclick=()=>{
+
+navigator.geolocation.getCurrentPosition(
+
+(pos)=>{
+
+const lat=
+
+pos.coords.latitude;
+
+const lon=
+
+pos.coords.longitude;
+
+const map=
+
+`https://maps.google.com/?q=${lat},${lon}`;
+
+socket.emit(
+
+"chat-message",
+
+"📍 "+map
+
+);
+
+addMyMessage(
+
+"📍 Konum gönderildi"
+
+);
+
+},
+
+()=>{
+
+alert(
+
+"Konum alınamadı"
+
+);
+
+}
+
+);
+
+};
+// YENİ EKLENENLER
 const myVideoContainer = document.getElementById("myVideoContainer");
 const mediaBtn = document.getElementById("mediaBtn");
 const mediaInput = document.getElementById("mediaInput");
@@ -60,20 +96,11 @@ const previewImg = document.getElementById("previewImg");
 const previewVideo = document.getElementById("previewVideo");
 const closePreview = document.getElementById("closePreview");
 const downloadMediaBtn = document.getElementById("downloadMediaBtn");
+// YENİ ÖZELLİKLER
 const nudgeBtn = document.getElementById("nudgeBtn");
 const emojiBtn = document.getElementById("emojiBtn");
-const emojiPanel = document.getElementById("emojiPanel");
-// v1.2.0 YENİ
-const nightLightBtn = document.getElementById("nightLightBtn");
-const nightLight = document.getElementById("nightLight");
-const youtubeBtn = document.getElementById("youtubeBtn");
-const youtubeContainer = document.getElementById("youtubeContainer");
-const youtubeModal = document.getElementById("youtubeModal");
-const youtubeUrl = document.getElementById("youtubeUrl");
-const youtubeStartBtn = document.getElementById("youtubeStartBtn");
-const youtubeCancelBtn = document.getElementById("youtubeCancelBtn");
-const closeYoutubeBtn = document.getElementById("closeYoutubeBtn");
 const locationBtn = document.getElementById("locationBtn");
+const emojiPanel = document.getElementById("emojiPanel");
 
 let peer = null;
 let localStream = null;
@@ -84,33 +111,14 @@ let currentQuality = 720;
 let currentFacingMode = "user";
 let pingTimer = null;
 let currentMediaData = null;
+// YENİ
 let typingTimer;
 let isTyping = false;
 let messageIdCounter = 0;
 const sentMessages = new Map();
-let nightLightOn = false;
-let ytPlayer = null;
-let ytPlayerReady = false;
 
 micBtn.textContent = "🎤";
 camBtn.textContent = "📷";
-
-/* ------------------
-   AES ŞİFRELEME
-------------------- */
-function encryptMessage(text) {
-    return CryptoJS.AES.encrypt(text, AES_KEY).toString();
-}
-
-function decryptMessage(ciphertext) {
-    try {
-        const bytes = CryptoJS.AES.decrypt(ciphertext, AES_KEY);
-        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-        return decrypted || ciphertext;
-    } catch {
-        return ciphertext;
-    }
-}
 
 /* ------------------
    KAMERA - YOKSA DA DEVAM ET
@@ -144,10 +152,11 @@ async function startCamera(height = 720, facingMode = currentFacingMode) {
             myVideo.style.transform = "scaleX(1)";
         }
         return true;
-} catch (err) {
-    console.log("Kamera/Mikrofon hatası:", err);
-    return false;
-}
+    } catch (err) {
+        console.log("Kamera/Mikrofon hatası:", err);
+        alert("Kamera/Mikrofon bulunamadı veya izin verilmedi.\nSadece karşı tarafı göreceksiniz.");
+        return false;
+    }
 }
 
 /* ------------------
@@ -182,13 +191,12 @@ socket.on("pong-check", timestamp => {
 });
 
 /* ------------------
-/* ------------------
-   ODAYA GİR - ESKİ ÇALIŞAN
+   ODAYA GİR - KAMERA YOKSA DA GİRER
 ------------------- */
 joinBtn.onclick = async () => {
     const room = roomName.value.trim();
     const password = roomPassword.value.trim();
-    if (!room || !password) {
+    if (!room ||!password) {
         alert("Oda adı ve şifre gerekli");
         return;
     }
@@ -201,6 +209,10 @@ joinBtn.onclick = async () => {
     currentRoom = room;
     socket.emit("join-room", { room, password });
 };
+
+socket.on("room-error", msg => {
+    alert(msg);
+});
 
 socket.on("joined-room", count => {
     roomScreen.style.display = "none";
@@ -345,43 +357,34 @@ if (shareScreenBtn) {
 }
 
 /* ------------------
-   MESAJLAR - OKUNDU TIKI FİX + AES
+   MESAJLAR - OKUNDU TIKI FİX
 ------------------- */
 function addMyMessage(text) {
     const msgId = `msg-${Date.now()}-${messageIdCounter++}`;
     const div = document.createElement("div");
     div.className = "myMessage";
     div.id = msgId;
-    
-    if (text.includes("maps.google.com")) {
-        div.innerHTML = `BEN → <a href="${text}" target="_blank" style="color:#00ff88">Konum</a><span class="message-tick">✓</span>`;
-    } else {
-        div.innerHTML = `BEN → ${text}<span class="message-tick">✓</span>`;
-    }
-    
+    div.innerHTML = `BEN → ${text}<span class="message-tick">✓</span>`;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
+    
     sentMessages.set(msgId, div);
     return msgId;
 }
+
 function addOtherMessage(text, msgId) {
     const div = document.createElement("div");
     div.className = "otherMessage";
-    
-    // Konum linki ise tıklanabilir yap
-    if (text.includes("maps.google.com")) {
-        div.innerHTML = `SEN → <a href="${text}" target="_blank" style="color:#ff9800;text-decoration:underline">Konumu Aç</a>`;
-    } else {
-        div.textContent = "SEN → " + text;
-    }
-    
+    div.textContent = "SEN → " + text;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
     
+    // Chat açıksa hemen okundu gönder
     if (msgId && chatPanel.style.display === "flex") {
         socket.emit("message-read", msgId);
     }
     
+    // Chat kapalıysa titret + ışık yak
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("newMessageBlink");
         chatToggle.classList.add("shake");
@@ -390,13 +393,78 @@ function addOtherMessage(text, msgId) {
         }, 600);
     }
 }
+locationBtn.onclick=()=>{
 
+navigator.geolocation.getCurrentPosition(
+
+(pos)=>{
+
+const lat=
+
+pos.coords.latitude;
+
+const lon=
+
+pos.coords.longitude;
+
+socket.emit(
+
+"chat-message",
+
+"📍 https://maps.google.com/?q="
+
++
+
+lat
+
++
+
+","
+
++
+
+lon
+
+);
+
+addMyMessage(
+
+"📍 https://maps.google.com/?q="
+
++
+
+lat
+
++
+
+","
+
++
+
+lon
+
+);
+
+},
+
+()=>{
+
+alert(
+
+"Konum alınamadı"
+
+);
+
+}
+
+);
+
+};
 sendBtn.onclick = () => {
     const text = input.value.trim();
     if (!text) return;
     const msgId = addMyMessage(text);
-    const encrypted = encryptMessage(text);
-    socket.emit("chat-message", { text: encrypted, msgId });
+    socket.emit("chat-message", { text, msgId });
     input.value = "";
     // Yazıyor'u durdur
     socket.emit('typing', false);
@@ -410,8 +478,7 @@ input.addEventListener("keydown", e => {
 });
 
 socket.on("chat-message", data => {
-    const decrypted = decryptMessage(data.text);
-    addOtherMessage(decrypted, data.msgId);
+    addOtherMessage(data.text, data.msgId);
 });
 
 // OKUNDU BİLGİSİ GELİNCE - TEK MESAJ
@@ -448,7 +515,7 @@ chatToggle.onclick = () => {
         chatToggle.classList.remove("newMessageBlink");
         chatToggle.classList.remove("shake");
         chatToggle.textContent = "✖";
-
+        
         // Chat açılınca karşı tarafa tüm mesajları okudum de
         socket.emit("messages-read-all");
     }
@@ -462,7 +529,7 @@ input.addEventListener('input', () => {
         socket.emit('typing', true);
         isTyping = true;
     }
-
+    
     clearTimeout(typingTimer);
     typingTimer = setTimeout(() => {
         socket.emit('typing', false);
@@ -478,7 +545,7 @@ socket.on('typing', (typing) => {
         typingDiv.className = 'otherMessage';
         messages.appendChild(typingDiv);
     }
-
+    
     if (typing) {
         typingDiv.textContent = 'SEN yazıyor...';
         typingDiv.style.display = 'block';
@@ -508,7 +575,7 @@ socket.on("nudge", () => {
     setTimeout(() => {
         document.body.classList.remove("screen-shake");
     }, 800);
-
+    
     // Chat kapalıysa butonu da titret
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("shake");
@@ -522,17 +589,6 @@ socket.on("nudge", () => {
 if (emojiBtn) {
     emojiBtn.onclick = () => {
         emojiPanel.classList.toggle("show");
-    };
-}const customEmoji = document.getElementById("customEmoji");
-if (customEmoji) {
-    customEmoji.onchange = () => {
-        const emoji = customEmoji.value.trim();
-        if (emoji) {
-            socket.emit('fly-emoji', emoji);
-            createFlyingEmoji(emoji, true);
-            customEmoji.value = '';
-            emojiPanel.classList.remove("show");
-        }
     };
 }
 
@@ -553,14 +609,14 @@ function createFlyingEmoji(emoji, isMine) {
     const flyEmoji = document.createElement('div');
     flyEmoji.className = 'flying-emoji';
     flyEmoji.textContent = emoji;
-
+    
     // Pozisyon
     const x = isMine? window.innerWidth - 100 : 100;
     flyEmoji.style.left = x + 'px';
     flyEmoji.style.bottom = '100px';
-
+    
     document.body.appendChild(flyEmoji);
-
+    
     setTimeout(() => {
         flyEmoji.remove();
     }, 2000);
@@ -579,7 +635,7 @@ document.addEventListener('click', (e) => {
 micBtn.onclick = () => {
     if (!localStream) return;
     micEnabled =!micEnabled;
-
+    
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
     });
@@ -606,7 +662,7 @@ micBtn.onclick = () => {
 camBtn.onclick = () => {
     if (!localStream) return;
     camEnabled =!camEnabled;
-
+    
     localStream.getVideoTracks().forEach(track => {
         track.enabled = camEnabled;
     });
@@ -679,6 +735,33 @@ soundBtn.onclick = () => {
         remoteVideo.muted = true;
         soundBtn.textContent = "🔇";
     }
+};
+let night=false;
+
+nightModeBtn.onclick=()=>{
+
+night=!night;
+
+if(night){
+
+remoteVideo.classList.add(
+
+"nightGlow"
+
+);
+
+}
+
+else{
+
+remoteVideo.classList.remove(
+
+"nightGlow"
+
+);
+
+}
+
 };
 
 /* ------------------
@@ -766,7 +849,7 @@ mediaInput.onchange = async () => {
 
     console.log("Seçilen dosya:", file.name, "Boyut:", (file.size / 1024).toFixed(2), "MB");
 
-    const MAX_FILE_SIZE = 1024 * 1024 * 1024;
+    const MAX_FILE_SIZE = 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
         alert("Dosya çok büyük! Max 1GB");
         return;
@@ -850,7 +933,7 @@ socket.on("chat-media", (data) => {
     }
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-
+    
     // Medya gelince de titret
     if (chatPanel.style.display!== "flex") {
         chatToggle.classList.add("newMessageBlink");
@@ -896,120 +979,6 @@ downloadMediaBtn.onclick = () => {
 };
 
 /* ------------------
-   v1.2.0 YENİ ÖZELLİKLER - HAZIRLIK
-------------------- */
-
-
-
-// YENİSİ ÖN KAMERA AYDINLATMA
-if (nightLightBtn) {
-    nightLightBtn.onclick = () => {
-        nightLightOn =!nightLightOn;
-        document.body.classList.toggle("night-light-active", nightLightOn);
-        nightLightBtn.classList.toggle("active", nightLightOn);
-    };
-}
-
-// 2. KONUM PAYLAŞ - TODO
-if (locationBtn) {
-    locationBtn.onclick = () => {
-        if (!navigator.geolocation) {
-            alert("Tarayıcı konum desteklemiyor");
-            return;
-        }
-
-        // ÖNCE ONAY SOR
-        if (!confirm("Konumunu paylaşmak istiyor musun?")) return;
-
-        navigator.geolocation.getCurrentPosition((pos) => {
-            const lat = pos.coords.latitude.toFixed(6);
-            const lon = pos.coords.longitude.toFixed(6);
-            const link = `https://maps.google.com/?q=${lat},${lon}`;
-
-            // ÖNİZLEME GÖSTER
-            if (confirm(`Konum: ${lat}, ${lon}\nGönderilsin mi?`)) {
-                const msgId = addMyMessage(link);
-                socket.emit("chat-message", { text: encryptMessage(link), msgId });
-                socket.emit("location-share", { lat, lon });
-            }
-        }, () => alert("Konum alınamadı"));
-    };
-}
-
-socket.on('location-share', (coords) => {
-    const link = `https://maps.google.com/?q=${coords.lat},${coords.lon}`;
-    const div = document.createElement("div");
-    div.className = "otherMessage locationMessage";
-    div.innerHTML = `SEN → <a href="${link}" target="_blank">Konumu Aç</a>`;
-    messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
-});
-
-// YOUTUBE - TAM ÇALIŞAN VERSİYON
-let ytPlayer = null;
-
-window.onYouTubeIframeAPIReady = function() {
-    ytPlayerReady = true;
-};
-
-if (youtubeStartBtn) {
-    youtubeStartBtn.onclick = () => {
-        const url = youtubeUrl.value.trim();
-        if (!url) return;
-
-        // Video ID çıkar
-        let videoId = '';
-        if (url.includes('v=')) {
-            videoId = url.split('v=')[1].split('&')[0];
-        } else if (url.includes('youtu.be/')) {
-            videoId = url.split('youtu.be/')[1].split('?')[0];
-        } else {
-            alert('Geçerli YouTube linki gir');
-            return;
-        }
-
-        youtubeModal.classList.remove("active");
-        youtubeContainer.classList.add("active");
-        youtubeBtn.classList.add("active");
-
-        // Player oluştur
-        if (ytPlayer) ytPlayer.destroy();
-        ytPlayer = new YT.Player('youtubePlayer', {
-            videoId: videoId,
-            playerVars: { autoplay: 1, controls: 1 },
-            events: {
-                'onReady': () => {
-                    socket.emit('youtube-sync', { action: 'play', videoId, time: 0 });
-                }
-            }
-        });
-    };
-}
-
-if (closeYoutubeBtn) {
-    closeYoutubeBtn.onclick = () => {
-        youtubeContainer.classList.remove("active");
-        youtubeBtn.classList.remove("active");
-        if (ytPlayer) {
-            ytPlayer.destroy();
-            ytPlayer = null;
-        }
-    };
-}
-
-// Karşı taraf senkron
-socket.on('youtube-sync', (data) => {
-    if (data.videoId &&!ytPlayer) {
-        youtubeContainer.classList.add("active");
-        youtubeBtn.classList.add("active");
-        ytPlayer = new YT.Player('youtubePlayer', {
-            videoId: data.videoId,
-            playerVars: { autoplay: 1 }
-        });
-    }
-});
-
-/* ------------------
    SAYFA KAPANIRKEN
 ------------------- */
 window.addEventListener("beforeunload", () => {
@@ -1020,5 +989,13 @@ window.addEventListener("beforeunload", () => {
         localStream.getTracks().forEach(track => track.stop());
     }
 });
+/* IŞIK MODU */
 
-console.log("Script tamamen yüklendi - v1.1.5");
+nightModeBtn.onclick=()=>{
+
+remoteVideo.classList.toggle(
+"nightGlow"
+);
+
+};
+console.log("Script tamamen yüklendi");
