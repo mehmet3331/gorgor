@@ -32,61 +32,11 @@ const changePasswordBtn = document.getElementById("changePasswordBtn");
 const qualitySelect = document.getElementById("qualitySelect");
 const fullscreenBtn = document.getElementById("fullscreenBtn");
 const shareScreenBtn = document.getElementById("shareScreenBtn");
-const nightModeBtn = document.getElementById("nightModeBtn");
 const switchCameraBtn = document.getElementById("switchCameraBtn");
 const pingValue = document.getElementById("pingValue");
 const connectionQuality = document.getElementById("connectionQuality");
 const settingsBtn = document.getElementById("settingsBtn");
-const nightModeBtn = document.getElementById("nightModeBtn");
 const settingsContainer = document.getElementById("settingsContainer");
-const locationBtn = document.getElementById("locationBtn");
-locationBtn.onclick=()=>{
-
-navigator.geolocation.getCurrentPosition(
-
-(pos)=>{
-
-const lat=
-
-pos.coords.latitude;
-
-const lon=
-
-pos.coords.longitude;
-
-const map=
-
-`https://maps.google.com/?q=${lat},${lon}`;
-
-socket.emit(
-
-"chat-message",
-
-"📍 "+map
-
-);
-
-addMyMessage(
-
-"📍 Konum gönderildi"
-
-);
-
-},
-
-()=>{
-
-alert(
-
-"Konum alınamadı"
-
-);
-
-}
-
-);
-
-};
 // YENİ EKLENENLER
 const myVideoContainer = document.getElementById("myVideoContainer");
 const mediaBtn = document.getElementById("mediaBtn");
@@ -99,7 +49,6 @@ const downloadMediaBtn = document.getElementById("downloadMediaBtn");
 // YENİ ÖZELLİKLER
 const nudgeBtn = document.getElementById("nudgeBtn");
 const emojiBtn = document.getElementById("emojiBtn");
-const locationBtn = document.getElementById("locationBtn");
 const emojiPanel = document.getElementById("emojiPanel");
 
 let peer = null;
@@ -393,73 +342,7 @@ function addOtherMessage(text, msgId) {
         }, 600);
     }
 }
-locationBtn.onclick=()=>{
 
-navigator.geolocation.getCurrentPosition(
-
-(pos)=>{
-
-const lat=
-
-pos.coords.latitude;
-
-const lon=
-
-pos.coords.longitude;
-
-socket.emit(
-
-"chat-message",
-
-"📍 https://maps.google.com/?q="
-
-+
-
-lat
-
-+
-
-","
-
-+
-
-lon
-
-);
-
-addMyMessage(
-
-"📍 https://maps.google.com/?q="
-
-+
-
-lat
-
-+
-
-","
-
-+
-
-lon
-
-);
-
-},
-
-()=>{
-
-alert(
-
-"Konum alınamadı"
-
-);
-
-}
-
-);
-
-};
 sendBtn.onclick = () => {
     const text = input.value.trim();
     if (!text) return;
@@ -736,33 +619,6 @@ soundBtn.onclick = () => {
         soundBtn.textContent = "🔇";
     }
 };
-let night=false;
-
-nightModeBtn.onclick=()=>{
-
-night=!night;
-
-if(night){
-
-remoteVideo.classList.add(
-
-"nightGlow"
-
-);
-
-}
-
-else{
-
-remoteVideo.classList.remove(
-
-"nightGlow"
-
-);
-
-}
-
-};
 
 /* ------------------
    ŞİFRE DEĞİŞTİR
@@ -989,13 +845,5 @@ window.addEventListener("beforeunload", () => {
         localStream.getTracks().forEach(track => track.stop());
     }
 });
-/* IŞIK MODU */
 
-nightModeBtn.onclick=()=>{
-
-remoteVideo.classList.toggle(
-"nightGlow"
-);
-
-};
 console.log("Script tamamen yüklendi");
