@@ -3,83 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GORGOR</title>
+    <title>GORGOR V12 PRO</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="roomScreen">
-        <h2>Odaya Katıl</h2>
-        <input id="roomName" placeholder="Oda adı" aria-label="Oda adı">
-        <input id="roomPassword" type="password" placeholder="Oda şifresi" aria-label="Oda şifresi">
+        <h2>GORGOR V12 PRO</h2>
+        <input id="roomName" placeholder="Oda adı">
+        <input id="roomPassword" type="password" placeholder="Oda şifresi = şifreleme anahtarı">
         <button id="joinBtn">Odaya Gir</button>
+        <small style="opacity:0.6;text-align:center;margin-top:8px;">Uçtan uca şifreli<br>Server okuyamaz • Açıldıktan sonra max 1 saat</small>
     </div>
-
     <div id="mainScreen">
         <video id="remoteVideo" autoplay playsinline webkit-playsinline></video>
-
+        <div id="candleContainer">
+            <div class="candle"><div class="flame"></div><div class="wick"></div><div class="wax"></div></div>
+            <p>Bağlantı koptu<br><small>🕯️ Mum yanıyor, bekleniyor...</small></p>
+        </div>
         <div id="myVideoContainer">
             <video id="myVideo" autoplay playsinline webkit-playsinline muted></video>
-            <button id="switchCameraBtn" class="cameraOverlayBtn" aria-label="Kamerayı değiştir">🔄</button>
-            <button id="fullscreenBtn" class="cameraOverlayBtn" aria-label="Tam ekran">⛶</button>
-            <select id="qualitySelect" class="qualitySelect" aria-label="Görüntü kalitesi">
-                <option value="360">360p</option>
-                <option value="480">480p</option>
-                <option value="720" selected>720p</option>
-                <option value="1080">1080p</option>
+            <button id="switchCameraBtn" class="cameraOverlayBtn">🔄</button>
+            <button id="fullscreenBtn" class="cameraOverlayBtn">⛶</button>
+            <select id="qualitySelect" class="qualitySelect">
+                <option value="360">360p</option><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option>
             </select>
         </div>
-
+        <div id="phoneCallUI" style="display:none;">
+            <div class="phoneAvatar">📞</div>
+            <div class="phoneName">Gizli Görüşme</div>
+            <div class="phoneStatus">Sadece ses aktif - kameralar kapalı</div>
+            <div class="phoneWave"><span></span><span></span></div>
+        </div>
         <div id="settingsContainer">
-            <button id="settingsBtn" aria-label="Ayarlar">⚙</button>
-            <button id="micBtn" aria-label="Mikrofon">🎤</button>
-            <button id="camBtn" aria-label="Kamera">📷</button>
-            <button id="soundBtn" aria-label="Ses">🔊</button>
-            <button id="shareScreenBtn" aria-label="Ekran paylaş">📺</button>
-            <button id="changePasswordBtn" aria-label="Şifre değiştir">🔐</button>
-            <button id="lightModeBtn" aria-label="Gece/Gündüz">💡</button>
+            <button id="settingsBtn">⚙</button>
+            <button id="micBtn">🎤</button>
+            <button id="camBtn">📷</button>
+            <button id="soundBtn">🔊</button>
+            <button id="phoneModeBtn">📞</button>
+            <button id="changePasswordBtn">🔐</button>
+            <button id="lightModeBtn">💡</button>
+            <div id="secretSettings">
+                <label>Varsayılan yok olma süresi (max 1 saat)</label>
+                <select id="defaultSelfDestructSelect">
+                    <option value="60">1 dakika</option>
+                    <option value="300">5 dakika</option>
+                    <option value="600">10 dakika</option>
+                    <option value="1800" selected>30 dakika</option>
+                    <option value="3600">1 saat</option>
+                </select>
+                <small>Bugün 5 dk, yarın 30 dk yapabilirsin. Kalıcı + tek seferlik seçenek var.</small>
+            </div>
             <div id="statusBar">
                 <div class="statusBox">Ping: <span id="pingValue">-</span></div>
                 <div class="statusBox">Bağlantı: <span id="connectionQuality">-</span></div>
+                <div class="statusBox" style="font-size:10px;opacity:0.7;">🔒 E2E Şifreli • Server okuyamaz</div>
             </div>
         </div>
-
-        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.1" aria-label="Ses seviyesi">
-
-        <button id="chatToggle" aria-label="Sohbeti aç">💬</button>
+        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.1">
+        <button id="chatToggle">💬</button>
         <div id="chatPanel">
             <div id="messages"></div>
             <div id="inputArea">
-                <button id="mediaBtn" aria-label="Dosya ekle">📎</button>
-                <button id="locationBtn" aria-label="Konum gönder">📍</button>
-                <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none" aria-label="Medya dosyası seç">
-                <input id="messageInput" placeholder="Mesaj yaz..." aria-label="Mesaj">
-                <button id="nudgeBtn" title="Dürt">👉</button>
-                <button id="emojiBtn" aria-label="Emoji">😂</button>
-                <button id="sendBtn" aria-label="Gönder">Gönder</button>
+                <button id="mediaBtn">📎</button>
+                <button id="locationBtn">📍</button>
+                <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none">
+                <select id="perMessageTimerSelect">
+                    <option value="default">Süre: Varsayılan (30 dk)</option>
+                    <option value="60">1 dk kalsın</option>
+                    <option value="300">5 dk kalsın</option>
+                    <option value="600">10 dk kalsın</option>
+                    <option value="1800">30 dk kalsın</option>
+                    <option value="3600">1 saat kalsın</option>
+                </select>
+                <select id="perMessagePersistSelect">
+                    <option value="once">Tek seferlik</option>
+                    <option value="persist">Kalıcı yap (s)</option>
+                </select>
+                <input id="messageInput" placeholder="Şifreli mesaj yaz...">
+                <button id="nudgeBtn">👉</button>
+                <button id="emojiBtn">😂</button>
+                <button id="sendBtn">Gönder</button>
             </div>
             <div id="emojiPanel">
-                <span class="flyEmoji" data-effect="heart">❤</span>
-                <span class="flyEmoji" data-effect="kiss">😘</span>
-                <span class="flyEmoji" data-effect="laugh">😂</span>
-                <span class="flyEmoji" data-effect="thumbs">👍</span>
-                <span class="flyEmoji" data-effect="cry">😢</span>
-                <span class="flyEmoji" data-effect="wow">😮</span>
-                <span class="flyEmoji" data-effect="flower">🌸</span>
-                <span class="flyEmoji" data-effect="fire">🔥</span>
-                <span class="flyEmoji" data-effect="love">😍</span>
-                <span class="flyEmoji" data-effect="hug">🫶</span>
+                <span class="flyEmoji" data-effect="heart">❤</span><span class="flyEmoji" data-effect="kiss">😘</span><span class="flyEmoji" data-effect="laugh">😂</span><span class="flyEmoji" data-effect="thumbs">👍</span><span class="flyEmoji" data-effect="cry">😢</span><span class="flyEmoji" data-effect="wow">😮</span><span class="flyEmoji" data-effect="flower">🌸</span><span class="flyEmoji" data-effect="fire">🔥</span><span class="flyEmoji" data-effect="love">😍</span><span class="flyEmoji" data-effect="hug">🫶</span>
                 <span id="addCustomEmoji" class="flyEmoji" style="background:#333;border-radius:6px;padding:2px 6px;">+</span>
             </div>
         </div>
-
-        <div id="mediaPreview">
-            <span id="closePreview" aria-label="Önizlemeyi kapat">✖</span>
-            <img id="previewImg" alt="Medya önizleme">
-            <video id="previewVideo" controls></video>
-            <button id="downloadMediaBtn" aria-label="Medyayı indir">İndir</button>
-        </div>
+        <div id="mediaPreview"><span id="closePreview">✖</span><img id="previewImg"><video id="previewVideo" controls></video><button id="downloadMediaBtn">İndir</button></div>
     </div>
-
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
     <script src="script.js"></script>
