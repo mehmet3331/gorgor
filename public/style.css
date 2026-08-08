@@ -91,3 +91,85 @@ body.light-bg::before { content:""; position:fixed; inset:0; background: radial-
 .flying-emoji.love { animation: fly-love 2s forwards; }
 .flying-emoji.hug { animation: fly-hug 2s forwards; }
 .flying-emoji.custom { animation: fly-heart 2s forwards; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* GÜVENLİ MESAJ / MEDYA */
+.secure-locked {
+  border: 1px solid #444;
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(0,0,0,.35);
+}
+.secure-locked button, .expiryControls button {
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #2196f3;
+  color: #fff;
+}
+.secureStatus { display:block; font-size:11px; color:#888; margin-top:5px; }
+.expiryControls { margin-top:8px; font-size:11px; color:#aaa; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.expiryControls select, #expirySelect {
+  border:none; border-radius:7px; padding:6px; background:#222; color:#fff;
+}
+#expiryOnceLabel { font-size:10px; color:#aaa; white-space:nowrap; display:flex; align-items:center; gap:3px; }
+
+/* TELEFON MODU */
+#phoneModeOverlay {
+  position:fixed; inset:0; z-index:99998; display:none; flex-direction:column;
+  justify-content:center; align-items:center; background:#080808; color:#fff; text-align:center;
+}
+.phoneIcon { font-size:80px; animation: phonePulse 1.8s infinite; }
+.phoneTitle { font-size:28px; font-weight:bold; margin-top:12px; }
+.phoneSub { color:#aaa; margin-top:8px; }
+#phoneModeExitBtn {
+  margin-top:35px; padding:12px 20px; border:1px solid #555; border-radius:12px;
+  background:#181818; color:#fff; cursor:pointer;
+}
+body.phone-mode #remoteVideo,
+body.phone-mode #myVideoContainer,
+body.phone-mode #settingsContainer,
+body.phone-mode #volumeSlider,
+body.phone-mode #chatToggle,
+body.phone-mode #chatPanel { visibility:hidden !important; pointer-events:none !important; }
+body.phone-mode #phoneModeOverlay { visibility:visible !important; pointer-events:auto !important; }
+@keyframes phonePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+
+/* BAĞLANTI KESİLİNCE SON KAREYİ GÖSTERME */
+#disconnectOverlay {
+  position:fixed; inset:0; z-index:99997; display:none; flex-direction:column;
+  justify-content:center; align-items:center; background:#000; color:#fff; text-align:center;
+}
+#disconnectOverlay .candle { font-size:100px; animation:candleGlow 1.2s infinite alternate; }
+.disconnectTitle { font-size:25px; font-weight:bold; margin-top:10px; }
+.disconnectSub { color:#999; margin-top:8px; max-width:80%; }
+@keyframes candleGlow { from{transform:scale(1);filter:brightness(.8)} to{transform:scale(1.06);filter:brightness(1.25)} }
+
+@media (max-width:700px) {
+  #expirySelect { max-width:58px; font-size:10px; }
+  #expiryOnceLabel { font-size:9px; }
+}
