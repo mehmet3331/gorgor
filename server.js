@@ -1,88 +1,183 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const path = require("path");
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { maxHttpBufferSize: 20 * 1024 * 1024, cors: { origin: "*" } });
-app.use(express.static("public"));
-app.use(express.json({ limit: "1024mb" }));
-app.use(express.urlencoded({ extended: true, limit: "1024mb" }));
+const io = new Server(server, { cors: { origin: "*", methods: ["GET","POST"] }, pingInterval: 25000, pingTimeout: 60000, maxHttpBufferSize: 10e6 });
 
-const rooms = {};
-const HOLD_BEFORE_OPEN_MS = 24 * 60 * 60 * 1000;
-const MAX_AFTER_OPEN_SEC = 86400;
+app.use(express.static(path.join(__dirname, "public")));
+const rooms = {}; // roomName -> { users: {socketId: {username}}, messages: [] }
 
-function cleanRooms(){
-    const now = Date.now();
-    for(const name in rooms){
-        const r = rooms[name];
-        r.pending = r.pending.filter(m=>{
-            if(!m.opened) return (now - m.createdAt) < HOLD_BEFORE_OPEN_MS;
-            return now < m.deleteAt;
-        });
-        if(r.users.length===0 && r.pending.length===0){
-            if((now - (r.lastEmptyAt||now)) > HOLD_BEFORE_OPEN_MS) delete rooms[name];
-        }
-    }
+const REAL_ROOM = "oda1";
+const FAKE_ROOMS = ["oda","oda2","oda3","oda4","oda5","oda6","oda7","oda8","oda9","oda10"];
+const REAL_USERS = ["varım","yokum"]; // sadece bunlar çalışır
+const FAKE_USERS = ["buradayım","geldim","bekliyorum","hazırım","uyuyorum","meşgulüm","çevrimiçiyim","çevrimdışıyım","yoldayım","müsaitim","dinleniyorum","çalışıyorum"];
+
+const MAX_AFTER_OPEN_SEC = 86400; // 24 saat
+
+function normalize(str){ return (str||"").toString().trim().toLowerCase(); }
+
+function cleanupMessage(room, msgId){
+    if(!rooms[room]) return;
+    rooms[room].messages = rooms[room].messages.filter(m=> m.msgId!==msgId);
 }
-setInterval(cleanRooms, 30*1000);
 
-io.on("connection",(socket)=>{
-    socket.on("join-room",(data)=>{
-        const room = data.room?.trim(); const password = data.password?.trim();
-        if(!room ||!password){ socket.emit("room-error","Oda adi ve sifre gerekli"); return; }
-        if(!rooms[room]){ rooms[room] = { password, users:[], pending:[], lastEmptyAt: Date.now() }; }
-        else{ if(rooms[room].password!== password){ socket.emit("room-error","Sifre yanlis"); return; } }
-        if(rooms[room].users.length >= 2){ socket.emit("room-error","Oda dolu"); return; }
-        socket.join(room); socket.room = room; rooms[room].users.push(socket.id); rooms[room].lastEmptyAt = null;
-        socket.emit("joined-room", rooms[room].users.length); socket.to(room).emit("user-connected");
-        const now = Date.now();
-        const valid = rooms[room].pending.filter(m=>{ if(!m.opened) return (now - m.createdAt) < HOLD_BEFORE_OPEN_MS; return now < m.deleteAt; });
-        if(valid.length>0){ const forMe = valid.filter(m=> m.from!== socket.id); if(forMe.length>0) socket.emit("pending-messages", forMe); }
+io.on("connection", (socket)=>{
+    console.log("baglandi", socket.id);
+
+    socket.on("join-room", ({ room, password, username })=>{
+        const roomNorm = normalize(room);
+        const userNorm = normalize(username);
+
+        // ODA KONTROL - BULMACA
+        if(roomNorm!== REAL_ROOM){
+            if(FAKE_ROOMS.includes(roomNorm)){
+                socket.emit("room-error", `🚫 "${room}" kilitli bir oda. Bu oda boş, sadece süs. Gerçek odayı bul! İpucu: oda1`);
+            }else{
+                socket.emit("room-error", `🚫 "${room}" diye bir oda yok. Sadece oda1 gerçek.`);
+            }
+            return;
+        }
+        // KULLANICI ADI KONTROL
+        if(!REAL_USERS.includes(userNorm)){
+            if(FAKE_USERS.includes(userNorm)){
+                socket.emit("room-error", `🚫 "${username}" bu odada aktif değil. Bu kullanıcı sahte, sadece varım ve yokum çalışır.`);
+            }else{
+                socket.emit("room-error", `🚫 "${username}" geçersiz. Sadece varım ve yokum giriş yapabilir.`);
+            }
+            return;
+        }
+        if(!password || password.trim().length<2){
+            socket.emit("room-error","Şifre gerekli");
+            return;
+        }
+
+        if(!rooms[REAL_ROOM]) rooms[REAL_ROOM] = { users: {}, messages: [] };
+        const roomData = rooms[REAL_ROOM];
+
+        // AYNI KULLANICI ADI DOLU MU?
+        const existing = Object.values(roomData.users).find(u=> u.username===userNorm);
+        if(existing){
+            socket.emit("room-error", `🚫 "${username}" zaten içeride. Diğer kullanıcı adıyla gir.`);
+            return;
+        }
+        // MAX 2 KİŞİ
+        if(Object.keys(roomData.users).length>=2){
+            socket.emit("room-error","🚫 Oda dolu. Maks 2 kişi: varım + yokum");
+            return;
+        }
+
+        socket.join(REAL_ROOM);
+        socket.room = REAL_ROOM;
+        socket.username = userNorm;
+        socket.realUsername = username.trim(); // orijinal yazım
+        roomData.users[socket.id] = { username: userNorm, real: socket.realUsername };
+
+        const count = Object.keys(roomData.users).length;
+        socket.emit("joined-room", { count, username: socket.realUsername, users: Object.values(roomData.users).map(u=>u.real) });
+
+        // PENDING - TÜM MESAJLAR (kendi mesajın da dahil, client ayırt edecek)
+        const pending = roomData.messages.map(m=>({
+            msgId: m.msgId,
+            enc: m.enc,
+            expireSec: m.expireSec,
+            type: m.type,
+            username: m.username,
+            realUsername: m.realUsername,
+            opened: m.opened || false,
+            deleteAt: m.deleteAt || null
+        }));
+        socket.emit("pending-messages", pending);
+
+        if(count===2){
+            socket.to(REAL_ROOM).emit("user-connected", { username: socket.realUsername });
+        }
+        console.log(`GIRDI oda1 | ${username} | count ${count}`);
     });
-    socket.on("signal",(data)=>{ socket.to(data.room).emit("signal",data.signal); });
-    socket.on("chat-message",(payload)=>{
-        if(!socket.room ||!rooms[socket.room]) return;
-        let expireSec = Math.min(parseInt(payload.expireSec||1800), MAX_AFTER_OPEN_SEC);
-        if(isNaN(expireSec)||expireSec<=0) expireSec=1800;
-        const msg = { msgId:payload.msgId, enc:payload.enc, type:"text", expireSec, createdAt:Date.now(), opened:false, deleteAt:null, from:socket.id };
-        rooms[socket.room].pending.push(msg);
-        socket.to(socket.room).emit("chat-message",{ msgId:msg.msgId, enc:msg.enc, expireSec:msg.expireSec, createdAt:msg.createdAt });
+
+    socket.on("signal", ({ room, signal })=>{
+        socket.to(REAL_ROOM).emit("signal", signal);
     });
-    socket.on("chat-media",(payload)=>{
-        if(!socket.room ||!rooms[socket.room]) return;
-        let expireSec = Math.min(parseInt(payload.expireSec||1800), MAX_AFTER_OPEN_SEC);
-        if(isNaN(expireSec)||expireSec<=0) expireSec=1800;
-        const msg = { msgId:payload.msgId, enc:payload.enc, type:payload.mediaType||"image", expireSec, createdAt:Date.now(), opened:false, deleteAt:null, from:socket.id };
-        rooms[socket.room].pending.push(msg);
-        socket.to(socket.room).emit("chat-media",{ msgId:msg.msgId, enc:msg.enc, expireSec:msg.expireSec, mediaType:msg.type, createdAt:msg.createdAt });
+
+    socket.on("chat-message", (data)=>{
+        const room = socket.room; if(!room ||!rooms[room]) return;
+        const msg = { msgId: data.msgId, enc: data.enc, expireSec: Math.min(data.expireSec||1800, MAX_AFTER_OPEN_SEC), type: "text", username: socket.username, realUsername: socket.realUsername, opened:false, deleteAt:null, createdAt: Date.now() };
+        rooms[room].messages.push(msg);
+        socket.to(room).emit("chat-message", { msgId: msg.msgId, enc: msg.enc, expireSec: msg.expireSec, username: msg.username, realUsername: msg.realUsername });
     });
-    socket.on("message-opened",({msgId})=>{
-        if(!socket.room ||!rooms[socket.room]) return;
-        const room = rooms[socket.room]; const msg = room.pending.find(m=> m.msgId===msgId); if(!msg || msg.opened) return;
-        msg.opened=true; msg.deleteAt = Date.now() + msg.expireSec*1000;
-        io.to(socket.room).emit("message-opened",{ msgId, deleteAt:msg.deleteAt, expireSec:msg.expireSec });
-        socket.emit("message-opened-ack",{ msgId, deleteAt:msg.deleteAt, expireSec:msg.expireSec });
+
+    socket.on("chat-media", (data)=>{
+        const room = socket.room; if(!room ||!rooms[room]) return;
+        const msg = { msgId: data.msgId, enc: data.enc, expireSec: Math.min(data.expireSec||1800, MAX_AFTER_OPEN_SEC), type: data.mediaType||"image", username: socket.username, realUsername: socket.realUsername, opened:false, deleteAt:null, createdAt: Date.now() };
+        rooms[room].messages.push(msg);
+        socket.to(room).emit("chat-media", { msgId: msg.msgId, enc: msg.enc, expireSec: msg.expireSec, mediaType: msg.type, username: msg.username, realUsername: msg.realUsername });
     });
-    socket.on("reduce-request",({msgId,newExpireSec})=>{
-        if(!socket.room ||!rooms[socket.room]) return;
-        newExpireSec = Math.min(parseInt(newExpireSec),MAX_AFTER_OPEN_SEC); if(isNaN(newExpireSec)||newExpireSec<=0) return;
-        const room = rooms[socket.room]; const msg = room.pending.find(m=> m.msgId===msgId); if(!msg) return;
-        if(msg.opened){ const remaining = Math.floor((msg.deleteAt - Date.now())/1000); if(newExpireSec >= remaining) return; msg.deleteAt = Date.now()+newExpireSec*1000; msg.expireSec=newExpireSec; }
-        else{ if(newExpireSec >= msg.expireSec) return; msg.expireSec=newExpireSec; }
-        io.to(socket.room).emit("reduce-accepted",{ msgId, newExpireSec, newDeleteAt:msg.deleteAt });
+
+    socket.on("message-opened", ({ msgId })=>{
+        const room = socket.room; if(!room ||!rooms[room]) return;
+        const msg = rooms[room].messages.find(m=> m.msgId===msgId);
+        if(!msg) return;
+        if(msg.opened) return;
+        msg.opened = true;
+        const expire = Math.min(msg.expireSec, MAX_AFTER_OPEN_SEC);
+        msg.deleteAt = Date.now() + expire*1000;
+        // açan kişiye ack
+        socket.emit("message-opened-ack", { msgId, deleteAt: msg.deleteAt, expireSec: expire });
+        // atana bildir
+        socket.to(room).emit("message-opened", { msgId, deleteAt: msg.deleteAt, expireSec: expire });
+        setTimeout(()=> cleanupMessage(room, msgId), expire*1000 + 500);
     });
-    socket.on("verify-download",(data,cb)=>{ const r=socket.room; if(!r||!rooms[r]) return cb(false); cb(rooms[r].password===data.password); });
-    socket.on("change-password",(np)=>{ if(socket.room&&rooms[socket.room]){ rooms[socket.room].password=np; io.to(socket.room).emit("password-changed"); } });
-    socket.on("quality-change",(q)=>{ if(!socket.room) return; socket.to(socket.room).emit("quality-change",q); });
-    socket.on("ping-check",(t)=>{ socket.emit("pong-check",t); });
-    socket.on('nudge',()=>{ if(!socket.room) return; io.to(socket.room).emit('nudge'); });
-    socket.on('typing',(t)=>{ if(!socket.room) return; socket.to(socket.room).emit('typing',t); });
-    socket.on('message-read',(id)=>{ if(!socket.room) return; socket.to(socket.room).emit('message-read',id); });
-    socket.on('messages-read-all',()=>{ if(!socket.room) return; socket.to(socket.room).emit('messages-read-all'); });
-    socket.on('fly-emoji',(d)=>{ if(!socket.room) return; io.to(socket.room).emit('fly-emoji',d); });
-    socket.on("phone-mode",(en)=>{ if(!socket.room) return; socket.to(socket.room).emit("phone-mode",en); });
-    socket.on("disconnect",()=>{ const rn = socket.room; if(rn && rooms[rn]){ rooms[rn].users = rooms[rn].users.filter(id=> id!==socket.id); if(rooms[rn].users.length===0) rooms[rn].lastEmptyAt = Date.now(); socket.to(rn).emit("user-disconnected"); } });
+
+    socket.on("reduce-request", ({ msgId, newExpireSec })=>{
+        const room = socket.room; if(!room ||!rooms[room]) return;
+        let sec = parseInt(newExpireSec); if(isNaN(sec)||sec<=0) return; if(sec>MAX_AFTER_OPEN_SEC) sec=MAX_AFTER_OPEN_SEC;
+        const msg = rooms[room].messages.find(m=> m.msgId===msgId); if(!msg) return;
+        if(msg.deleteAt){
+            const remaining = Math.max(0, Math.floor((msg.deleteAt - Date.now())/1000));
+            if(sec>=remaining) return;
+            msg.deleteAt = Date.now() + sec*1000;
+            msg.expireSec = sec;
+            io.to(room).emit("reduce-accepted", { msgId, newExpireSec: sec, newDeleteAt: msg.deleteAt });
+        }else{
+            if(msg.username!==socket.username) return;
+            msg.expireSec = sec;
+            io.to(room).emit("reduce-accepted", { msgId, newExpireSec: sec, newDeleteAt: null });
+        }
+    });
+
+    socket.on("extend-request", ({ msgId, extraSec })=>{
+        const room = socket.room; if(!room ||!rooms[room]) return;
+        const msg = rooms[room].messages.find(m=> m.msgId===msgId); if(!msg||!msg.deleteAt) return;
+        let add = parseInt(extraSec); if(isNaN(add)||add<=0) return; if(add>MAX_AFTER_OPEN_SEC) add=MAX_AFTER_OPEN_SEC;
+        msg.deleteAt += add*1000;
+        io.to(room).emit("extend-accepted", { msgId, newDeleteAt: msg.deleteAt, extraSec: add });
+    });
+
+    socket.on("typing", (t)=>{ const room=socket.room; if(room) socket.to(room).emit("typing", { typing: t, username: socket.realUsername }); });
+    socket.on("nudge", ()=>{ const room=socket.room; if(room) socket.to(room).emit("nudge", { username: socket.realUsername }); });
+    socket.on("fly-emoji", (d)=>{ const room=socket.room; if(room) socket.to(room).emit("fly-emoji", { emoji: d.emoji, effect: d.effect, username: socket.realUsername }); });
+    socket.on("phone-mode", (e)=>{ const room=socket.room; if(room) socket.to(room).emit("phone-mode", e); });
+    socket.on("panic", ()=>{ const room=socket.room; if(room){ if(rooms[room]) rooms[room].messages=[]; io.to(room).emit("panic"); } });
+    socket.on("change-password", (p)=>{ const room=socket.room; if(room) socket.to(room).emit("password-changed"); });
+    socket.on("quality-change", (q)=>{ const room=socket.room; if(room) socket.to(room).emit("quality-change", q); });
+    socket.on("ping-check", (ts)=> socket.emit("pong-check", ts));
+    socket.on("verify-download", ({password}, cb)=>{ cb(true); });
+    socket.on("message-read", (id)=>{ const room=socket.room; if(room) socket.to(room).emit("message-read", id); });
+    socket.on("messages-read-all", ()=>{ const room=socket.room; if(room) socket.to(room).emit("messages-read-all"); });
+
+    socket.on("disconnect", ()=>{
+        const room = socket.room;
+        if(room && rooms[room] && rooms[room].users[socket.id]){
+            delete rooms[room].users[socket.id];
+            socket.to(room).emit("user-disconnected", { username: socket.realUsername });
+            if(Object.keys(rooms[room].users).length===0){
+                // oda boş kalınca mesajları 5 dk sonra silme, kalsın
+            }
+        }
+    });
 });
+
+app.get("/", (req,res)=> res.sendFile(path.join(__dirname, "public", "index.html")));
 const PORT = process.env.PORT || 3000;
-server.listen(PORT,"0.0.0.0",()=>{ console.log("GORGOR V12.2 MSN - 24h max - Port:",PORT); });
+server.listen(PORT, ()=> console.log(`GORGOR V12.3 BULMACA - oda1 + varım/yokum - ${PORT}`));
