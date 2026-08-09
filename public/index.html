@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GORGOR V12 PRO</title>
+    <title>GORGOR V12.1 FIX</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="roomScreen">
-        <h2>GORGOR V12 PRO</h2>
+        <h2>GORGOR V12.1 FIX</h2>
         <input id="roomName" placeholder="Oda adı">
         <input id="roomPassword" type="password" placeholder="Oda şifresi = şifreleme anahtarı">
         <button id="joinBtn">Odaya Gir</button>
-        <small style="opacity:0.6;text-align:center;margin-top:8px;">Uçtan uca şifreli<br>Server okuyamaz • Açıldıktan sonra max 1 saat</small>
+        <small style="opacity:0.6;text-align:center;margin-top:8px;">Uçtan uca şifreli<br>Server okuyamaz • Offline 24 saat saklar</small>
     </div>
     <div id="mainScreen">
         <video id="remoteVideo" autoplay playsinline webkit-playsinline></video>
@@ -30,8 +30,8 @@
         </div>
         <div id="phoneCallUI" style="display:none;">
             <div class="phoneAvatar">📞</div>
-            <div class="phoneName">Gizli Görüşme</div>
-            <div class="phoneStatus">Sadece ses aktif - kameralar kapalı</div>
+            <div class="phoneName">Telefon Görüşmesi</div>
+            <div class="phoneStatus">Sesli arama aktif - mikrofon açık</div>
             <div class="phoneWave"><span></span><span></span></div>
         </div>
         <div id="settingsContainer">
@@ -45,18 +45,14 @@
             <div id="secretSettings">
                 <label>Varsayılan yok olma süresi (max 1 saat)</label>
                 <select id="defaultSelfDestructSelect">
-                    <option value="60">1 dakika</option>
-                    <option value="300">5 dakika</option>
-                    <option value="600">10 dakika</option>
-                    <option value="1800" selected>30 dakika</option>
-                    <option value="3600">1 saat</option>
+                    <option value="60">1 dakika</option><option value="300">5 dakika</option><option value="600">10 dakika</option><option value="1800" selected>30 dakika</option><option value="3600">1 saat</option>
                 </select>
-                <small>Bugün 5 dk, yarın 30 dk yapabilirsin. Kalıcı + tek seferlik seçenek var.</small>
+                <small>Tek seferlik / kalıcı seçebilirsin</small>
             </div>
             <div id="statusBar">
                 <div class="statusBox">Ping: <span id="pingValue">-</span></div>
                 <div class="statusBox">Bağlantı: <span id="connectionQuality">-</span></div>
-                <div class="statusBox" style="font-size:10px;opacity:0.7;">🔒 E2E Şifreli • Server okuyamaz</div>
+                <div class="statusBox" style="font-size:10px;opacity:0.7;">🔒 E2E Şifreli</div>
             </div>
         </div>
         <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.1">
@@ -68,17 +64,9 @@
                 <button id="locationBtn">📍</button>
                 <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none">
                 <select id="perMessageTimerSelect">
-                    <option value="default">Süre: Varsayılan (30 dk)</option>
-                    <option value="60">1 dk kalsın</option>
-                    <option value="300">5 dk kalsın</option>
-                    <option value="600">10 dk kalsın</option>
-                    <option value="1800">30 dk kalsın</option>
-                    <option value="3600">1 saat kalsın</option>
+                    <option value="default">Süre: Varsayılan (30 dk)</option><option value="60">1 dk kalsın</option><option value="300">5 dk kalsın</option><option value="600">10 dk kalsın</option><option value="1800">30 dk kalsın</option><option value="3600">1 saat kalsın</option>
                 </select>
-                <select id="perMessagePersistSelect">
-                    <option value="once">Tek seferlik</option>
-                    <option value="persist">Kalıcı yap (s)</option>
-                </select>
+                <select id="perMessagePersistSelect"><option value="once">Tek seferlik</option><option value="persist">Kalıcı yap (s)</option></select>
                 <input id="messageInput" placeholder="Şifreli mesaj yaz...">
                 <button id="nudgeBtn">👉</button>
                 <button id="emojiBtn">😂</button>
