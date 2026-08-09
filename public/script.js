@@ -442,15 +442,47 @@ document.querySelectorAll('.flyEmoji').forEach(emoji=>{
 });
 socket.on('fly-emoji',(data)=> createFlyingEmoji(data.emoji,data.effect,false));
 function createFlyingEmoji(emoji,effect,isMine){
-    const fly=document.createElement('div'); fly.className='flying-emoji'; fly.textContent=emoji;
-    const startX = isMine ? window.innerWidth-120 : 100;
-    fly.style.left=startX+'px'; fly.style.bottom='120px';
+    const fly=document.createElement('div');
+    fly.className='flying-emoji '+(effect||'');
+    fly.textContent=emoji;
+    const startX = isMine? window.innerWidth-120 : 100;
+    fly.style.left=startX+'px';
+    fly.style.bottom='120px';
+    fly.style.fontSize = (effect==='heart' || effect==='fire')? '60px' : '50px';
     document.body.appendChild(fly);
+
+    // msn sesi gibi titresim ekle
+    if(effect==='heart' || effect==='kiss' || effect==='love'){
+        if(navigator.vibrate) navigator.vibrate([50]);
+    }
+
+    // efekte göre farklı uçuş
+    let keyframes, opts={duration:2500, easing:'ease-out'};
+    if(effect==='heart' || effect==='love' || effect==='flower'){
+        // 3 tane kalbe böl - yağmur efekti
+        for(let i=0;i<3;i++){
+            setTimeout(()=>{
+                const f2=fly.cloneNode(true);
+                f2.style.left = (startX + (Math.random()*80-40))+'px';
+                f2.style.animationDelay = (i*0.15)+'s';
+                document.body.appendChild(f2);
+                setTimeout(()=>f2.remove(),3000);
+            }, i*120);
+        }
+    }
+
     fly.animate([
         { transform:'translateY(0) scale(0.5)', opacity:0 },
         { transform:'translateY(-80px) scale(1.2)', opacity:1, offset:0.2 },
         { transform:'translateY(-250px) scale(1)', opacity:0 }
-    ],{ duration:2500, easing:'ease-out' }).onfinish=()=> fly.remove();
+    ],opts).onfinish=()=> fly.remove();
+
+    // MSN efekt layer flash
+    if(msnEffectLayer && (effect==='fire' || effect==='wow')){
+        msnEffectLayer.style.background = effect==='fire'? 'radial-gradient(circle, rgba(255,100,0,0.15), transparent)' : 'radial-gradient(circle, rgba(255,255,0,0.1), transparent)';
+        msnEffectLayer.style.display='block';
+        setTimeout(()=> msnEffectLayer.style.display='none', 400);
+    }
 }
 if(addCustomEmoji){
     addCustomEmoji.onclick=()=>{
