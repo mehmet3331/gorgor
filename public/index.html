@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GORGOR V12.1 FIX</title>
+    <title>GORGOR V12.2 - MSN</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="roomScreen">
-        <h2>GORGOR V12.1 FIX</h2>
+        <h2>GORGOR V12.2 MSN</h2>
         <input id="roomName" placeholder="Oda adı">
         <input id="roomPassword" type="password" placeholder="Oda şifresi = şifreleme anahtarı">
         <button id="joinBtn">Odaya Gir</button>
-        <small style="opacity:0.6;text-align:center;margin-top:8px;">Uçtan uca şifreli<br>Server okuyamaz • Offline 24 saat saklar</small>
+        <small style="opacity:0.6;text-align:center;margin-top:8px;">Uçtan uca şifreli • MSN animasyonlar • 24 saat</small>
     </div>
     <div id="mainScreen">
         <video id="remoteVideo" autoplay playsinline webkit-playsinline></video>
         <div id="candleContainer">
             <div class="candle"><div class="flame"></div><div class="wick"></div><div class="wax"></div></div>
-            <p>Bağlantı koptu<br><small>🕯️ Mum yanıyor, bekleniyor...</small></p>
+            <p>Bağlantı koptu<br><small>🕯️ Mum yanıyor...</small></p>
         </div>
         <div id="myVideoContainer">
             <video id="myVideo" autoplay playsinline webkit-playsinline muted></video>
@@ -31,7 +31,7 @@
         <div id="phoneCallUI" style="display:none;">
             <div class="phoneAvatar">📞</div>
             <div class="phoneName">Telefon Görüşmesi</div>
-            <div class="phoneStatus">Sesli arama aktif - mikrofon açık</div>
+            <div class="phoneStatus">Sesli arama aktif</div>
             <div class="phoneWave"><span></span><span></span></div>
         </div>
         <div id="settingsContainer">
@@ -43,16 +43,15 @@
             <button id="changePasswordBtn">🔐</button>
             <button id="lightModeBtn">💡</button>
             <div id="secretSettings">
-                <label>Varsayılan yok olma süresi (max 1 saat)</label>
+                <label>Varsayılan yok olma (max 24 saat)</label>
                 <select id="defaultSelfDestructSelect">
-                    <option value="60">1 dakika</option><option value="300">5 dakika</option><option value="600">10 dakika</option><option value="1800" selected>30 dakika</option><option value="3600">1 saat</option>
+                    <option value="60">1 dakika</option><option value="300">5 dakika</option><option value="600">10 dk</option><option value="1800" selected>30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option>
                 </select>
-                <small>Tek seferlik / kalıcı seçebilirsin</small>
             </div>
             <div id="statusBar">
                 <div class="statusBox">Ping: <span id="pingValue">-</span></div>
                 <div class="statusBox">Bağlantı: <span id="connectionQuality">-</span></div>
-                <div class="statusBox" style="font-size:10px;opacity:0.7;">🔒 E2E Şifreli</div>
+                <div class="statusBox" style="font-size:10px;opacity:0.7;">🔒 E2E + Şifre korumalı</div>
             </div>
         </div>
         <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.1">
@@ -64,20 +63,32 @@
                 <button id="locationBtn">📍</button>
                 <input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none">
                 <select id="perMessageTimerSelect">
-                    <option value="default">Süre: Varsayılan (30 dk)</option><option value="60">1 dk kalsın</option><option value="300">5 dk kalsın</option><option value="600">10 dk kalsın</option><option value="1800">30 dk kalsın</option><option value="3600">1 saat kalsın</option>
+                    <option value="default">Süre: Varsayılan</option>
+                    <option value="60">1 dk</option><option value="300">5 dk</option><option value="600">10 dk</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option>
+                    <option value="custom">Manuel (saniye yaz)...</option>
                 </select>
-                <select id="perMessagePersistSelect"><option value="once">Tek seferlik</option><option value="persist">Kalıcı yap (s)</option></select>
-                <input id="messageInput" placeholder="Şifreli mesaj yaz...">
+                <select id="perMessagePersistSelect"><option value="once">Tek seferlik</option><option value="persist">Kalıcı yap</option></select>
+                <input id="messageInput" placeholder="Şifreli mesaj...">
                 <button id="nudgeBtn">👉</button>
                 <button id="emojiBtn">😂</button>
                 <button id="sendBtn">Gönder</button>
             </div>
             <div id="emojiPanel">
-                <span class="flyEmoji" data-effect="heart">❤</span><span class="flyEmoji" data-effect="kiss">😘</span><span class="flyEmoji" data-effect="laugh">😂</span><span class="flyEmoji" data-effect="thumbs">👍</span><span class="flyEmoji" data-effect="cry">😢</span><span class="flyEmoji" data-effect="wow">😮</span><span class="flyEmoji" data-effect="flower">🌸</span><span class="flyEmoji" data-effect="fire">🔥</span><span class="flyEmoji" data-effect="love">😍</span><span class="flyEmoji" data-effect="hug">🫶</span>
+                <span class="flyEmoji" data-effect="heart">❤</span>
+                <span class="flyEmoji" data-effect="kiss">😘</span>
+                <span class="flyEmoji" data-effect="laugh">😂</span>
+                <span class="flyEmoji" data-effect="water">💦</span>
+                <span class="flyEmoji" data-effect="fire">🔥</span>
+                <span class="flyEmoji" data-effect="flower">🌸</span>
+                <span class="flyEmoji" data-effect="thumbs">👍</span>
+                <span class="flyEmoji" data-effect="hug">🫶</span>
+                <span class="flyEmoji" data-effect="slap">👋</span>
+                <span class="flyEmoji" data-effect="love">😍</span>
                 <span id="addCustomEmoji" class="flyEmoji" style="background:#333;border-radius:6px;padding:2px 6px;">+</span>
             </div>
         </div>
         <div id="mediaPreview"><span id="closePreview">✖</span><img id="previewImg"><video id="previewVideo" controls></video><button id="downloadMediaBtn">İndir</button></div>
+        <div id="msnEffectLayer"></div>
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
