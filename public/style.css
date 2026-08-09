@@ -80,3 +80,5 @@ body.phone-mode #chatPanel { pointer-events: none; opacity: 0.2; } body.phone-mo
 #volumeSlider { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); width: 180px; z-index: 1000; }
 .offIcon { position:relative; }.offIcon::after { content:""; position:absolute; left:3px; top:22px; width:34px; height:4px; background:#ff0000; transform:rotate(-45deg); border-radius:5px; pointer-events:none; }
 @keyframes screenShake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(10px,5px); } 40% { transform: translate(-8px,8px); } }.screen-shake { animation: screenShake 0.8s; }
+#myVideoContainer { resize: both; overflow: hidden; min-width: 90px; min-height: 120px; max-width: 90vw; max-height: 70vh; }
+#myVideoContainer:active { border-color: #00ff88; }

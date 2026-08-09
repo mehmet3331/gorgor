@@ -331,28 +331,33 @@ socket.on("chat-message", data=>{ addLockedMessage(data.msgId, data.expireSec, d
 socket.on("chat-media", data=>{ addLockedMessage(data.msgId, data.expireSec, data.enc, data.mediaType||"image", data.realUsername||data.username); });
 socket.on("pending-messages", async(list)=>{
     for(const m of list){
-        if(m.username===myUsername){
-            if(m.opened && m.deleteAt){
-                const remaining=Math.max(1, Math.floor((m.deleteAt-Date.now())/1000)); if(remaining<=0) continue;
-                const plain=await decryptText(m.enc,currentPassword); if(!plain) continue;
-                const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId;
-                if(m.type==="text"){ div.innerHTML=`BEN (${m.realUsername}) → ${plain}<span class="countdown">⏳ ${formatTime(remaining)}</span>`; }
-                else{ div.innerHTML=`Sen - ⏰ ${formatTime(remaining)}`; if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); } const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(remaining)}`; div.appendChild(document.createElement("br")); div.appendChild(cd); }
-                messages.appendChild(div); startSelfDestruct(div,m.msgId,remaining,m.deleteAt); addReduceExtendButtons(div,m.msgId);
+        const plain=await decryptText(m.enc,currentPassword); if(!plain) continue;
+        const isMine = m.username===myUsername;
+        if(m.opened && m.deleteAt){
+            const remaining=Math.max(1, Math.floor((m.deleteAt-Date.now())/1000)); if(remaining<=0) continue;
+            const div=document.createElement("div"); div.className=isMine?"myMessage":"otherMessage"; div.id=m.msgId;
+            if(m.type==="text"){
+                const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
+                div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(remaining)} - ${isMine?`BEN (${m.realUsername})`:m.realUsername}</span>${isMine?`BEN (${m.realUsername}) → `:`${m.realUsername} → `}${linked}<span class="countdown">⏳ ${formatTime(remaining)}</span>`;
             }else{
-                const plain=await decryptText(m.enc,currentPassword); if(!plain) continue;
-                const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId; div._expireSec=m.expireSec;
-                div.innerHTML=`BEN (${m.realUsername}) → ${plain}<span class="countdown">⏳ Karşı açınca ${formatTime(m.expireSec)}</span>`;
-                messages.appendChild(div); sentMessages.set(m.msgId,div); addReduceExtendButtons(div,m.msgId);
+                div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(remaining)} - ${m.realUsername}</span>`;
+                if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; img.onclick=(ev)=>{ ev.stopPropagation(); openPreview({ type:"image", data:plain, name:"gizli.jpg" }); }; div.appendChild(img); }
+                else if(m.type==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
+                const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(remaining)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
             }
+            messages.appendChild(div); startSelfDestruct(div,m.msgId,remaining,m.deleteAt); addReduceExtendButtons(div,m.msgId);
+            if(isMine) sentMessages.set(m.msgId,div);
         }else{
-            if(m.opened && m.deleteAt){
-                const remaining=Math.max(1, Math.floor((m.deleteAt-Date.now())/1000)); if(remaining<=0) continue;
-                const plain=await decryptText(m.enc,currentPassword); if(!plain) continue;
-                const div=document.createElement("div"); div.className="otherMessage"; div.id=m.msgId;
-                if(m.type==="text"){ div.innerHTML=`${m.realUsername} → ${plain}<span class="countdown">⏳ ${formatTime(remaining)}</span>`; }
-                else{ div.innerHTML=`${m.realUsername} - ⏰ ${formatTime(remaining)}`; if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); } const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(remaining)}`; div.appendChild(document.createElement("br")); div.appendChild(cd); }
-                messages.appendChild(div); startSelfDestruct(div,m.msgId,remaining,m.deleteAt); addReduceExtendButtons(div,m.msgId);
+            if(isMine){
+                const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId; div._expireSec=m.expireSec;
+                if(m.type==="text"){
+                    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - Henüz açılmadı</span>BEN (${m.realUsername}) → ${plain}<span class="countdown">⏳ Karşı açınca ${formatTime(m.expireSec)}</span>`;
+                }else{
+                    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - Henüz açılmadı</span>`;
+                    if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); }
+                    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ Karşı açınca ${formatTime(m.expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
+                }
+                messages.appendChild(div); sentMessages.set(m.msgId,div); addReduceExtendButtons(div,m.msgId);
             }else{
                 addLockedMessage(m.msgId, m.expireSec, m.enc, m.type, m.realUsername);
             }
@@ -402,7 +407,11 @@ socket.on('fly-emoji',(data)=>{
     const fly=document.createElement('div'); fly.className='flying-emoji'; fly.textContent=data.emoji; fly.style.left=(Math.random()*80+10)+"%"; fly.style.bottom='120px'; document.body.appendChild(fly);
     fly.animate([{ transform:'translateY(0)', opacity:1 },{ transform:'translateY(-250px)', opacity:0 }],{ duration:2500 }).onfinish=()=> fly.remove();
 });
-document.addEventListener('click',(e)=>{ if(emojiPanel &&!emojiPanel.contains(e.target) && e.target!==emojiBtn){ emojiPanel.classList.remove("show"); } if(attachMenu &&!attachMenu.contains(e.target) && e.target!==attachMenuBtn){ attachMenu.classList.remove("show"); } });
+document.addEventListener('click',(e)=>{
+  if(emojiPanel && !emojiPanel.contains(e.target) && e.target!==emojiBtn){ emojiPanel.classList.remove("show"); }
+  if(attachMenu && !attachMenu.contains(e.target) && e.target!==attachMenuBtn && !attachMenuBtn.contains(e.target)){ attachMenu.classList.remove("show"); }
+});
+if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.toggle("show"); };
 
 micBtn.onclick=()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=> t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; };
 camBtn.onclick=()=>{ if(!localStream) return; camEnabled=!camEnabled; localStream.getVideoTracks().forEach(t=> t.enabled=camEnabled); camBtn.classList.toggle("offIcon",!camEnabled); };
