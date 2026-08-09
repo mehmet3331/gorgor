@@ -396,22 +396,64 @@ socket.on('typing',(data)=>{
     if(!td){ td=document.createElement('div'); td.id='typingIndicator'; td.className='otherMessage'; messages.appendChild(td); }
     td.textContent=data.typing?`${data.username} yazıyor...`:''; td.style.display=data.typing?'block':'none';
 });
-if(nudgeBtn){ nudgeBtn.onclick=(e)=>{ e.stopPropagation(); socket.emit("nudge"); document.body.classList.add("screen-shake"); setTimeout(()=> document.body.classList.remove("screen-shake"),800); if(navigator.vibrate) navigator.vibrate([100,50,100,50,300]); }; }
-socket.on("nudge",()=>{ document.body.classList.add("screen-shake"); setTimeout(()=> document.body.classList.remove("screen-shake"),800); if(navigator.vibrate) navigator.vibrate([100,50,100,50,300]); });
+// TITRESIM FIX - ESKI GUZEL VERSIYON
+if(nudgeBtn){
+    nudgeBtn.onclick=(e)=>{
+        e.stopPropagation();
+        socket.emit("nudge");
+        triggerNudge(true);
+    };
+}
+function triggerNudge(isMine){
+    document.body.classList.add("screen-shake");
+    setTimeout(()=> document.body.classList.remove("screen-shake"),800);
+    if(navigator.vibrate) navigator.vibrate([200,100,200]);
+    // ek efekt: mesajlar da titresin
+    if(messages) { messages.classList.add("shake"); setTimeout(()=> messages.classList.remove("shake"),600); }
+}
+socket.on("nudge",()=>{ triggerNudge(false); });
+
+// EMOJI ANIM FIX - ESKI GUZEL VERSIYON
 if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.toggle("show"); };
 document.querySelectorAll('.flyEmoji').forEach(emoji=>{
     if(emoji.id==='addCustomEmoji') return;
-    emoji.onclick=(e)=>{ e.stopPropagation(); socket.emit('fly-emoji',{ emoji:emoji.textContent, effect:emoji.dataset.effect }); emojiPanel.classList.remove("show"); };
+    emoji.onclick=(e)=>{
+        e.stopPropagation();
+        const emojiText=emoji.textContent; const effect=emoji.dataset.effect;
+        socket.emit('fly-emoji',{ emoji:emojiText, effect });
+        createFlyingEmoji(emojiText,effect,true);
+        emojiPanel.classList.remove("show");
+    };
 });
-socket.on('fly-emoji',(data)=>{
-    const fly=document.createElement('div'); fly.className='flying-emoji'; fly.textContent=data.emoji; fly.style.left=(Math.random()*80+10)+"%"; fly.style.bottom='120px'; document.body.appendChild(fly);
-    fly.animate([{ transform:'translateY(0)', opacity:1 },{ transform:'translateY(-250px)', opacity:0 }],{ duration:2500 }).onfinish=()=> fly.remove();
+socket.on('fly-emoji',(data)=> createFlyingEmoji(data.emoji,data.effect,false));
+function createFlyingEmoji(emoji,effect,isMine){
+    const fly=document.createElement('div'); fly.className='flying-emoji'; fly.textContent=emoji;
+    const startX = isMine ? window.innerWidth-120 : 100;
+    fly.style.left=startX+'px'; fly.style.bottom='120px';
+    document.body.appendChild(fly);
+    fly.animate([
+        { transform:'translateY(0) scale(0.5)', opacity:0 },
+        { transform:'translateY(-80px) scale(1.2)', opacity:1, offset:0.2 },
+        { transform:'translateY(-250px) scale(1)', opacity:0 }
+    ],{ duration:2500, easing:'ease-out' }).onfinish=()=> fly.remove();
+}
+if(addCustomEmoji){
+    addCustomEmoji.onclick=()=>{
+        const custom=prompt("Eklemek istediğin emojiyi yapıştır:"); if(!custom) return;
+        const span=document.createElement("span"); span.className="flyEmoji"; span.dataset.effect="custom"; span.textContent=custom;
+        span.onclick=(ev)=>{ ev.stopPropagation(); socket.emit('fly-emoji',{ emoji:custom, effect:'custom' }); createFlyingEmoji(custom,'custom',true); emojiPanel.classList.remove("show"); };
+        emojiPanel.insertBefore(span,addCustomEmoji);
+        const saved=JSON.parse(localStorage.getItem("customEmojis")||"[]"); saved.push(custom); localStorage.setItem("customEmojis",JSON.stringify(saved));
+    };
+}
+window.addEventListener("load",()=>{
+    const saved=JSON.parse(localStorage.getItem("customEmojis")||"[]");
+    saved.forEach(custom=>{
+        const span=document.createElement("span"); span.className="flyEmoji"; span.dataset.effect="custom"; span.textContent=custom;
+        span.onclick=(ev)=>{ ev.stopPropagation(); socket.emit('fly-emoji',{ emoji:custom, effect:'custom' }); createFlyingEmoji(custom,'custom',true); emojiPanel.classList.remove("show"); };
+        if(emojiPanel && addCustomEmoji) emojiPanel.insertBefore(span,addCustomEmoji);
+    });
 });
-document.addEventListener('click',(e)=>{
-  if(emojiPanel && !emojiPanel.contains(e.target) && e.target!==emojiBtn){ emojiPanel.classList.remove("show"); }
-  if(attachMenu && !attachMenu.contains(e.target) && e.target!==attachMenuBtn && !attachMenuBtn.contains(e.target)){ attachMenu.classList.remove("show"); }
-});
-if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.toggle("show"); };
 
 micBtn.onclick=()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=> t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; };
 camBtn.onclick=()=>{ if(!localStream) return; camEnabled=!camEnabled; localStream.getVideoTracks().forEach(t=> t.enabled=camEnabled); camBtn.classList.toggle("offIcon",!camEnabled); };
