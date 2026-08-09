@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>GORGOR V12.3 - BULMACA</title>
+<title>GORGOR</title>
 <link rel="stylesheet" href="style.css" />
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
 </head>
 <body>
-<!-- SAHTE HESAP MAKİNESİ -->
 <div id="fakeCalc" style="display:flex;">
   <div class="calc-container">
     <h3>🔢 Hesap Makinesi</h3>
@@ -21,30 +20,21 @@
       <button onclick="calcPress('0')">0</button><button onclick="calcPress('.')">.</button><button onclick="calcClear()">C</button><button onclick="calcPress('+')">+</button>
       <button onclick="calcEqual()" style="grid-column: span 4; background:#00c853; color:white; font-weight:bold;">=</button>
     </div>
-    <p style="font-size:11px; opacity:0.5; margin-top:10px;">İpucu: 1234=</p>
   </div>
 </div>
 
 <div id="roomScreen" style="display:none;">
-  <h2>🔒 GORGOR V12.3</h2>
-  <input id="roomName" placeholder="Oda adı (ipucu: oda1)" autocomplete="off" />
+  <h2>🔒 GORGOR</h2>
+  <input id="roomName" placeholder="Oda adı" autocomplete="off" />
   <div id="fakeRoomsHint" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; font-size:12px;">
-    <div style="color:#888; margin-bottom:5px;">Sahte odalar (boş):</div>
     <div id="fakeRoomsList" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
   </div>
-  <input id="userName" placeholder="Kullanıcı adın (varım / yokum)" autocomplete="off" style="display:none;" />
-  <div id="userListBox" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; max-height:180px; overflow-y:auto;">
-    <div style="color:#00ff88; font-size:12px; margin-bottom:6px;">✅ Gerçek kullanıcılar (çalışır):</div>
-    <div style="display:flex; gap:6px; margin-bottom:10px;">
-      <span class="userTag real" data-u="varım">varım 🟢</span>
-      <span class="userTag real" data-u="yokum">yokum 🔵</span>
-    </div>
-    <div style="color:#666; font-size:11px; margin-bottom:5px;">❌ Sahte kullanıcılar (çalışmaz):</div>
+  <input id="userName" placeholder="Kullanıcı adı" autocomplete="off" style="display:none;" />
+  <div id="userListBox" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; max-height:200px; overflow-y:auto;">
     <div id="fakeUsersList" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
   </div>
   <input id="roomPassword" type="password" placeholder="Oda şifresi" />
-  <button id="joinBtn">Odaya Gir</button>
-  <p style="font-size:12px; opacity:0.6; margin-top:10px; text-align:center; width:280px;">Oda1 yazınca kullanıcılar açılır. Sadece varım ve yokum girebilir.</p>
+  <button id="joinBtn">Giriş</button>
 </div>
 
 <div id="mainScreen">
@@ -56,7 +46,7 @@
     <select id="qualitySelect" class="qualitySelect"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
   </div>
   <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯️</p></div>
-  <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">YOKUM</div><div class="phoneStatus">Telefon modunda - Sadece ses</div><div class="phoneWave"><span></span><span></span></div></div>
+  <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
   <div id="settingsContainer">
     <button id="settingsBtn">⚙️</button>
     <button id="micBtn" title="Mikrofon"></button>
@@ -64,9 +54,9 @@
     <button id="soundBtn" title="Ses">🔊</button>
     <input id="volumeSlider" type="range" min="0" max="1" step="0.05" value="0.1" />
     <button id="phoneModeBtn" title="Telefon Modu">📞</button>
-    <button id="panicBtn" title="Panik - Salla">🚨</button>
-    <button id="lightModeBtn" title="Işık modu">💡</button>
-    <button id="changePasswordBtn" title="Şifre değiştir">🔑</button>
+    <button id="panicBtn" title="Panik">🚨</button>
+    <button id="lightModeBtn" title="Işık">💡</button>
+    <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
     <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800" selected>30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option></select></div>
   </div>
@@ -74,10 +64,17 @@
   <div id="chatPanel">
     <div id="messages"></div>
     <div id="inputArea">
-      <select id="perMessageTimerSelect"><option value="default">Varsayılan süre</option><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option><option value="custom">Manuel (saniye yaz)...</option></select>
-      <select id="perMessagePersistSelect"><option value="once">Bu mesaj için</option><option value="persist">Varsayılan yap + kaydet (s ekle kalıcı)</option></select>
-      <button id="mediaBtn">📎</button><button id="locationBtn">📍</button><button id="drawBtn">✏️</button>
-      <input id="messageInput" placeholder="Mesaj yaz..." autocomplete="off" />
+      <div style="position:relative;">
+        <button id="attachMenuBtn">⋯</button>
+        <div id="attachMenu">
+          <button id="mediaBtn">📎 Foto/Video (20MB)</button>
+          <button id="drawBtn">✏️ Çizim</button>
+          <button id="locationBtn">📍 Konum</button>
+        </div>
+      </div>
+      <select id="perMessageTimerSelect"><option value="default">Varsayılan</option><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option><option value="custom">Manuel...</option></select>
+      <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
+      <input id="messageInput" placeholder="Mesaj..." autocomplete="off" />
       <button id="emojiBtn">😊</button><button id="nudgeBtn">👉</button><button id="sendBtn">Gönder</button>
       <div id="emojiPanel"><span class="flyEmoji" data-effect="kiss">😘</span><span class="flyEmoji" data-effect="heart">❤</span><span class="flyEmoji" data-effect="fire">🔥</span><span class="flyEmoji" data-effect="water">💦</span><span class="flyEmoji" data-effect="slap">👋</span><span class="flyEmoji" data-effect="kiss">💋</span><span class="flyEmoji">😂</span><span class="flyEmoji">🥰</span><span class="flyEmoji">😎</span><span class="flyEmoji">🤔</span><span class="flyEmoji" id="addCustomEmoji" style="background:#333;border-radius:50%;">➕</span></div>
       <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" />
@@ -89,7 +86,6 @@
 </div>
 
 <script>
-// Fake calc logic
 let calcBuf="";
 function calcPress(v){ calcBuf+=v; document.getElementById("calcDisplay").value=calcBuf; }
 function calcClear(){ calcBuf=""; document.getElementById("calcDisplay").value=""; }
