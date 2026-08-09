@@ -61,23 +61,31 @@
     <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800" selected>30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option></select></div>
   </div>
   <button id="chatToggle">💬</button>
-  <div id="chatPanel">
+    <div id="chatPanel">
     <div id="messages"></div>
     <div id="inputArea">
-      <div style="position:relative;">
-        <button id="attachMenuBtn">⋯</button>
-        <div id="attachMenu">
-          <button id="mediaBtn">📎 Foto/Video (20MB)</button>
-          <button id="drawBtn">✏️ Çizim</button>
-          <button id="locationBtn">📍 Konum</button>
-        </div>
+      <div class="inputTopRow">
+        <select id="perMessageTimerSelect"><option value="default">Varsayılan</option><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option><option value="custom">Manuel...</option></select>
+        <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
+        <button id="emojiBtn">emoji</button>
+        <button id="nudgeBtn">titreme</button>
       </div>
-      <select id="perMessageTimerSelect"><option value="default">Varsayılan</option><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option><option value="custom">Manuel...</option></select>
-      <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
-      <input id="messageInput" placeholder="Mesaj..." autocomplete="off" />
-      <button id="emojiBtn">😊</button><button id="nudgeBtn">👉</button><button id="sendBtn">Gönder</button>
+      <div class="inputBottomRow">
+        <div style="position:relative;">
+          <button id="attachMenuBtn">⋯</button>
+          <div id="attachMenu">
+            <button id="cameraBtn">📷 Kameradan Çek</button>
+            <button id="mediaBtn">🖼️ Galeriden Seç (20MB)</button>
+            <button id="drawBtn">✏️ Çizim</button>
+            <button id="locationBtn">📍 Konum</button>
+          </div>
+        </div>
+        <input id="messageInput" placeholder="mesaj yazma kutusu" autocomplete="off" />
+        <button id="sendBtn">gönder</button>
+      </div>
       <div id="emojiPanel"><span class="flyEmoji" data-effect="kiss">😘</span><span class="flyEmoji" data-effect="heart">❤</span><span class="flyEmoji" data-effect="fire">🔥</span><span class="flyEmoji" data-effect="water">💦</span><span class="flyEmoji" data-effect="slap">👋</span><span class="flyEmoji" data-effect="kiss">💋</span><span class="flyEmoji">😂</span><span class="flyEmoji">🥰</span><span class="flyEmoji">😎</span><span class="flyEmoji">🤔</span><span class="flyEmoji" id="addCustomEmoji" style="background:#333;border-radius:50%;">➕</span></div>
       <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" />
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" />
     </div>
   </div>
   <div id="mediaPreview"><span id="closePreview">×</span><img id="previewImg" /><video id="previewVideo" controls></video><button id="downloadMediaBtn">⬇️ İndir</button></div>

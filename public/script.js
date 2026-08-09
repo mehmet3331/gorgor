@@ -63,6 +63,8 @@ const drawSend = document.getElementById("drawSend");
 const drawClose = document.getElementById("drawClose");
 const attachMenuBtn = document.getElementById("attachMenuBtn");
 const attachMenu = document.getElementById("attachMenu");
+const cameraBtn = document.getElementById("cameraBtn");
+const cameraInput = document.getElementById("cameraInput");
 
 let peer = null; let localStream = null; let currentRoom = ""; let currentPassword = ""; let myUsername = ""; let myRealUsername = "";
 let micEnabled = true; let camEnabled = true;
@@ -419,6 +421,25 @@ if(attachMenuBtn){ attachMenuBtn.onclick=(e)=>{ e.stopPropagation(); attachMenu.
 mediaBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); mediaInput.click(); };
 drawBtn.onclick=()=>{ attachMenu.classList.remove("show"); drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
 locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); socket.emit("chat-message",{ msgId, enc, expireSec:expire }); }); };
+
+if(cameraBtn){
+  cameraBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); cameraInput.click(); };
+}
+if(cameraInput){
+  cameraInput.onchange=async()=>{
+    const file=cameraInput.files[0]; if(!file) return;
+    const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); return; }
+    let expire=getExpireFromSelect();
+    const img=await createImageBitmap(file);
+    const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; }
+    canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h);
+    const blob=await new Promise(r=> canvas.toBlob(r,'image/jpeg',0.75));
+    const dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=> res(e.target.result); fr.readAsDataURL(blob); });
+    const enc=await encryptText(dataUrl,currentPassword);
+    const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg");
+    socket.emit("chat-media",{ msgId, enc, expireSec:expire, mediaType:"image" }); cameraInput.value="";
+  };
+}
 
 mediaInput.onchange=async()=>{
     const file=mediaInput.files[0]; if(!file) return;
