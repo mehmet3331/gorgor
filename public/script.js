@@ -1,4 +1,4 @@
-console.log("V12.1 FIX - offline foto+mesaj + titreşim + emoji anim + telefon");
+console.log("V12.2 MSN - sifre korumali acma + 24h + MSN efekt");
 document.addEventListener('contextmenu', e => e.preventDefault());
 const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
 
@@ -46,6 +46,7 @@ const defaultSelfDestructSelect = document.getElementById("defaultSelfDestructSe
 const phoneModeBtn = document.getElementById("phoneModeBtn");
 const phoneCallUI = document.getElementById("phoneCallUI");
 const candleContainer = document.getElementById("candleContainer");
+const msnEffectLayer = document.getElementById("msnEffectLayer");
 
 let peer = null; let localStream = null; let currentRoom = ""; let currentPassword = "";
 let micEnabled = true; let camEnabled = true;
@@ -55,7 +56,7 @@ const sentMessages = new Map();
 let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "1800");
 let activeTimers = new Map();
 let isPhoneMode = false;
-const MAX_SEC = 3600;
+const MAX_SEC = 86400;
 
 async function deriveKey(password){
     const enc = new TextEncoder();
@@ -77,7 +78,7 @@ async function decryptText(b64,password){
         const iv = combined.slice(0,12); const ct = combined.slice(12);
         const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
         return new TextDecoder().decode(pt);
-    }catch(e){ return "🔒 Şifre çözülemedi"; }
+    }catch(e){ return null; }
 }
 
 if(defaultSelfDestructSelect) defaultSelfDestructSelect.value = defaultExpire.toString();
@@ -95,9 +96,8 @@ async function startCamera(height=720, facingMode=currentFacingMode){
         micEnabled=true; camEnabled=true;
         micBtn.classList.remove("offIcon"); camBtn.classList.remove("offIcon");
         return true;
-    }catch(err){ console.log("Kamera hatasi",err); return false; }
+    }catch(err){ return false; }
 }
-
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=> socket.emit("ping-check", Date.now()), 3000); }
 socket.on("pong-check", ts=>{
     const ping = Date.now()-ts;
@@ -107,7 +107,6 @@ socket.on("pong-check", ts=>{
     else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; }
     else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; }
 });
-
 joinBtn.onclick = async()=>{
     const room = roomName.value.trim(); const password = roomPassword.value.trim();
     if(!room||!password){ alert("Oda adi ve sifre gerekli"); return; }
@@ -125,27 +124,22 @@ socket.on("joined-room", count=>{
     if(count===2) createPeer(true);
 });
 socket.on("user-connected",()=>{ if(!peer) createPeer(false); });
-
 function createPeer(initiator){
     peer = new SimplePeer({ initiator, trickle:false, stream:localStream, config:{ iceServers:[{ urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"] }] } });
     peer.on("signal", signal=> socket.emit("signal",{ room:currentRoom, signal }));
     peer.on("stream", stream=>{
         remoteVideo.srcObject=stream; remoteVideo.play().catch(()=>{});
         if(candleContainer) candleContainer.classList.remove("show");
-        // telefon modundaysa gizli kalsin
-        if(isPhoneMode){ remoteVideo.style.display="none"; }
-        else{ remoteVideo.style.display="block"; }
+        if(isPhoneMode){ remoteVideo.style.display="none"; } else{ remoteVideo.style.display="block"; }
     });
 }
 socket.on("signal", signal=>{ if(!peer) createPeer(false); peer.signal(signal); });
 socket.on("user-disconnected",()=>{
-    // sadece video kismini kapat, mesaji degil
     if(remoteVideo){ remoteVideo.srcObject=null; remoteVideo.style.display="none"; }
-    if(candleContainer && !isPhoneMode) candleContainer.classList.add("show");
+    if(candleContainer &&!isPhoneMode) candleContainer.classList.add("show");
     if(peer){ peer.destroy(); peer=null; }
     if(connectionQuality){ connectionQuality.textContent="Bağlantı Yok - Mum yanıyor 🕯️"; connectionQuality.className="bad"; }
 });
-
 qualitySelect.onchange = async()=>{
     currentQuality=parseInt(qualitySelect.value);
     socket.emit("quality-change", currentQuality);
@@ -158,7 +152,7 @@ if(fullscreenBtn){ fullscreenBtn.onclick = ()=>{ if(!document.fullscreenElement)
 function formatTime(sec){
     if(sec<60) return `${sec} sn`;
     const m=Math.floor(sec/60); const s=sec%60;
-    if(m>=60){ const h=Math.floor(m/60); const mm=m%60; return `${h}sa ${mm}dk`; }
+    if(m>=60){ const h=Math.floor(m/60); const mm=m%60; if(h>=24){ const d=Math.floor(h/24); const hh=h%24; return `${d}g ${hh}sa`; } return `${h}sa ${mm}dk`; }
     return `${m} dk ${s} sn`;
 }
 function startSelfDestruct(div, msgId, expireSec, deleteAt){
@@ -184,8 +178,8 @@ function addReduceButton(div, msgId){
     btn.onclick=(e)=>{
         e.stopPropagation();
         const timer=activeTimers.get(msgId);
-        let remaining=3600; if(timer) remaining=Math.max(0,Math.floor((timer.expireAt-Date.now())/1000)); else remaining=div._expireSec||defaultExpire;
-        const inp=prompt(`Kalan: ${formatTime(remaining)} (max 1 saat)\nYeni süre? 10=10sn, 60=1dk\nSonuna 's' eklersen kalici olur`);
+        let remaining=MAX_SEC; if(timer) remaining=Math.max(0,Math.floor((timer.expireAt-Date.now())/1000)); else remaining=div._expireSec||defaultExpire;
+        const inp=prompt(`Kalan: ${formatTime(remaining)}\nYeni süre saniye? (10=10sn, 3600=1saat, 86400=24saat)\nSonuna 's' eklersen kalici olur`);
         if(!inp) return; let isPersistent=inp.toLowerCase().includes('s'); let newVal=parseInt(inp.replace(/[^0-9]/g,''));
         if(isNaN(newVal)||newVal<=0){ alert("Gecersiz"); return; } if(newVal>MAX_SEC) newVal=MAX_SEC;
         if(timer && newVal>=remaining){ alert("Kalan süreden daha az yaz!"); return; }
@@ -194,26 +188,31 @@ function addReduceButton(div, msgId){
     };
     div.appendChild(btn);
 }
-
 async function addMyMessage(text, expireSec){
     const msgId=`msg-${Date.now()}-${messageIdCounter++}`;
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC);
     const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-    div.innerHTML=`<span class="expireInfo">🔒 E2E şifreli • ⏰ ${formatTime(expireSec)} sonra kaybolacak (karşı taraf açınca başlar)</span>BEN → ${linked}<span class="message-tick">✓</span><span class="countdown">⏳ Karşı taraf açınca ${formatTime(expireSec)} sayaç başlayacak</span>`;
+    div.innerHTML=`<span class="expireInfo">🔒 E2E şifreli • ⏰ ${formatTime(expireSec)} sonra kaybolacak</span>BEN → ${linked}<span class="message-tick">✓</span><span class="countdown">⏳ Karşı taraf açınca ${formatTime(expireSec)} sayaç başlayacak</span>`;
     messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); div._expireSec=expireSec; addReduceButton(div,msgId); return msgId;
 }
-
 async function addLockedMessage(msgId, expireSec, enc, mediaType){
     if(document.getElementById(msgId)) return;
     const div=document.createElement("div"); div.className="otherMessage lockedMessage"; div.id=msgId; expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
     div._enc=enc; div._expireSec=expireSec; div._mediaType=mediaType||"text";
     const icon=mediaType && mediaType!=="text"?"📎":"💬";
-    div.innerHTML=`<span class="expireInfo">🔒 E2E şifreli • Açılmadan server okuyamaz</span>${icon} Yeni gizli ${mediaType||"mesaj"} - ${formatTime(expireSec)} sonra kaybolacak<br><small style="opacity:0.7;">Açınca sayaç başlar</small><br><button class="openBtn">🔓 Aç ve sayacı başlat</button><span class="countdown" style="display:none;"></span>`;
+    div.innerHTML=`<span class="expireInfo">🔒 E2E şifreli • Açmak için şifre gerekli</span>${icon} Yeni gizli ${mediaType||"mesaj"} - ${formatTime(expireSec)} sonra kaybolacak<br><small style="opacity:0.7;">Açınca sayaç başlar</small><br><button class="openBtn">🔓 Aç ve sayacı başlat</button><span class="countdown" style="display:none;"></span>`;
     const btn=div.querySelector(".openBtn");
     btn.onclick=async(e)=>{
-        e.stopPropagation(); // FIX: video kapanma bugi
+        e.stopPropagation();
+        const pass = prompt("🔐 Bu mesajı açmak için ODA ŞİFRESİNİ gir:");
+        if(!pass){ return; }
+        if(pass!== currentPassword){
+            alert("❌ Şifre yanlış! Oda şifresi ile aynı olmalı.");
+            return;
+        }
         btn.textContent="Açılıyor...";
-        const plain=await decryptText(enc,currentPassword);
+        const plain=await decryptText(enc,pass);
+        if(!plain){ alert("Şifre çözülemedi!"); btn.textContent="🔓 Aç ve sayacı başlat"; return; }
         if(div._mediaType==="text"||!div._mediaType){
             const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
             div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)} içinde kaybolacak</span>SEN → ${linked}<span class="countdown">⏳ ${formatTime(expireSec)} içinde kaybolacak</span>`;
@@ -224,10 +223,8 @@ async function addLockedMessage(msgId, expireSec, enc, mediaType){
             const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(expireSec)} içinde kaybolacak`; div.appendChild(document.createElement("br")); div.appendChild(cd);
         }
         div.className="otherMessage";
-        // server'a açıldı de - sayacı herkes için başlat
         socket.emit("message-opened",{ msgId });
         socket.emit("message-read",msgId);
-        // lokal timer'ı ack gelince başlatacağız, ama hemen de başlat
         startSelfDestruct(div,msgId,expireSec);
         addReduceButton(div,msgId);
     };
@@ -235,9 +232,23 @@ async function addLockedMessage(msgId, expireSec, enc, mediaType){
     if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); }
 }
 
+function getExpireFromSelect(){
+    let val = perMessageTimerSelect.value;
+    if(val==="default") return defaultExpire;
+    if(val==="custom"){
+        let custom = prompt(`Manuel süre gir (saniye):\nÖrn: 60=1dk, 3600=1saat, 14400=4saat, 86400=24saat\nMax 86400 (24 saat)`);
+        if(!custom) return defaultExpire;
+        let num = parseInt(custom.replace(/[^0-9]/g,''));
+        if(isNaN(num)||num<=0) return defaultExpire;
+        if(num>MAX_SEC) num=MAX_SEC;
+        return num;
+    }
+    return Math.min(parseInt(val),MAX_SEC);
+}
+
 sendBtn.onclick=async()=>{
     const text=input.value.trim(); if(!text) return;
-    let expire=perMessageTimerSelect.value==="default"?defaultExpire:parseInt(perMessageTimerSelect.value); expire=Math.min(expire,MAX_SEC);
+    let expire=getExpireFromSelect();
     const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once";
     if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); }
     const msgId=await addMyMessage(text,expire);
@@ -246,15 +257,13 @@ sendBtn.onclick=async()=>{
     input.value=""; socket.emit('typing',false); isTyping=false;
 };
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
-
 socket.on("chat-message", data=>{ addLockedMessage(data.msgId, data.expireSec, data.enc, "text"); });
 socket.on("chat-media", data=>{ addLockedMessage(data.msgId, data.expireSec, data.enc, data.mediaType||"image"); });
-
 socket.on("pending-messages", async(list)=>{
     for(const m of list){
         if(m.opened && m.deleteAt){
             const remaining=Math.max(1, Math.floor((m.deleteAt-Date.now())/1000)); if(remaining<=0) continue;
-            const plain=await decryptText(m.enc,currentPassword);
+            const plain=await decryptText(m.enc,currentPassword); if(!plain) continue;
             const div=document.createElement("div"); div.className="otherMessage"; div.id=m.msgId;
             if(m.type==="text"){
                 const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
@@ -271,7 +280,6 @@ socket.on("pending-messages", async(list)=>{
     }
     messages.scrollTop=messages.scrollHeight;
 });
-
 socket.on("message-opened",({msgId,deleteAt,expireSec})=>{
     const div=document.getElementById(msgId) || sentMessages.get(msgId); if(!div) return;
     if(sentMessages.has(msgId)){
@@ -292,7 +300,6 @@ socket.on("reduce-accepted",({msgId,newExpireSec,newDeleteAt})=>{
 });
 socket.on("message-read",(msgId)=>{ const el=sentMessages.get(msgId); if(el){ const tick=el.querySelector(".message-tick"); if(tick){ tick.textContent="✓✓"; tick.classList.add("read"); } } });
 socket.on("messages-read-all",()=>{ sentMessages.forEach(el=>{ const tick=el.querySelector(".message-tick"); if(tick){ tick.textContent="✓✓"; tick.classList.add("read"); } }); });
-
 chatToggle.onclick=()=>{
     if(chatPanel.style.display==="flex"){ chatPanel.style.display="none"; document.body.classList.remove("chat-open"); chatToggle.textContent="💬"; }
     else{ chatPanel.style.display="flex"; document.body.classList.add("chat-open"); chatToggle.classList.remove("newMessageBlink"); chatToggle.textContent="✖"; socket.emit("messages-read-all"); }
@@ -304,22 +311,38 @@ socket.on('typing',(typing)=>{
     td.textContent=typing?'SEN yazıyor...':''; td.style.display=typing?'block':'none'; messages.scrollTop=messages.scrollHeight;
 });
 
-// TITRESIM FIX
 if(nudgeBtn){
-    nudgeBtn.onclick=(e)=>{
-        e.stopPropagation();
-        socket.emit("nudge");
-        triggerNudge(true);
-    };
+    nudgeBtn.onclick=(e)=>{ e.stopPropagation(); socket.emit("nudge"); triggerNudge(true); };
 }
 function triggerNudge(isMine){
     document.body.classList.add("screen-shake");
     setTimeout(()=> document.body.classList.remove("screen-shake"),800);
-    if(navigator.vibrate) navigator.vibrate([200,100,200]);
+    if(navigator.vibrate){ navigator.vibrate([100,50,100,50,300]); }
 }
 socket.on("nudge",()=>{ triggerNudge(false); });
 
-// EMOJI ANIM FIX
+function createMSNEffect(effect, emoji){
+    if(!msnEffectLayer) return;
+    if(effect==="kiss"){
+        const big=document.createElement("div"); big.className="msn-big-emoji"; big.textContent="💋";
+        msnEffectLayer.appendChild(big); setTimeout(()=> big.remove(),2500);
+        for(let i=0;i<6;i++){ setTimeout(()=>{ const h=document.createElement("div"); h.className="msn-heart"; h.textContent="❤"; h.style.left=Math.random()*100+"%"; h.style.color="#ff3366"; msnEffectLayer.appendChild(h); setTimeout(()=> h.remove(),3000); }, i*150); }
+    }else if(effect==="water"){
+        const water=document.createElement("div"); water.className="msn-water"; msnEffectLayer.appendChild(water); setTimeout(()=> water.remove(),2000);
+        const big=document.createElement("div"); big.className="msn-big-emoji"; big.textContent="💦"; msnEffectLayer.appendChild(big); setTimeout(()=> big.remove(),2000);
+    }else if(effect==="heart"){
+        for(let i=0;i<15;i++){ setTimeout(()=>{ const h=document.createElement("div"); h.className="msn-heart"; h.textContent=["❤","💖","💘"][Math.floor(Math.random()*3)]; h.style.left=Math.random()*100+"%"; h.style.fontSize=(20+Math.random()*30)+"px"; msnEffectLayer.appendChild(h); setTimeout(()=> h.remove(),3000); }, i*100); }
+    }else if(effect==="fire"){
+        const fire=document.createElement("div"); fire.className="msn-fire"; msnEffectLayer.appendChild(fire); setTimeout(()=> fire.remove(),1800);
+        const big=document.createElement("div"); big.className="msn-big-emoji"; big.textContent="🔥"; msnEffectLayer.appendChild(big); setTimeout(()=> big.remove(),1800);
+    }else if(effect==="slap"){
+        const big=document.createElement("div"); big.className="msn-big-emoji"; big.textContent="👋"; msnEffectLayer.appendChild(big); setTimeout(()=> big.remove(),1500);
+        document.body.classList.add("screen-shake"); setTimeout(()=> document.body.classList.remove("screen-shake"),600);
+    }else{
+        const big=document.createElement("div"); big.className="msn-big-emoji"; big.textContent=emoji; msnEffectLayer.appendChild(big); setTimeout(()=> big.remove(),2000);
+    }
+}
+
 if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.toggle("show"); };
 document.querySelectorAll('.flyEmoji').forEach(emoji=>{
     if(emoji.id==='addCustomEmoji') return;
@@ -328,32 +351,29 @@ document.querySelectorAll('.flyEmoji').forEach(emoji=>{
         const emojiText=emoji.textContent; const effect=emoji.dataset.effect;
         socket.emit('fly-emoji',{ emoji:emojiText, effect });
         createFlyingEmoji(emojiText,effect,true);
+        createMSNEffect(effect,emojiText);
         emojiPanel.classList.remove("show");
     };
 });
-socket.on('fly-emoji',(data)=> createFlyingEmoji(data.emoji,data.effect,false));
+socket.on('fly-emoji',(data)=>{ createFlyingEmoji(data.emoji,data.effect,false); createMSNEffect(data.effect,data.emoji); });
 
 function createFlyingEmoji(emoji,effect,isMine){
     const fly=document.createElement('div'); fly.className='flying-emoji'; fly.textContent=emoji;
-    const startX = isMine ? window.innerWidth-120 : 100;
+    const startX = isMine? window.innerWidth-120 : 100;
     fly.style.left=startX+'px'; fly.style.bottom='120px';
     document.body.appendChild(fly);
-    // animasyon
     fly.animate([
         { transform:'translateY(0) scale(0.5)', opacity:0 },
         { transform:'translateY(-80px) scale(1.2)', opacity:1, offset:0.2 },
         { transform:'translateY(-250px) scale(1)', opacity:0 }
     ],{ duration:2500, easing:'ease-out' }).onfinish=()=> fly.remove();
 }
-
-document.addEventListener('click',(e)=>{
-    if(emojiPanel && !emojiPanel.contains(e.target) && e.target!==emojiBtn){ emojiPanel.classList.remove("show"); }
-});
+document.addEventListener('click',(e)=>{ if(emojiPanel &&!emojiPanel.contains(e.target) && e.target!==emojiBtn){ emojiPanel.classList.remove("show"); } });
 if(addCustomEmoji){
     addCustomEmoji.onclick=()=>{
         const custom=prompt("Eklemek istediğin emojiyi yapıştır:"); if(!custom) return;
         const span=document.createElement("span"); span.className="flyEmoji"; span.dataset.effect="custom"; span.textContent=custom;
-        span.onclick=(ev)=>{ ev.stopPropagation(); socket.emit('fly-emoji',{ emoji:custom, effect:'custom' }); createFlyingEmoji(custom,'custom',true); emojiPanel.classList.remove("show"); };
+        span.onclick=(ev)=>{ ev.stopPropagation(); socket.emit('fly-emoji',{ emoji:custom, effect:'custom' }); createFlyingEmoji(custom,'custom',true); createMSNEffect('custom',custom); emojiPanel.classList.remove("show"); };
         emojiPanel.insertBefore(span,addCustomEmoji);
         const saved=JSON.parse(localStorage.getItem("customEmojis")||"[]"); saved.push(custom); localStorage.setItem("customEmojis",JSON.stringify(saved));
     };
@@ -362,7 +382,7 @@ window.addEventListener("load",()=>{
     const saved=JSON.parse(localStorage.getItem("customEmojis")||"[]");
     saved.forEach(custom=>{
         const span=document.createElement("span"); span.className="flyEmoji"; span.dataset.effect="custom"; span.textContent=custom;
-        span.onclick=(ev)=>{ ev.stopPropagation(); socket.emit('fly-emoji',{ emoji:custom, effect:'custom' }); createFlyingEmoji(custom,'custom',true); emojiPanel.classList.remove("show"); };
+        span.onclick=(ev)=>{ ev.stopPropagation(); socket.emit('fly-emoji',{ emoji:custom, effect:'custom' }); createFlyingEmoji(custom,'custom',true); createMSNEffect('custom',custom); emojiPanel.classList.remove("show"); };
         if(emojiPanel && addCustomEmoji) emojiPanel.insertBefore(span,addCustomEmoji);
     });
 });
@@ -400,7 +420,6 @@ soundBtn.onclick=()=>{
 changePasswordBtn.onclick=()=>{ const p=prompt("Yeni sifre"); if(!p) return; currentPassword=p; socket.emit("change-password",p); };
 socket.on("password-changed",()=> alert("Sifre degistirildi"));
 
-// DRAG
 let isDragging=false,sx,sy,sl,st;
 myVideoContainer.addEventListener("touchstart",(e)=>{
     if(isPhoneMode) return;
@@ -416,7 +435,7 @@ mediaBtn.onclick=(e)=>{ e.preventDefault(); mediaInput.click(); };
 mediaInput.onchange=async()=>{
     const file=mediaInput.files[0]; if(!file) return;
     const MAX=8*1024*1024; if(file.size>MAX){ alert("Max 8MB"); return; }
-    let expire=perMessageTimerSelect.value==="default"?defaultExpire:parseInt(perMessageTimerSelect.value); expire=Math.min(expire,MAX_SEC);
+    let expire=getExpireFromSelect();
     const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once";
     if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); }
     const msgId=`media-${Date.now()}-${messageIdCounter++}`;
@@ -433,7 +452,7 @@ mediaInput.onchange=async()=>{
     const enc=await encryptText(dataUrl,currentPassword);
     const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file';
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expire;
-    div.innerHTML=`<span class="expireInfo">🔒 E2E şifreli • ⏰ ${formatTime(expire)} sonra kaybolacak (açılınca başlar)</span>`;
+    div.innerHTML=`<span class="expireInfo">🔒 E2E şifreli • ⏰ ${formatTime(expire)} sonra kaybolacak</span>`;
     if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({ type:"image", data:dataUrl, name:file.name }); }; div.appendChild(im); }
     else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
     const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ Karşı taraf açınca ${formatTime(expire)} sayaç başlayacak`;
@@ -441,14 +460,11 @@ mediaInput.onchange=async()=>{
     messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); addReduceButton(div,msgId);
     socket.emit("chat-media",{ msgId, enc, expireSec:expire, mediaType }); mediaInput.value="";
 };
-
 function openPreview(data){ currentMediaData=data; mediaPreview.style.display="flex"; if(data.type==="image"){ previewImg.src=data.data; previewImg.style.display="block"; previewVideo.style.display="none"; }else if(data.type==="video"){ previewVideo.src=data.data; previewVideo.style.display="block"; previewImg.style.display="none"; } }
 closePreview.onclick=()=>{ mediaPreview.style.display="none"; previewVideo.pause(); };
 downloadMediaBtn.onclick=()=>{ const pass=prompt("İndirmek için oda şifresini girin:"); if(!pass) return; socket.emit("verify-download",{password:pass},(ok)=>{ if(ok){ const a=document.createElement("a"); a.href=currentMediaData.data; a.download=currentMediaData.name||"gizli"; a.click(); }else alert("Şifre yanlış."); }); };
 if(lightModeBtn) lightModeBtn.onclick=()=>{ remoteVideo.classList.toggle("light-mode"); document.body.classList.toggle("light-bg"); };
-if(locationBtn){ locationBtn.onclick=async()=>{ if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=perMessageTimerSelect.value==="default"?defaultExpire:parseInt(perMessageTimerSelect.value); expire=Math.min(expire,MAX_SEC); const msgId=await addMyMessage("📍 Konumum: "+url,expire); const enc=await encryptText("📍 Konumum: "+url,currentPassword); socket.emit("chat-message",{ msgId, enc, expireSec:expire }); }); }; }
-
-// TELEFON MODU FIX
+if(locationBtn){ locationBtn.onclick=async()=>{ if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire); const enc=await encryptText("📍 Konumum: "+url,currentPassword); socket.emit("chat-message",{ msgId, enc, expireSec:expire }); }); }; }
 if(phoneModeBtn){
     phoneModeBtn.onclick=()=>{
         isPhoneMode=!isPhoneMode;
@@ -488,7 +504,6 @@ socket.on("phone-mode",(enabled)=>{
         isPhoneMode=false;
     }
 });
-
 if(defaultSelfDestructSelect){
     defaultSelfDestructSelect.onchange=()=>{
         let val=parseInt(defaultSelfDestructSelect.value); if(val>MAX_SEC) val=MAX_SEC;
