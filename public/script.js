@@ -130,22 +130,37 @@ async function deriveKey(password){
     const hash = await crypto.subtle.digest('SHA-256', enc.encode(password));
     return await crypto.subtle.importKey('raw', hash, { name:'AES-GCM' }, false, ['encrypt','decrypt']);
 }
+function bufToB64(buf){
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    const chunk = 8192;
+    for(let i=0;i<bytes.length;i+=chunk){
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+    }
+    return btoa(binary);
+}
+function b64ToBuf(b64){
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+    return bytes;
+}
 async function encryptText(text,password){
     const key = await deriveKey(password);
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, new TextEncoder().encode(text));
     const combined = new Uint8Array(iv.length + ct.byteLength);
     combined.set(iv,0); combined.set(new Uint8Array(ct), iv.length);
-    return btoa(String.fromCharCode(...combined));
+    return bufToB64(combined);
 }
 async function decryptText(b64,password){
     try{
         const key = await deriveKey(password);
-        const combined = Uint8Array.from(atob(b64), c=> c.charCodeAt(0));
+        const combined = b64ToBuf(b64);
         const iv = combined.slice(0,12); const ct = combined.slice(12);
         const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
         return new TextDecoder().decode(pt);
-    }catch(e){ return null; }
+    }catch(e){ console.log("decrypt fail",e); return null; }
 }
 
 if(defaultSelfDestructSelect) defaultSelfDestructSelect.value = defaultExpire.toString();
