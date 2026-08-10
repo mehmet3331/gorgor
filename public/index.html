@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>GORGOR</title>
 <link rel="stylesheet" href="style.css" />
 <script src="/socket.io/socket.io.js"></script>
@@ -65,7 +65,13 @@
     <div id="messages"></div>
     <div id="inputArea">
       <div class="inputTopRow">
-        <select id="perMessageTimerSelect"><option value="default">Varsayılan</option><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option><option value="custom">Manuel...</option></select>
+       <select id="perMessageTimerSelect">
+  <option value="300">5dk (RAM)</option>
+  <option value="900">15dk (RAM)</option>
+  <option value="14400">4 saat (Kalıcı)</option>
+  <option value="86400">24 saat (Kalıcı)</option>
+  <option value="604800">7 gün (Kalıcı)</option>
+</select>
         <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
         <button id="emojiBtn" title="Emoji">😊</button>
         <button id="nudgeBtn" title="Titreşim">👉</button>
