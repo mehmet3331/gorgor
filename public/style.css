@@ -122,3 +122,9 @@ body.phone-mode #chatPanel { pointer-events: none; opacity: 0.2; } body.phone-mo
 body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; }
 
 body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; }
+
+/* LAMBA FIX - GECE/GUNDUZ FINAL */
+#remoteVideo.light-mode { filter: brightness(1.8) contrast(1.2) saturate(1.2)!important; }
+body.light-bg { background: #222!important; }
+body.light-bg #remoteVideo { background: #333!important; }
+#lightModeBtn.active { background: #ffcc00!important; color: #000!important; box-shadow: 0 0 15px #ffcc00; }

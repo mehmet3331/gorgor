@@ -561,7 +561,14 @@ mediaInput.onchange=async()=>{
 function openPreview(data){ currentMediaData=data; mediaPreview.style.display="flex"; if(data.type==="image"){ previewImg.src=data.data; previewImg.style.display="block"; previewVideo.style.display="none"; }else if(data.type==="video"){ previewVideo.src=data.data; previewVideo.style.display="block"; previewImg.style.display="none"; } }
 closePreview.onclick=()=>{ mediaPreview.style.display="none"; previewVideo.pause(); };
 downloadMediaBtn.onclick=()=>{ const pass=prompt("İndirmek için şifre:"); if(!pass||pass!==currentPassword){ alert("Şifre yanlış."); return; } const a=document.createElement("a"); a.href=currentMediaData.data; a.download=currentMediaData.name||"gizli"; a.click(); };
-if(lightModeBtn) lightModeBtn.onclick=()=>{ remoteVideo.classList.toggle("light-mode"); document.body.classList.toggle("light-bg"); };
+if(lightModeBtn) lightModeBtn.onclick=()=>{
+  remoteVideo.classList.toggle("light-mode");
+  document.body.classList.toggle("light-bg");
+  lightModeBtn.classList.toggle("active");
+  // pinch zoom scale korunur
+  if(currentScale>1) remoteVideo.style.transform=`scale(${currentScale})`;
+  console.log("lamba:", remoteVideo.classList.contains("light-mode"));
+};
 
 if(phoneModeBtn){
     phoneModeBtn.onclick=()=>{
