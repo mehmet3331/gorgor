@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>GORGOR</title>
 <link rel="stylesheet" href="style.css" />
 <script src="/socket.io/socket.io.js"></script>
@@ -39,7 +39,6 @@
 
 <div id="mainScreen">
   <video id="remoteVideo" autoplay playsinline></video>
-  <div id="remoteZoomHint" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);padding:6px 12px;border-radius:20px;font-size:12px;z-index:5;pointer-events:none;opacity:0;transition:opacity 0.3s;">İki parmakla yakınlaştır</div>
   <div id="myVideoContainer">
     <video id="myVideo" autoplay muted playsinline></video>
     <button id="switchCameraBtn" class="cameraOverlayBtn">🔄</button>
@@ -59,14 +58,14 @@
     <button id="lightModeBtn" title="Işık">💡</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
-    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk (RAM)</option><option value="900">15 dk (RAM)</option><option value="1800">30 dk (RAM)</option><option value="3600">1 saat (RAM)</option><option value="14400">4 saat (Kalıcı)</option><option value="86400" selected>24 saat (Kalıcı)</option><option value="604800">7 gün (Kalıcı)</option></select></div>
+    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800" selected>30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option></select></div>
   </div>
   <button id="chatToggle">💬</button>
       <div id="chatPanel">
     <div id="messages"></div>
     <div id="inputArea">
       <div class="inputTopRow">
-        <select id="perMessageTimerSelect"><option value="default">Varsayılan</option><option value="300">5 dk (RAM)</option><option value="900">15 dk (RAM)</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat (Kalıcı)</option><option value="86400">24 saat (Kalıcı)</option><option value="604800">7 gün (Kalıcı)</option><option value="custom">Manuel...</option></select>
+        <select id="perMessageTimerSelect"><option value="default">Varsayılan</option><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option><option value="custom">Manuel...</option></select>
         <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
         <button id="emojiBtn" title="Emoji">😊</button>
         <button id="nudgeBtn" title="Titreşim">👉</button>
