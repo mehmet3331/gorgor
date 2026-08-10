@@ -104,21 +104,26 @@ body.phone-mode #chatPanel { pointer-events: none; opacity: 0.2; } body.phone-mo
 .flying-emoji { position: fixed; font-size: 50px; z-index: 9999; pointer-events: none; text-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.5); will-change: transform, opacity; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); }
 #myVideoContainer { resize: both; overflow: hidden; min-width: 90px; min-height: 120px; max-width: 90vw; max-height: 70vh; }
 #myVideoContainer:active { border-color: #00ff88; }
-/* MSN EFEKTLERI */
-@keyframes heartRain { 0% { transform: translateY(0) scale(0) rotate(0deg); opacity:0; } 10% { opacity:1; } 100% { transform: translateY(-400px) scale(1.5) rotate(20deg); opacity:0; } }
-@keyframes kissPop { 0% { transform: translateY(0) scale(0); } 30% { transform: translateY(-50px) scale(1.4); } 60% { transform: translateY(-100px) scale(0.9); } 100% { transform: translateY(-220px) scale(1.1); opacity:0; } }
-@keyframes laughBounce { 0%,100% { transform: translateY(0) rotate(-10deg) scale(1); } 25% { transform: translateY(-60px) rotate(10deg) scale(1.3); } 50% { transform: translateY(-120px) rotate(-10deg) scale(1); } 75% { transform: translateY(-180px) rotate(10deg) scale(1.2); } }
-@keyframes fireFlicker { 0% { transform: translateY(0) scale(1) rotate(-2deg); filter: brightness(1); } 50% { transform: translateY(-120px) scale(1.3) rotate(2deg); filter: brightness(1.5); } 100% { transform: translateY(-250px) scale(0.8); opacity:0; } }
-.flying-emoji.heart { animation: heartRain 2.5s ease-out forwards; color: #ff3366; }
-.flying-emoji.kiss { animation: kissPop 2.2s cubic-bezier(.175,.885,.32,1.275) forwards; }
-.flying-emoji.laugh { animation: laughBounce 2.5s ease-in-out forwards; }
-.flying-emoji.fire { animation: fireFlicker 2s ease-in-out forwards; }
-.flying-emoji.thumbs { animation: kissPop 2s ease-out forwards; }
-.flying-emoji.cry { animation: heartRain 3s ease-in forwards; filter: blur(0.5px); }
-.flying-emoji.wow { animation: laughBounce 1.8s ease-out forwards; }
-.flying-emoji.flower { animation: heartRain 2.8s linear forwards; }
-.flying-emoji.love { animation: heartRain 2.5s ease-out forwards; }
-.flying-emoji.hug { animation: kissPop 2.3s ease-out forwards; }
+/* MSN ULTRA EFEKTLER - FINAL */
+@keyframes heartRain { 0%{transform:translateY(0) scale(0) rotate(0); opacity:0;} 15%{opacity:1; transform:translateY(-30px) scale(1.2) rotate(10deg);} 100%{transform:translateY(-500px) scale(1.8) rotate(-20deg) translateX(40px); opacity:0;} }
+@keyframes kissPop { 0%{transform:translate(-50%,0) scale(0);} 20%{transform:translate(-50%,-40px) scale(1.6) rotate(-5deg);} 40%{transform:translate(-50%,-90px) scale(0.9) rotate(5deg);} 70%{transform:translate(-50%,-160px) scale(1.3);} 100%{transform:translate(-50%,-280px) scale(0.8); opacity:0;} }
+@keyframes laughBounce { 0%{transform:translateY(0) rotate(0) scale(0.5); opacity:0;} 10%{opacity:1;} 25%{transform:translateY(-70px) rotate(-15deg) scale(1.4);} 50%{transform:translateY(-140px) rotate(15deg) scale(0.9);} 75%{transform:translateY(-220px) rotate(-10deg) scale(1.2);} 100%{transform:translateY(-350px) rotate(10deg) scale(0.6); opacity:0;} }
+@keyframes fireFlicker { 0%{transform:translateY(0) scale(0.8) rotate(-3deg); filter:brightness(1);} 20%{transform:translateY(-50px) scale(1.5) rotate(3deg); filter:brightness(1.8) drop-shadow(0 0 20px #ff6600);} 50%{transform:translateY(-150px) scale(1.2) rotate(-2deg); filter:brightness(1.4);} 100%{transform:translateY(-320px) scale(0.5); opacity:0; filter:brightness(0.5);} }
+@keyframes megaShake { 0%,100%{transform:translate(0,0) scale(1);} 10%{transform:translate(-12px,-8px) scale(1.1);} 20%{transform:translate(12px,8px) scale(0.95);} 30%{transform:translate(-10px,10px) scale(1.05);} 40%{transform:translate(10px,-10px) scale(1);} 50%{transform:translate(-8px,5px) scale(1.08);} }
+
+.flying-emoji { position:fixed; font-size:60px; z-index:9999; pointer-events:none; text-shadow:0 0 15px rgba(255,255,255,0.9), 0 0 30px currentColor; will-change:transform,opacity; filter:drop-shadow(0 4px 12px rgba(0,0,0,0.6)); user-select:none; }
+.flying-emoji.heart{ animation:heartRain 3s cubic-bezier(.25,.46,.45,.94) forwards; color:#ff3366; }
+.flying-emoji.kiss{ animation:kissPop 2.4s cubic-bezier(.175,.885,.32,1.275) forwards; }
+.flying-emoji.laugh{ animation:laughBounce 2.8s ease-in-out forwards; }
+.flying-emoji.fire{ animation:fireFlicker 2.2s ease-in-out forwards; font-size:70px!important; }
+.flying-emoji.thumbs{ animation:kissPop 2s ease-out forwards; }
+.flying-emoji.cry{ animation:heartRain 3.2s ease-in forwards; filter:blur(0.3px) brightness(0.8); }
+.flying-emoji.wow{ animation:laughBounce 2s ease-out forwards; font-size:75px!important; }
+.flying-emoji.flower{ animation:heartRain 3s linear forwards; }
+.flying-emoji.love{ animation:heartRain 2.8s ease-out forwards; color:#ff0055; text-shadow:0 0 20px #ff0055; }
+.flying-emoji.hug{ animation:kissPop 2.5s ease-out forwards; }
+
+.mega-shake{ animation:megaShake 0.7s cubic-bezier(.36,.07,.19,.97) both; }
 body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; }
 
 body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; }

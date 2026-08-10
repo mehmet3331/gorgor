@@ -442,46 +442,38 @@ document.querySelectorAll('.flyEmoji').forEach(emoji=>{
 });
 socket.on('fly-emoji',(data)=> createFlyingEmoji(data.emoji,data.effect,false));
 function createFlyingEmoji(emoji,effect,isMine){
-    const fly=document.createElement('div');
-    fly.className='flying-emoji '+(effect||'');
-    fly.textContent=emoji;
-    const startX = isMine? window.innerWidth-120 : 100;
-    fly.style.left=startX+'px';
-    fly.style.bottom='120px';
-    fly.style.fontSize = (effect==='heart' || effect==='fire')? '60px' : '50px';
-    document.body.appendChild(fly);
+    const startX = isMine? window.innerWidth-120 : 80;
+    const baseY = 140;
+    const count = effect==='heart'||effect==='love'? 6 : effect==='flower'? 5 : effect==='fire'? 3 : 1;
 
-    // msn sesi gibi titresim ekle
-    if(effect==='heart' || effect==='kiss' || effect==='love'){
-        if(navigator.vibrate) navigator.vibrate([50]);
+    for(let i=0;i<count;i++){
+        setTimeout(()=>{
+            const fly=document.createElement('div');
+            fly.className='flying-emoji '+(effect||'custom');
+            fly.textContent=emoji;
+            const offsetX = (Math.random()*160-80) + (i*20);
+            const offsetY = Math.random()*40;
+            fly.style.left=(startX+offsetX)+'px';
+            fly.style.bottom=(baseY+offsetY)+'px';
+            fly.style.fontSize = (effect==='fire'||effect==='wow')? '72px' : (60 + Math.random()*20)+'px';
+            fly.style.animationDelay = (Math.random()*0.2)+'s';
+            document.body.appendChild(fly);
+            setTimeout(()=>fly.remove(), 3500);
+        }, i*90);
     }
 
-    // efekte göre farklı uçuş
-    let keyframes, opts={duration:2500, easing:'ease-out'};
-    if(effect==='heart' || effect==='love' || effect==='flower'){
-        // 3 tane kalbe böl - yağmur efekti
-        for(let i=0;i<3;i++){
-            setTimeout(()=>{
-                const f2=fly.cloneNode(true);
-                f2.style.left = (startX + (Math.random()*80-40))+'px';
-                f2.style.animationDelay = (i*0.15)+'s';
-                document.body.appendChild(f2);
-                setTimeout(()=>f2.remove(),3000);
-            }, i*120);
+    // Ekran efektleri
+    if(effect==='fire' || effect==='wow' || effect==='thumbs'){
+        document.body.classList.add('mega-shake');
+        setTimeout(()=> document.body.classList.remove('mega-shake'),700);
+        if(msnEffectLayer){
+            msnEffectLayer.style.background = effect==='fire'? 'radial-gradient(circle at 50% 70%, rgba(255,80,0,0.25), transparent 65%)' : 'radial-gradient(circle at 50% 50%, rgba(255,255,0,0.2), transparent 60%)';
+            msnEffectLayer.style.display='block';
+            setTimeout(()=> msnEffectLayer.style.display='none', 600);
         }
-    }
-
-    fly.animate([
-        { transform:'translateY(0) scale(0.5)', opacity:0 },
-        { transform:'translateY(-80px) scale(1.2)', opacity:1, offset:0.2 },
-        { transform:'translateY(-250px) scale(1)', opacity:0 }
-    ],opts).onfinish=()=> fly.remove();
-
-    // MSN efekt layer flash
-    if(msnEffectLayer && (effect==='fire' || effect==='wow')){
-        msnEffectLayer.style.background = effect==='fire'? 'radial-gradient(circle, rgba(255,100,0,0.15), transparent)' : 'radial-gradient(circle, rgba(255,255,0,0.1), transparent)';
-        msnEffectLayer.style.display='block';
-        setTimeout(()=> msnEffectLayer.style.display='none', 400);
+        if(navigator.vibrate) navigator.vibrate([80,40,80]);
+    } else if(effect==='heart'||effect==='kiss'||effect==='love'){
+        if(navigator.vibrate) navigator.vibrate([50]);
     }
 }
 if(addCustomEmoji){
@@ -634,32 +626,36 @@ drawSend.onclick=async()=>{
     drawOverlay.style.display="none";
 };
 window.addEventListener("beforeunload",()=>{ if(peer) peer.destroy(); if(localStream) localStream.getTracks().forEach(t=> t.stop()); });
+// SADECE BU KALSIN - ULTRA OLAN
 function createFlyingEmoji(emoji,effect,isMine){
-    const fly=document.createElement('div');
-    fly.className='flying-emoji '+(effect||'custom');
-    fly.textContent=emoji;
-    const startX = isMine? window.innerWidth-100 : 60;
-    fly.style.left=startX+'px'; fly.style.bottom='120px';
-    fly.style.fontSize='56px';
-    document.body.appendChild(fly);
-    if(navigator.vibrate && (effect==='heart'||effect==='kiss'||effect==='love')) navigator.vibrate(80);
-
-    if(effect==='heart' || effect==='love' || effect==='flower'){
-        for(let i=0;i<2;i++){
-            setTimeout(()=>{
-                const c=fly.cloneNode(true);
-                c.style.left=(startX+Math.random()*100-50)+'px';
-                document.body.appendChild(c);
-                setTimeout(()=>c.remove(),2800);
-            }, i*150);
+    const startX = isMine? window.innerWidth-120 : 80;
+    const baseY = 140;
+    const count = effect==='heart'||effect==='love'? 6 : effect==='flower'? 5 : effect==='fire'? 3 : 1;
+    for(let i=0;i<count;i++){
+        setTimeout(()=>{
+            const fly=document.createElement('div');
+            fly.className='flying-emoji '+(effect||'custom');
+            fly.textContent=emoji;
+            const offsetX = (Math.random()*160-80) + (i*20);
+            fly.style.left=(startX+offsetX)+'px';
+            fly.style.bottom=(baseY+Math.random()*40)+'px';
+            fly.style.fontSize = (effect==='fire'||effect==='wow')? '72px' : (60 + Math.random()*20)+'px';
+            document.body.appendChild(fly);
+            setTimeout(()=>fly.remove(), 3500);
+        }, i*90);
+    }
+    if(effect==='fire' || effect==='wow' || effect==='thumbs'){
+        document.body.classList.add('mega-shake');
+        setTimeout(()=> document.body.classList.remove('mega-shake'),700);
+        if(msnEffectLayer){
+            msnEffectLayer.style.background = effect==='fire'? 'radial-gradient(circle at 50% 70%, rgba(255,80,0,0.25), transparent 65%)' : 'radial-gradient(circle at 50% 50%, rgba(255,255,0,0.2), transparent 60%)';
+            msnEffectLayer.style.display='block';
+            setTimeout(()=> msnEffectLayer.style.display='none', 600);
         }
+        if(navigator.vibrate) navigator.vibrate([80,40,80]);
+    } else if(effect==='heart'||effect==='kiss'||effect==='love'){
+        if(navigator.vibrate) navigator.vibrate([50]);
     }
-    if(msnEffectLayer && (effect==='fire'||effect==='wow')){
-        msnEffectLayer.style.background = effect==='fire'? 'radial-gradient(circle, rgba(255,80,0,0.18), transparent 70%)' : 'radial-gradient(circle, rgba(255,255,100,0.15), transparent)';
-        msnEffectLayer.style.display='block';
-        setTimeout(()=> msnEffectLayer.style.display='none', 500);
-    }
-    setTimeout(()=> fly.remove(), 2600);
 }
 // PINCH ZOOM - SADECE NORMAL MODDA
 let lastScale=1, currentScale=1;
