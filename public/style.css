@@ -1,63 +1,136 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; color: #fff; font-family: Arial, sans-serif; overflow: hidden; -webkit-user-select: none; user-select: none; }
+#fakeCalc { position: fixed; inset: 0; background: #111; z-index: 10000; display: flex; justify-content: center; align-items: center; }
+.calc-container { background: #222; padding: 20px; border-radius: 16px; width: 300px; }
+.calc-container h3 { text-align: center; margin-bottom: 10px; }
+.calc-container input { width: 100%; height: 50px; font-size: 22px; text-align: right; padding: 10px; border-radius: 10px; border: none; margin-bottom: 10px; background: #000; color: #0f0; }
+.calc-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.calc-grid button { height: 50px; border: none; border-radius: 10px; font-size: 18px; background: #333; color: white; cursor: pointer; }
+#roomScreen { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; background: #000; z-index: 9999; }
+#roomScreen h2 { font-size: 28px; }
+#roomScreen input { width: 280px; height: 45px; padding: 10px; border: none; border-radius: 10px; font-size: 16px; }
+#roomScreen button { width: 280px; height: 45px; border: none; border-radius: 10px; background: #00c853; color: white; font-size: 16px; cursor: pointer; font-weight: bold; }
+.userTag { padding: 6px 11px; border-radius: 20px; font-size: 12px; cursor: pointer; background: #1a1a1a; border: 1px solid #2a2a2a; color: #777; }
+.userTag:hover { background: #222; color: #aaa; border-color: #444; }
+#mainScreen { display: none; width: 100%; height: 100vh; }
+#remoteVideo { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 1; }
+#myVideoContainer { position: fixed; top: 15px; right: 15px; width: 180px; height: 240px; border-radius: 12px; border: 2px solid #fff; background: #000; z-index: 100; touch-action: none; cursor: move; }
+#myVideo { width: 100%; height: 100%; border-radius: 10px; object-fit: cover; transform: scaleX(-1); }
+.cameraOverlayBtn { position: absolute; width: 32px; height: 32px; border: none; border-radius: 50%; background: rgba(0,0,0,.7); color: white; font-size: 16px; cursor: pointer; z-index: 120; }
+#switchCameraBtn { bottom: 5px; left: 5px; } #fullscreenBtn { top: 5px; right: 5px; }
+.qualitySelect { position: absolute; bottom: 5px; right: 5px; width: 60px; height: 28px; border: none; border-radius: 6px; background: rgba(0,0,0,.8); color: white; font-size: 12px; }
+#settingsContainer { position: fixed; top: 10px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; max-height: 90vh; overflow-y: auto; }
+#settingsBtn { width: 46px; height: 46px; border: none; border-radius: 50%; font-size: 22px; cursor: pointer; background: rgba(0,0,0,.7); color: white; }
+#settingsContainer > button:not(#settingsBtn), #settingsContainer > #statusBar, #settingsContainer > #secretSettings { display: none; width: 50px; height: 50px; border: none; border-radius: 12px; font-size: 22px; cursor: pointer; background: rgba(0,0,0,.8); color: white; }
+#settingsContainer.menu-open > button:not(#settingsBtn), #settingsContainer.menu-open > #statusBar { display: block; }
+#settingsContainer.menu-open > #secretSettings { display: flex; width: 190px; height: auto; flex-direction: column; padding: 10px; font-size: 13px; background: rgba(0,0,0,0.9); border-radius: 10px; }
+#secretSettings select { width: 100%; height: 32px; background: #111; color: #00ff88; border: 1px solid #333; border-radius: 6px; margin-top: 4px; }
+#statusBar { display: flex; flex-direction: column; gap: 6px; margin-top: 5px; width: auto; height: auto; background: none; }
+.statusBox { background: rgba(0,0,0,.75); padding: 8px; border-radius: 10px; font-size: 12px; color: white; width: max-content; }
+#chatToggle { position: fixed; bottom: 15px; right: 15px; width: 60px; height: 60px; border: none; border-radius: 50%; background: #00bcd4; color: white; font-size: 26px; font-weight: bold; cursor: pointer; z-index: 1000; }
+#chatPanel { position: fixed; left: 0; bottom: 0; width: 100%; height: 52%; background: #0f0f0f; display: none; flex-direction: column; z-index: 900; border-top: 2px solid #333; }
+.chat-open #chatPanel { display: flex; }.chat-open #remoteVideo { height: 48%; }.chat-open #chatToggle { bottom: 53%; }
+#messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; min-height: 0; }
+.myMessage { color: #00ff88; text-align: right; margin: 8px 0; font-weight: bold; word-break: break-word; position: relative; background: rgba(0,255,136,0.08); padding: 8px; border-radius: 8px; border: 1px solid rgba(0,255,136,0.15); }
+.otherMessage { color: #00aaff; text-align: left; margin: 8px 0; font-weight: bold; word-break: break-word; background: rgba(0,170,255,0.08); padding: 8px; border-radius: 8px; border: 1px solid rgba(0,170,255,0.15); }
 
-* { box-sizing:border-box; }
-body { margin:0; background:#000; color:#fff; font-family:sans-serif; overflow:hidden; overscroll-behavior:none; }
-#roomScreen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; background:#111; padding:20px; }
-#roomScreen input { margin:6px; padding:12px; width:280px; border-radius:8px; border:none; }
-#roomScreen button { padding:12px 24px; border-radius:8px; border:none; background:#0a84ff; color:#fff; cursor:pointer; }
-#mainScreen { display:none; width:100%; height:100vh; position:relative; }
-#remoteVideo { position:fixed; top:0; left:0; width:100%; height:100%; object-fit:contain; background:#000; z-index:1; touch-action:pinch-zoom; transform-origin:center center; transition:transform 0.2s; }
-#remoteVideo.zoomed { touch-action:none; }
-#remoteZoomHint { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.6); padding:6px 12px; border-radius:20px; font-size:12px; z-index:5; pointer-events:none; opacity:0; transition:opacity 0.3s; }
-#remoteZoomHint.show { opacity:1; }
-body.fullscreen-mode #remoteVideo { touch-action:none; }
-body.fullscreen-mode #remoteZoomHint { display:none; }
-#myVideoContainer { position:fixed; top:15px; right:15px; width:180px; height:240px; border-radius:12px; border:2px solid #fff; background:#000; z-index:100; touch-action:none; cursor:move; overflow:hidden; }
-#myVideo { width:100%; height:100%; object-fit:cover; }
-.cameraOverlayBtn { position:absolute; background:rgba(0,0,0,0.5); border:none; color:#fff; border-radius:50%; width:32px; height:32px; cursor:pointer; }
-#switchCameraBtn { top:5px; left:5px; } #fullscreenBtn { top:5px; right:5px; }
-.qualitySelect { position:absolute; bottom:5px; left:5px; background:rgba(0,0,0,0.5); color:#fff; border:none; border-radius:6px; }
-#settingsContainer { position:fixed; bottom:80px; left:10px; display:flex; flex-direction:column; gap:8px; z-index:50; }
-#settingsContainer button { width:44px; height:44px; border-radius:50%; border:none; background:#222; color:#fff; font-size:20px; cursor:pointer; }
-#settingsContainer.menu-open #secretSettings { display:block; }
-#secretSettings { display:none; background:#222; padding:10px; border-radius:10px; width:220px; }
-#statusBar { display:flex; gap:6px; font-size:11px; }
-.statusBox { background:#222; padding:4px 8px; border-radius:6px; }
-#chatToggle { position:fixed; bottom:20px; right:20px; width:56px; height:56px; border-radius:50%; background:#0a84ff; border:none; color:#fff; font-size:24px; z-index:60; cursor:pointer; }
-#chatPanel { position:fixed; bottom:90px; right:10px; width:360px; max-width:92vw; height:55vh; background:#1a1a1a; border-radius:12px; display:none; flex-direction:column; z-index:70; overflow:hidden; }
-#messages { flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:6px; }
-.myMessage, .otherMessage { padding:8px 12px; border-radius:12px; max-width:80%; word-break:break-word; position:relative; cursor:pointer; }
-.myMessage { background:#0a84ff; align-self:flex-end; } .otherMessage { background:#333; align-self:flex-start; }
-.message-tick { margin-left:6px; font-size:11px; opacity:0.7; } .message-tick.read { color:#0f0; }
-.countdown { font-size:10px; opacity:0.7; margin-top:4px; }
-#inputArea { display:flex; gap:4px; padding:8px; align-items:center; background:#222; }
-#inputArea input { flex:1; padding:8px; border-radius:8px; border:none; }
-#emojiPanel { display:none; flex-wrap:wrap; gap:8px; padding:10px; background:#222; max-height:120px; overflow-y:auto; }
-#emojiPanel.show { display:flex; }
-.flyEmoji { font-size:26px; cursor:pointer; padding:4px; }
-#mediaPreview { position:fixed; inset:0; background:rgba(0,0,0,0.9); display:none; align-items:center; justify-content:center; z-index:200; flex-direction:column; }
-#mediaPreview img, #mediaPreview video { max-width:90%; max-height:80%; }
-#closePreview { position:absolute; top:20px; right:20px; font-size:30px; cursor:pointer; }
-#msnEffectLayer { position:fixed; inset:0; pointer-events:none; z-index:9999; }
-.flying-emoji { position:fixed; font-size:40px; z-index:9998; pointer-events:none; }
-@keyframes heartRain { 0%{ transform:translateY(-100px) scale(0.5); opacity:0 } 20%{ opacity:1 } 100%{ transform:translateY(100vh) scale(1.2); opacity:0 } }
-.heart-rain { animation:heartRain 3s linear forwards; }
-@keyframes kissJump { 0%{ transform:translateY(0) scale(0.5) } 30%{ transform:translateY(-80px) scale(1.3) } 60%{ transform:translateY(-40px) scale(1) } 100%{ transform:translateY(0) scale(0.8); opacity:0 } }
-.kiss-jump { animation:kissJump 1.8s ease-out forwards; }
-@keyframes fireTremble { 0%,100%{ transform:translateX(0) } 10%{ transform:translateX(-4px) rotate(-2deg) } 20%{ transform:translateX(4px) rotate(2deg) } 30%{ transform:translateX(-6px) } 40%{ transform:translateX(6px) } }
-.fire-tremble { animation:fireTremble 0.4s ease-in-out 3; }
-@keyframes orangeFlash { 0%{ background:transparent } 30%{ background:rgba(255,120,0,0.45) } 100%{ background:transparent } }
-.flash-overlay { position:fixed; inset:0; pointer-events:none; animation:orangeFlash 0.8s ease-out; z-index:9997; }
-@keyframes shake10 { 0%{ transform:translate(0,0) } 10%{ transform:translate(-15px,-10px) } 20%{ transform:translate(15px,5px) } 30%{ transform:translate(-10px,15px) } 40%{ transform:translate(10px,-15px) } 50%{ transform:translate(-15px,5px) } 60%{ transform:translate(15px,-5px) } 70%{ transform:translate(-8px,10px) } 80%{ transform:translate(8px,-10px) } 90%{ transform:translate(-5px,5px) } 100%{ transform:translate(0,0) } }
-.screen-shake10 { animation:shake10 0.9s ease-in-out; }
-@keyframes shake { 0%,100%{ transform:translateX(0) } 25%{ transform:translateX(-6px) } 75%{ transform:translateX(6px) } }
-.shake { animation:shake 0.3s ease-in-out 2; }
-.newMessageBlink { background:#ff3b30 !important; }
-#candleContainer { position:fixed; inset:0; background:#000; display:none; align-items:center; justify-content:center; flex-direction:column; z-index:2; }
-#phoneCallUI { position:fixed; inset:0; background:#000; z-index:3; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-.phoneWave span { display:inline-block; width:12px; height:12px; background:#0a84ff; border-radius:50%; margin:4px; animation:wave 1s infinite; }
-@keyframes wave { 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.5) } }
-#drawOverlay { position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:150; display:flex; flex-direction:column; }
-#drawCanvas { flex:1; background:#000; touch-action:none; }
-.drawTools { display:flex; gap:8px; padding:10px; justify-content:center; }
-.userTag { background:#222; padding:4px 8px; border-radius:12px; font-size:12px; margin:2px; display:inline-block; cursor:pointer; }
-#volumeSlider { position:fixed; bottom:20px; left:20px; width:120px; z-index:50; }
+/* YENİ INPUT LAYOUT - ÇİZİMİNE GÖRE */
+#inputArea { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: #000; flex-shrink: 0; border-top: 1px solid #222; }
+.inputTopRow { display: flex; gap: 8px; align-items: center; }
+.inputTopRow select { flex: 1; height: 40px; border-radius: 14px; background: #111; color: #00ff88; border: 1px solid #333; font-size: 12px; padding-left: 10px; }
+.inputTopRow #perMessagePersistSelect { color: #ffcc00; }
+.inputTopRow #emojiBtn,.inputTopRow #nudgeBtn { width: 72px; min-width: 72px; height: 40px; border: none; border-radius: 14px; background: #1e1e1e; color: white; font-size: 12px; cursor: pointer; border: 1px solid #333; }
+.inputBottomRow { display: flex; gap: 10px; align-items: center; }
+#attachMenuBtn { width: 48px; height: 48px; min-width:48px; border: none; border-radius: 14px; background: #1a1a1a; color: #999; font-size: 22px; cursor: pointer; border: 1px solid #333; }
+#messageInput { flex: 1; height: 50px; padding: 14px 16px; border: none; border-radius: 24px; font-size: 15px; background: #1e1e1e; color: white; border: 1px solid #333; }
+#messageInput:focus { outline: none; border-color: #00aa55; background: #252525; }
+#sendBtn { width: 80px; height: 48px; min-width:80px; border: none; border-radius: 24px; background: #00aa55; color: white; cursor: pointer; font-weight: bold; font-size: 13px; }
+#attachMenu { display: none; position: absolute; bottom: 58px; left: 0; background: #222; border-radius: 16px; padding: 8px; flex-direction: column; gap: 6px; z-index: 200; width: 230px; border: 1px solid #444; box-shadow: 0 10px 30px rgba(0,0,0,0.9); }
+#attachMenu.show { display: flex; }
+#attachMenu button { width: 100%; height: 46px; border: none; border-radius: 12px; background: #2a2a2a; color: white; text-align: left; padding-left: 16px; cursor: pointer; font-size: 14px; }
+#attachMenu button:hover { background: #333; }
+
+#mediaPreview { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 99999; gap: 15px; }
+#mediaPreview img, #mediaPreview video { max-width: 90%; max-height: 80%; border-radius: 10px; }
+#closePreview { position: absolute; top: 20px; right: 20px; font-size: 35px; color: white; cursor: pointer; }
+#downloadMediaBtn { padding: 12px 30px; border: none; border-radius: 10px; background: #00aa55; color: white; font-size: 18px; cursor: pointer; }
+.mediaMessage { max-width: 220px; max-height: 220px; border-radius: 10px; cursor: pointer; margin: 5px 0; }
+#emojiPanel { display: none; position: absolute; bottom: 125px; right: 10px; background: #222; border-radius: 14px; padding: 10px; gap: 10px; z-index: 100; flex-wrap: wrap; max-width: 280px; border: 1px solid #333; } #emojiPanel.show { display: flex; }
+.flyEmoji { font-size: 24px; cursor: pointer; }.flying-emoji { position: fixed; font-size: 50px; z-index: 9999; pointer-events: none; }
+#candleContainer { position: fixed; inset: 0; background: radial-gradient(circle at center, #1a0f00 0%, #000 70%); z-index: 5; display: none; flex-direction: column; justify-content: center; align-items: center; gap: 20px; } #candleContainer.show { display: flex; }
+.candle { position: relative; width: 60px; height: 120px; }.wax { position: absolute; bottom: 0; width: 60px; height: 80px; background: linear-gradient(to bottom, #fff8dc, #f5e6c8); border-radius: 6px 6px 0 0; }.wick { position: absolute; bottom: 78px; left: 28px; width: 4px; height: 12px; background: #222; }.flame { position: absolute; bottom: 88px; left: 18px; width: 24px; height: 36px; background: radial-gradient(ellipse at center, #ffff00 0%, #ffcc00 40%, #ff6600 80%); border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; animation: flicker 0.3s infinite alternate; } @keyframes flicker { 0% { transform: scaleY(1); } 100% { transform: scaleY(1.1); } }
+#phoneCallUI { position: fixed; inset: 0; background: radial-gradient(circle at center, #0a2a12 0%, #000 80%); z-index: 4; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; color: white; }
+.phoneAvatar { font-size: 90px; background: #111; width: 140px; height: 140px; border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 3px solid #00ff88; }
+.phoneName { font-size: 26px; font-weight: bold; }.phoneWave { display: flex; gap: 6px; }.phoneWave span { width: 6px; height: 24px; background: #00ff88; border-radius: 4px; animation: wave 1s infinite; } @keyframes wave { 0%,100% { height: 12px; } 50% { height: 28px; } }
+body.phone-mode #myVideoContainer, body.phone-mode #remoteVideo, body.phone-mode #candleContainer { display: none!important; }
+body.phone-mode #settingsContainer > button:not(#settingsBtn):not(#phoneModeBtn):not(#micBtn):not(#soundBtn) { opacity: 0.15; pointer-events: none; }
+body.phone-mode #chatPanel { pointer-events: none; opacity: 0.2; } body.phone-mode #chatToggle { opacity: 0.2; pointer-events: none; }
+#phoneModeBtn.active { background: #00aa55!important; }
+#msnEffectLayer { position: fixed; inset: 0; pointer-events: none; z-index: 9998; overflow: hidden; }
+#drawOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10001; display: flex; flex-direction: column; }
+#drawCanvas { flex: 1; background: #000; touch-action: none; }
+.countdown { font-size: 11px; color: #ffcc00; display: block; margin-top: 6px; font-weight: bold; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 6px; border: 1px solid #333; }
+.expireInfo { font-size: 9px; color: #00ff88; opacity: 0.9; display: block; margin-bottom: 4px; }
+.selfDestructed { color: #666; font-style: italic; text-align: center; background: #111!important; border: 1px dashed #333!important; }
+.reduceBtn,.extendBtn { font-size: 10px; background: #222; color: #ffcc00; border: 1px solid #555; border-radius: 6px; padding: 4px 8px; margin-top: 6px; cursor: pointer; margin-right: 4px; }
+.openBtn { font-size: 13px; background: #00aa55; color: white; border: none; border-radius: 8px; padding: 6px 14px; margin-top: 8px; cursor: pointer; font-weight: bold; }
+.lockedMessage { background: #1a1a1a!important; border: 2px dashed #00aa55!important; text-align: center; padding: 14px!important; }
+.newMessageBlink { animation: blink.8s infinite; } @keyframes blink { 0% { background: #ff0000; } 50% { background: #ffff00; color: #000; } 100% { background: #ff0000; } }
+.good { color: #00ff88; }.medium { color: #ffcc00; }.bad { color: #ff4444; }
+#volumeSlider { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); width: 180px; z-index: 1000; }
+.offIcon { position:relative; }.offIcon::after { content:""; position:absolute; left:3px; top:22px; width:34px; height:4px; background:#ff0000; transform:rotate(-45deg); border-radius:5px; pointer-events:none; }
+/* ESKI GUZEL TITREME - V12.1 */
+@keyframes shake { 0%,100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-3px); } 20%,40%,60%,80% { transform: translateX(3px); } }
+.shake { animation: shake 0.6s; }
+@keyframes screenShake { 
+  0%,100% { transform: translate(0,0); } 
+  10% { transform: translate(-10px,-5px); } 
+  20% { transform: translate(10px,5px); } 
+  30% { transform: translate(-8px,8px); } 
+  40% { transform: translate(8px,-8px); } 
+  50% { transform: translate(-6px,6px); } 
+  60% { transform: translate(-6px,-6px); } 
+  70% { transform: translate(-4px,4px); } 
+  80% { transform: translate(4px,-4px); } 
+  90% { transform: translate(-2px,2px); } 
+}
+.screen-shake { animation: screenShake 0.8s cubic-bezier(.36,.07,.19,.97) both; }
+#nudgeBtn { background: #ff4444 !important; box-shadow: 0 0 10px rgba(255,68,68,0.5); }
+#emojiBtn { background: #444 !important; }
+#emojiPanel { display: none; position: absolute; bottom: 125px; right: 10px; background: #222; border-radius: 14px; padding: 10px; gap: 10px; z-index: 100; flex-wrap: wrap; max-width: 280px; border: 1px solid #333; box-shadow: 0 8px 20px rgba(0,0,0,0.8); }
+#emojiPanel.show { display: flex; }
+.flyEmoji { font-size: 24px; cursor: pointer; transition: transform 0.15s ease; user-select: none; }
+.flyEmoji:hover { transform: scale(1.35) rotate(5deg); }
+.flying-emoji { position: fixed; font-size: 50px; z-index: 9999; pointer-events: none; text-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.5); will-change: transform, opacity; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); }
+#myVideoContainer { resize: both; overflow: hidden; min-width: 90px; min-height: 120px; max-width: 90vw; max-height: 70vh; }
+#myVideoContainer:active { border-color: #00ff88; }
+/* MSN EFEKTLERI */
+@keyframes heartRain { 0% { transform: translateY(0) scale(0) rotate(0deg); opacity:0; } 10% { opacity:1; } 100% { transform: translateY(-400px) scale(1.5) rotate(20deg); opacity:0; } }
+@keyframes kissPop { 0% { transform: translateY(0) scale(0); } 30% { transform: translateY(-50px) scale(1.4); } 60% { transform: translateY(-100px) scale(0.9); } 100% { transform: translateY(-220px) scale(1.1); opacity:0; } }
+@keyframes laughBounce { 0%,100% { transform: translateY(0) rotate(-10deg) scale(1); } 25% { transform: translateY(-60px) rotate(10deg) scale(1.3); } 50% { transform: translateY(-120px) rotate(-10deg) scale(1); } 75% { transform: translateY(-180px) rotate(10deg) scale(1.2); } }
+@keyframes fireFlicker { 0% { transform: translateY(0) scale(1) rotate(-2deg); filter: brightness(1); } 50% { transform: translateY(-120px) scale(1.3) rotate(2deg); filter: brightness(1.5); } 100% { transform: translateY(-250px) scale(0.8); opacity:0; } }
+.flying-emoji.heart { animation: heartRain 2.5s ease-out forwards; color: #ff3366; }
+.flying-emoji.kiss { animation: kissPop 2.2s cubic-bezier(.175,.885,.32,1.275) forwards; }
+.flying-emoji.laugh { animation: laughBounce 2.5s ease-in-out forwards; }
+.flying-emoji.fire { animation: fireFlicker 2s ease-in-out forwards; }
+.flying-emoji.thumbs { animation: kissPop 2s ease-out forwards; }
+.flying-emoji.cry { animation: heartRain 3s ease-in forwards; filter: blur(0.5px); }
+.flying-emoji.wow { animation: laughBounce 1.8s ease-out forwards; }
+.flying-emoji.flower { animation: heartRain 2.8s linear forwards; }
+.flying-emoji.love { animation: heartRain 2.5s ease-out forwards; }
+.flying-emoji.hug { animation: kissPop 2.3s ease-out forwards; }
+
+/* V13 PATCH - istenen emoji efektleri + zoom */
+#remoteVideo { touch-action: pinch-zoom; transform-origin: center center; }
+body.fullscreen-mode #remoteVideo { touch-action: none; }
+#remoteZoomHint.show { opacity:1 !important; }
+@keyframes heartRain3 { 0%{ transform:translateY(-100px) scale(0.5); opacity:0 } 20%{ opacity:1 } 100%{ transform:translateY(100vh) scale(1.2); opacity:0 } }
+.heart-rain3 { animation: heartRain3 3s linear forwards; }
+@keyframes kissJumpV13 { 0%{ transform:translateY(0) scale(0.5) } 30%{ transform:translateY(-90px) scale(1.4) } 60%{ transform:translateY(-50px) scale(1) } 100%{ transform:translateY(-20px) scale(0.9); opacity:0 } }
+.kiss-jump-v13 { animation: kissJumpV13 1.9s cubic-bezier(.175,.885,.32,1.275) forwards; }
+@keyframes fireTrembleV13 { 0%,100%{ transform:translateX(0) rotate(0) } 15%{ transform:translateX(-5px) rotate(-3deg) } 30%{ transform:translateX(6px) rotate(3deg) } 45%{ transform:translateX(-4px) } 60%{ transform:translateX(4px) } }
+.fire-tremble-v13 { animation: fireTrembleV13 0.35s ease-in-out 4; }
+@keyframes orangeFlashV13 { 0%{ background:transparent } 25%{ background:rgba(255,120,0,0.5) } 100%{ background:transparent } }
+.flash-orange-v13 { position:fixed; inset:0; pointer-events:none; z-index:9997; animation: orangeFlashV13 0.85s ease-out; }
+@keyframes shake10V13 { 0%{ transform:translate(0,0) } 10%{ transform:translate(-18px,-12px) } 20%{ transform:translate(18px,8px) } 30%{ transform:translate(-12px,18px) } 40%{ transform:translate(12px,-18px) } 50%{ transform:translate(-18px,8px) } 60%{ transform:translate(18px,-8px) } 70%{ transform:translate(-10px,14px) } 80%{ transform:translate(10px,-14px) } 90%{ transform:translate(-6px,6px) } 100%{ transform:translate(0,0) } }
+.shake10-v13 { animation: shake10V13 0.95s ease-in-out; }
