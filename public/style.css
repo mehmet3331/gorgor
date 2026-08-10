@@ -119,18 +119,3 @@ body.phone-mode #chatPanel { pointer-events: none; opacity: 0.2; } body.phone-mo
 .flying-emoji.flower { animation: heartRain 2.8s linear forwards; }
 .flying-emoji.love { animation: heartRain 2.5s ease-out forwards; }
 .flying-emoji.hug { animation: kissPop 2.3s ease-out forwards; }
-
-/* V13 PATCH - istenen emoji efektleri + zoom */
-#remoteVideo { touch-action: pinch-zoom; transform-origin: center center; }
-body.fullscreen-mode #remoteVideo { touch-action: none; }
-#remoteZoomHint.show { opacity:1 !important; }
-@keyframes heartRain3 { 0%{ transform:translateY(-100px) scale(0.5); opacity:0 } 20%{ opacity:1 } 100%{ transform:translateY(100vh) scale(1.2); opacity:0 } }
-.heart-rain3 { animation: heartRain3 3s linear forwards; }
-@keyframes kissJumpV13 { 0%{ transform:translateY(0) scale(0.5) } 30%{ transform:translateY(-90px) scale(1.4) } 60%{ transform:translateY(-50px) scale(1) } 100%{ transform:translateY(-20px) scale(0.9); opacity:0 } }
-.kiss-jump-v13 { animation: kissJumpV13 1.9s cubic-bezier(.175,.885,.32,1.275) forwards; }
-@keyframes fireTrembleV13 { 0%,100%{ transform:translateX(0) rotate(0) } 15%{ transform:translateX(-5px) rotate(-3deg) } 30%{ transform:translateX(6px) rotate(3deg) } 45%{ transform:translateX(-4px) } 60%{ transform:translateX(4px) } }
-.fire-tremble-v13 { animation: fireTrembleV13 0.35s ease-in-out 4; }
-@keyframes orangeFlashV13 { 0%{ background:transparent } 25%{ background:rgba(255,120,0,0.5) } 100%{ background:transparent } }
-.flash-orange-v13 { position:fixed; inset:0; pointer-events:none; z-index:9997; animation: orangeFlashV13 0.85s ease-out; }
-@keyframes shake10V13 { 0%{ transform:translate(0,0) } 10%{ transform:translate(-18px,-12px) } 20%{ transform:translate(18px,8px) } 30%{ transform:translate(-12px,18px) } 40%{ transform:translate(12px,-18px) } 50%{ transform:translate(-18px,8px) } 60%{ transform:translate(18px,-8px) } 70%{ transform:translate(-10px,14px) } 80%{ transform:translate(10px,-14px) } 90%{ transform:translate(-6px,6px) } 100%{ transform:translate(0,0) } }
-.shake10-v13 { animation: shake10V13 0.95s ease-in-out; }

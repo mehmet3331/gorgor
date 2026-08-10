@@ -5,39 +5,6 @@ const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000,
 
 const myVideo = document.getElementById("myVideo");
 const remoteVideo = document.getElementById("remoteVideo");
-
-// V13 PATCH - zoom serbest ilk açılışta, tam ekranda sabit
-let remoteScale=1, lastDist=0, startScale=1;
-const remoteZoomHint=document.getElementById("remoteZoomHint");
-if(remoteVideo){
-  remoteVideo.addEventListener("touchstart", (e)=>{
-    if(document.fullscreenElement) return;
-    if(e.touches.length===2){ lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); startScale=remoteScale; if(remoteZoomHint) remoteZoomHint.classList.add("show"); }
-  }, {passive:true});
-  remoteVideo.addEventListener("touchmove", (e)=>{
-    if(document.fullscreenElement) return;
-    if(e.touches.length===2){
-      e.preventDefault();
-      const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-      remoteScale=Math.min(Math.max(startScale*(dist/lastDist), 1), 4);
-      remoteVideo.style.transform=`scale(${remoteScale})`;
-    }
-  }, {passive:false});
-  remoteVideo.addEventListener("touchend", ()=>{ if(remoteZoomHint) remoteZoomHint.classList.remove("show"); if(remoteScale===1) remoteVideo.style.transform=""; });
-  remoteVideo.addEventListener("dblclick", ()=>{ remoteScale=1; remoteVideo.style.transform=""; });
-}
-const _origFullscreen = fullscreenBtn ? fullscreenBtn.onclick : null;
-if(fullscreenBtn){
-  fullscreenBtn.onclick=()=>{
-    if(!document.fullscreenElement){
-      document.documentElement.requestFullscreen().then(()=>{ document.body.classList.add("fullscreen-mode"); remoteScale=1; if(remoteVideo) remoteVideo.style.transform=""; });
-    } else {
-      document.exitFullscreen().then(()=> document.body.classList.remove("fullscreen-mode"));
-    }
-  };
-}
-document.addEventListener("fullscreenchange", ()=>{ if(!document.fullscreenElement) document.body.classList.remove("fullscreen-mode"); });
-
 const roomScreen = document.getElementById("roomScreen");
 const mainScreen = document.getElementById("mainScreen");
 const joinBtn = document.getElementById("joinBtn");
@@ -459,9 +426,7 @@ function triggerNudge(isMine){
     // ek efekt: mesajlar da titresin
     if(messages) { messages.classList.add("shake"); setTimeout(()=> messages.classList.remove("shake"),600); }
 }
-socket.on("nudge", (data)=>{ createFlyingEmoji("👉","shake10",false); });
-// OLD nudge disabled
-socket.on("nudge-old",()=>{ triggerNudge(false); });
+socket.on("nudge",()=>{ triggerNudge(false); });
 
 // EMOJI ANIM FIX - ESKI GUZEL VERSIYON
 if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.toggle("show"); };
@@ -476,74 +441,7 @@ document.querySelectorAll('.flyEmoji').forEach(emoji=>{
     };
 });
 socket.on('fly-emoji',(data)=> createFlyingEmoji(data.emoji,data.effect,false));
-
 function createFlyingEmoji(emoji,effect,isMine){
-    const msnEffectLayer = document.getElementById("msnEffectLayer");
-    // İSTENEN: ❤ -> 3 kalp yağmur
-    if(effect==="heart" || emoji==="❤" || emoji==="❤️" || effect==="heartRain"){
-        for(let i=0;i<3;i++){
-            setTimeout(()=>{
-                const fly=document.createElement('div');
-                fly.className='flying-emoji heart-rain3';
-                fly.textContent='❤';
-                fly.style.left=(20 + Math.random()*60)+'vw';
-                fly.style.top='-30px';
-                fly.style.fontSize='42px';
-                fly.style.color=['#ff0033','#ff4d6d','#ff8fab'][i%3];
-                fly.style.position='fixed';
-                fly.style.zIndex='9998';
-                document.body.appendChild(fly);
-                setTimeout(()=>fly.remove(),3000);
-            }, i*250);
-        }
-        if(navigator.vibrate) navigator.vibrate([50]);
-        return;
-    }
-    // İSTENEN: 😘 -> zıplayarak öpücük
-    if(effect==="kiss" || emoji==="😘"){
-        const fly=document.createElement('div');
-        fly.className='flying-emoji kiss-jump-v13';
-        fly.textContent='😘';
-        const startX = isMine? window.innerWidth-140 : 80;
-        fly.style.left=startX+'px';
-        fly.style.bottom='130px';
-        fly.style.fontSize='56px';
-        fly.style.position='fixed';
-        fly.style.zIndex='9998';
-        document.body.appendChild(fly);
-        setTimeout(()=>fly.remove(),1900);
-        if(navigator.vibrate) navigator.vibrate([60]);
-        return;
-    }
-    // İSTENEN: 🔥 -> alev titremesi + turuncu flash
-    if(effect==="fire" || emoji==="🔥"){
-        const fly=document.createElement('div');
-        fly.className='flying-emoji fire-tremble-v13';
-        fly.textContent='🔥';
-        fly.style.left='50%';
-        fly.style.top='50%';
-        fly.style.transform='translate(-50%,-50%)';
-        fly.style.fontSize='72px';
-        fly.style.position='fixed';
-        fly.style.zIndex='9998';
-        document.body.appendChild(fly);
-        const flash=document.createElement('div');
-        flash.className='flash-orange-v13';
-        document.body.appendChild(flash);
-        setTimeout(()=>{ fly.remove(); flash.remove(); },900);
-        if(navigator.vibrate) navigator.vibrate([80,40,80]);
-        return;
-    }
-    // İSTENEN: 👉 -> 10 yöne sert sarsıntı
-    if(effect==="nudge" || effect==="shake10" || emoji==="👉"){
-        document.body.classList.add("shake10-v13");
-        const layer=document.getElementById("msnEffectLayer");
-        if(layer){ layer.textContent="👉"; layer.style.display="flex"; layer.style.alignItems="center"; layer.style.justifyContent="center"; layer.style.fontSize="90px"; layer.style.position="fixed"; layer.style.inset="0"; layer.style.zIndex="9999"; layer.style.pointerEvents="none"; }
-        if(navigator.vibrate) navigator.vibrate([100,50,100,50,180]);
-        setTimeout(()=>{ document.body.classList.remove("shake10-v13"); if(layer){ layer.textContent=""; layer.style.display="none"; } },950);
-        return;
-    }
-    // Diğerleri için eski davranışı koru
     const fly=document.createElement('div');
     fly.className='flying-emoji '+(effect||'');
     fly.textContent=emoji;
@@ -551,11 +449,17 @@ function createFlyingEmoji(emoji,effect,isMine){
     fly.style.left=startX+'px';
     fly.style.bottom='120px';
     fly.style.fontSize = (effect==='heart' || effect==='fire')? '60px' : '50px';
-    fly.style.position='fixed';
-    fly.style.zIndex='9998';
     document.body.appendChild(fly);
+
+    // msn sesi gibi titresim ekle
+    if(effect==='heart' || effect==='kiss' || effect==='love'){
+        if(navigator.vibrate) navigator.vibrate([50]);
+    }
+
+    // efekte göre farklı uçuş
     let keyframes, opts={duration:2500, easing:'ease-out'};
     if(effect==='heart' || effect==='love' || effect==='flower'){
+        // 3 tane kalbe böl - yağmur efekti
         for(let i=0;i<3;i++){
             setTimeout(()=>{
                 const f2=fly.cloneNode(true);
@@ -566,18 +470,20 @@ function createFlyingEmoji(emoji,effect,isMine){
             }, i*120);
         }
     }
+
     fly.animate([
         { transform:'translateY(0) scale(0.5)', opacity:0 },
         { transform:'translateY(-80px) scale(1.2)', opacity:1, offset:0.2 },
         { transform:'translateY(-250px) scale(1)', opacity:0 }
     ],opts).onfinish=()=> fly.remove();
+
+    // MSN efekt layer flash
     if(msnEffectLayer && (effect==='fire' || effect==='wow')){
         msnEffectLayer.style.background = effect==='fire'? 'radial-gradient(circle, rgba(255,100,0,0.15), transparent)' : 'radial-gradient(circle, rgba(255,255,0,0.1), transparent)';
         msnEffectLayer.style.display='block';
         setTimeout(()=> msnEffectLayer.style.display='none', 400);
     }
 }
-
 if(addCustomEmoji){
     addCustomEmoji.onclick=()=>{
         const custom=prompt("Eklemek istediğin emojiyi yapıştır:"); if(!custom) return;
