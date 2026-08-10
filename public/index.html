@@ -1,113 +1,98 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>GORGOR</title>
-<link rel="stylesheet" href="style.css" />
-<script src="/socket.io/socket.io.js"></script>
-<script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<title>GORGOR V13 FINAL</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="fakeCalc" style="display:flex;">
-  <div class="calc-container">
-    <h3>🔢 Hesap Makinesi</h3>
-    <input id="calcDisplay" readonly placeholder="0" />
-    <div class="calc-grid">
-      <button onclick="calcPress('7')">7</button><button onclick="calcPress('8')">8</button><button onclick="calcPress('9')">9</button><button onclick="calcPress('/')">/</button>
-      <button onclick="calcPress('4')">4</button><button onclick="calcPress('5')">5</button><button onclick="calcPress('6')">6</button><button onclick="calcPress('*')">*</button>
-      <button onclick="calcPress('1')">1</button><button onclick="calcPress('2')">2</button><button onclick="calcPress('3')">3</button><button onclick="calcPress('-')">-</button>
-      <button onclick="calcPress('0')">0</button><button onclick="calcPress('.')">.</button><button onclick="calcClear()">C</button><button onclick="calcPress('+')">+</button>
-      <button onclick="calcEqual()" style="grid-column: span 4; background:#00c853; color:white; font-weight:bold;">=</button>
-    </div>
-  </div>
+<div id="roomScreen">
+<h2>GORGOR V13</h2>
+<input id="roomName" placeholder="Oda adı" value="oda1">
+<input id="userName" placeholder="Kullanıcı adın (varım / yokum)">
+<input id="roomPassword" type="password" placeholder="Oda şifresi = anahtar">
+<button id="joinBtn">Odaya Gir</button>
+<small style="opacity:0.6;text-align:center;margin-top:8px;display:block">🔒 E2E • 5dk/15dk RAM • 4s/24s/7gün Kalıcı<br>Zoom serbest • Tam ekranda sabit</small>
+<div id="fakeRoomsList"></div>
+<div id="userListBox"><div id="fakeUsersList"></div></div>
+<small id="fakeRoomsHint" style="display:none;opacity:0.5">oda1 gerçek oda</small>
 </div>
-
-<div id="roomScreen" style="display:none;">
-  <h2>🔒 GORGOR</h2>
-  <input id="roomName" placeholder="Oda adı" autocomplete="off" />
-  <div id="fakeRoomsHint" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; font-size:12px;">
-    <div id="fakeRoomsList" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-  </div>
-  <input id="userName" placeholder="Kullanıcı adı" autocomplete="off" style="display:none;" />
-  <div id="userListBox" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; max-height:200px; overflow-y:auto;">
-    <div id="fakeUsersList" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-  </div>
-  <input id="roomPassword" type="password" placeholder="Oda şifresi" />
-  <button id="joinBtn">Giriş</button>
-</div>
-
 <div id="mainScreen">
-  <video id="remoteVideo" autoplay playsinline></video>
-  <div id="myVideoContainer">
-    <video id="myVideo" autoplay muted playsinline></video>
-    <button id="switchCameraBtn" class="cameraOverlayBtn">🔄</button>
-    <button id="fullscreenBtn" class="cameraOverlayBtn">⛶</button>
-    <select id="qualitySelect" class="qualitySelect"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
-  </div>
-  <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯️</p></div>
-  <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
-  <div id="settingsContainer">
-    <button id="settingsBtn">⚙️</button>
-    <button id="micBtn" title="Mikrofon"></button>
-    <button id="camBtn" title="Kamera"></button>
-    <button id="soundBtn" title="Ses">🔊</button>
-    <input id="volumeSlider" type="range" min="0" max="1" step="0.05" value="0.1" />
-    <button id="phoneModeBtn" title="Telefon Modu">📞</button>
-    <button id="panicBtn" title="Panik">🚨</button>
-    <button id="lightModeBtn" title="Işık">💡</button>
-    <button id="changePasswordBtn" title="Şifre">🔑</button>
-    <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
-    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800" selected>30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option></select></div>
-  </div>
-  <button id="chatToggle">💬</button>
-      <div id="chatPanel">
-    <div id="messages"></div>
-    <div id="inputArea">
-      <div class="inputTopRow">
-        <select id="perMessageTimerSelect"><option value="default">Varsayılan</option><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option><option value="custom">Manuel...</option></select>
-        <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
-        <button id="emojiBtn" title="Emoji">😊</button>
-        <button id="nudgeBtn" title="Titreşim">👉</button>
-      </div>
-      <div class="inputBottomRow">
-        <div style="position:relative;">
-          <button id="attachMenuBtn">⋯</button>
-          <div id="attachMenu">
-            <button id="cameraBtn">📷 Kameradan Çek</button>
-            <button id="mediaBtn">🖼️ Galeriden Seç (20MB)</button>
-            <button id="drawBtn">✏️ Çizim</button>
-            <button id="locationBtn">📍 Konum</button>
-          </div>
-        </div>
-        <input id="messageInput" placeholder="Mesaj..." autocomplete="off" />
-        <button id="sendBtn">Gönder</button>
-      </div>
-      <div id="emojiPanel"><span class="flyEmoji" data-effect="kiss">😘</span><span class="flyEmoji" data-effect="heart">❤️</span><span class="flyEmoji" data-effect="fire">🔥</span><span class="flyEmoji" data-effect="water">💦</span><span class="flyEmoji" data-effect="slap">👋</span><span class="flyEmoji" data-effect="kiss">💋</span><span class="flyEmoji">😂</span><span class="flyEmoji">🥰</span><span class="flyEmoji">😎</span><span class="flyEmoji">🤔</span><span class="flyEmoji" id="addCustomEmoji" style="background:#333;border-radius:50%;">➕</span></div>
-      <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" />
-      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" />
-    </div>
-  </div>
-  </div>
-  <div id="mediaPreview"><span id="closePreview">×</span><img id="previewImg" /><video id="previewVideo" controls></video><button id="downloadMediaBtn">⬇️ İndir</button></div>
-  <div id="drawOverlay" style="display:none;"><canvas id="drawCanvas"></canvas><div style="display:flex; gap:10px; padding:10px;"><button id="drawClear">Temizle</button><button id="drawSend" style="background:#00c853;color:white;">Gönder</button><button id="drawClose">Kapat</button></div></div>
-  <div id="msnEffectLayer"></div>
+<video id="remoteVideo" autoplay playsinline webkit-playsinline></video>
+<div id="remoteZoomHint">İki parmakla yakınlaştır</div>
+<div id="candleContainer"><div class="candle"><div class="flame"></div></div><p>Bağlantı koptu<br><small>🕯️ Bekleniyor...</small></p></div>
+<div id="myVideoContainer">
+<video id="myVideo" autoplay playsinline webkit-playsinline muted></video>
+<button id="switchCameraBtn" class="cameraOverlayBtn">🔄</button>
+<button id="fullscreenBtn" class="cameraOverlayBtn">⛶</button>
+<select id="qualitySelect" class="qualitySelect"><option value="360">360p</option><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
 </div>
-
-<script>
-let calcBuf="";
-function calcPress(v){ calcBuf+=v; document.getElementById("calcDisplay").value=calcBuf; }
-function calcClear(){ calcBuf=""; document.getElementById("calcDisplay").value=""; }
-function calcEqual(){
-  if(calcBuf==="0000"){
-    document.getElementById("fakeCalc").style.display="none";
-    document.getElementById("roomScreen").style.display="flex";
-    calcBuf=""; document.getElementById("calcDisplay").value="";
-    return;
-  }
-  try{ let r=eval(calcBuf); document.getElementById("calcDisplay").value=r; calcBuf=r.toString(); }catch(e){ document.getElementById("calcDisplay").value="Hata"; calcBuf=""; }
-}
-</script>
+<div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">📞</div><div class="phoneName">Telefon Görüşmesi</div><div class="phoneStatus">Ses aktif</div><div class="phoneWave"><span></span><span></span></div></div>
+<div id="settingsContainer">
+<button id="settingsBtn">⚙</button>
+<button id="micBtn">🎤</button>
+<button id="camBtn">📷</button>
+<button id="soundBtn">🔊</button>
+<button id="phoneModeBtn">📞</button>
+<button id="changePasswordBtn">🔐</button>
+<button id="lightModeBtn">💡</button>
+<button id="drawBtn">✏️</button>
+<button id="panicBtn" style="background:#900">🚨</button>
+<div id="secretSettings">
+<label>Varsayılan yok olma süresi</label>
+<select id="defaultSelfDestructSelect">
+<option value="300">5 dakika (RAM)</option>
+<option value="900">15 dakika (RAM)</option>
+<option value="14400">4 saat (Kalıcı)</option>
+<option value="86400" selected>24 saat (Kalıcı)</option>
+<option value="604800">7 gün (Kalıcı)</option>
+</select>
+<small>5dk/15dk RAM, üstü kalıcı</small>
+</div>
+<div id="statusBar"><div class="statusBox">Ping: <span id="pingValue">-</span></div><div class="statusBox"><span id="connectionQuality">-</span></div><div class="statusBox" style="font-size:10px">🔒 E2E</div></div>
+</div>
+<input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.1">
+<button id="chatToggle">💬</button>
+<div id="chatPanel">
+<div id="messages"></div>
+<div id="inputArea">
+<button id="mediaBtn">📎</button>
+<button id="locationBtn">📍</button>
+<input id="mediaInput" type="file" accept="image/*,video/*,audio/*" style="display:none">
+<input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none">
+<select id="perMessageTimerSelect">
+<option value="default">Süre: Varsayılan</option>
+<option value="300">5 dk (RAM)</option>
+<option value="900">15 dk (RAM)</option>
+<option value="14400">4 saat (Kalıcı)</option>
+<option value="86400">24 saat (Kalıcı)</option>
+<option value="604800">7 gün (Kalıcı)</option>
+</select>
+<input id="messageInput" placeholder="Şifreli mesaj...">
+<button id="nudgeBtn">👉</button>
+<button id="emojiBtn">😂</button>
+<button id="sendBtn">Gönder</button>
+</div>
+<div id="emojiPanel">
+<span class="flyEmoji" data-effect="heartRain">❤</span>
+<span class="flyEmoji" data-effect="kissJump">😘</span>
+<span class="flyEmoji" data-effect="fireFlash">🔥</span>
+<span class="flyEmoji" data-effect="shake10">👉</span>
+<span class="flyEmoji" data-effect="laugh">😂</span>
+<span class="flyEmoji" data-effect="cry">😢</span>
+<span class="flyEmoji" data-effect="wow">😮</span>
+<span class="flyEmoji" data-effect="flower">🌸</span>
+<span class="flyEmoji" data-effect="love">😍</span>
+<span id="addCustomEmoji" class="flyEmoji" style="background:#333;border-radius:6px;padding:2px 6px;">+</span>
+</div>
+</div>
+<div id="mediaPreview"><span id="closePreview">✖</span><img id="previewImg"><video id="previewVideo" controls></video><button id="downloadMediaBtn">İndir</button></div>
+<div id="msnEffectLayer"></div>
+<div id="drawOverlay" style="display:none"><canvas id="drawCanvas"></canvas><div class="drawTools"><button id="drawClear">Temizle</button><button id="drawSend">Gönder</button><button id="drawClose">Kapat</button></div></div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

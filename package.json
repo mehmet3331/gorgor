@@ -1,7 +1,7 @@
 {
   "name": "gorgor",
-  "version": "1.2.0",
-  "description": "Gorgor - WebRTC tabanlı görüntülü görüşme ve dosya paylaşım uygulaması",
+  "version": "1.4.0",
+  "description": "Gorgor - WebRTC + E2E + Hibrit Saklama + Emoji Efekt",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -9,7 +9,6 @@
   "keywords": [
     "webrtc",
     "socket.io",
-    "goruntulu-gorusme",
     "gorgor"
   ],
   "author": "mehmet3331",
@@ -17,7 +16,6 @@
   "type": "commonjs",
   "dependencies": {
     "express": "^5.2.1",
-    "simple-peer": "^9.11.1",
     "socket.io": "^4.8.3"
   }
 }
