@@ -1,174 +1,103 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { maxHttpBufferSize: 20 * 1024 * 1024, cors: { origin: "*" } });
+app.use(express.static('public'));
 
-const PORT = process.env.PORT || 3000;
+let persistedMessages = [];
+let mongoCollection = null;
 
-// --- KALICI STORAGE ICIN ---
-const DATA_DIR = path.join(__dirname, 'data');
-const DATA_FILE = path.join(DATA_DIR, 'messages.json');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify({ rooms: {} }));
-
-function loadDB() {
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-  catch { return { rooms: {} }; }
+async function initMongo(){
+  if(!process.env.MONGODB_URI){ console.log("MONGODB_URI YOK!"); return; }
+  try{
+    const { MongoClient } = require('mongodb');
+    const client = new MongoClient(process.env.MONGODB_URI);
+    await client.connect();
+    mongoCollection = client.db('gorgor').collection('messages');
+    persistedMessages = await mongoCollection.find({}).toArray();
+    console.log(`MONGODB BAGLI - ${persistedMessages.length} mesaj KALICI yuklendi - ASLA SILINMEZ`);
+  }catch(e){ console.error("Mongo hatasi", e); }
 }
-function saveDB(db) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(db));
-}
-let db = loadDB();
+initMongo();
 
-// 5 dakikada bir süresi dolanları temizle
-setInterval(() => {
-  let changed = false;
-  const now = Date.now();
-  for (const roomName in db.rooms) {
-    const room = db.rooms[roomName];
-    if (!room.messages) continue;
-    const before = room.messages.length;
-    room.messages = room.messages.filter(m =>!m.deleteAt || m.deleteAt > now);
-    if (room.messages.length!== before) changed = true;
+async function saveDisk(){
+  if(mongoCollection){
+    try{
+      await mongoCollection.deleteMany({});
+      if(persistedMessages.length) await mongoCollection.insertMany(persistedMessages);
+    }catch(e){}
   }
-  if (changed) saveDB(db);
-}, 60 * 1000);
+}
 
-app.use(express.static(path.join(__dirname, 'public')));
+setInterval(async()=>{
+  const now = Date.now();
+  const before = persistedMessages.length;
+  persistedMessages = persistedMessages.filter(m => (m.deleteAt || m.expireAt || 0) > now);
+  if(before!== persistedMessages.length) await saveDisk();
+}, 60000);
 
-const rooms = {}; // anlık kullanıcılar için hala RAM
+let rooms = {};
 
-io.on('connection', (socket) => {
-  console.log('baglandi', socket.id);
+io.on('connection', socket=>{
+  socket.on('join-room', ({room, password, username})=>{
+    if(!rooms[room]) rooms[room] = {password, users:{}, messages:new Map()};
+    if(rooms[room].password!== password){ socket.emit('room-error','Sifre yanlis'); return; }
+    if(Object.keys(rooms[room].users).length >=2){ socket.emit('room-error','Oda dolu'); return; }
 
-  socket.on('join-room', ({ room, password, username }) => {
-    // oda şifre kontrolü basit
-    if (!rooms[room]) rooms[room] = { password, users: [] };
-    if (rooms[room].password!== password) {
-      socket.emit('room-error', 'Şifre yanlış');
-      return;
-    }
-    if (rooms[room].users.length >= 2) {
-      socket.emit('room-error', 'Oda dolu');
-      return;
-    }
+    socket.join(room); socket.room=room; socket.username=username.toLowerCase(); socket.realUsername=username;
+    rooms[room].users[socket.id]={username:socket.username, realUsername:username};
+    const count = Object.keys(rooms[room].users).length;
+    socket.emit('joined-room',{username, count});
 
-    socket.join(room);
-    socket.room = room;
-    socket.username = username;
-    rooms[room].users.push({ id: socket.id, username });
-
-    // DB'de oda yoksa oluştur
-    if (!db.rooms[room]) db.rooms[room] = { messages: [] };
-
-    // KALICI MESAJLARI GÖNDER - burası düzeldi
-    const pending = db.rooms[room].messages || [];
-    socket.emit('pending-messages', pending);
-
-    socket.emit('joined-room', { username, count: rooms[room].users.length });
-    socket.to(room).emit('user-connected', { username });
-
-    socket.on('chat-message', (data) => {
-      // DB'ye kaydet - KALICI
-      const msg = {
-        msgId: data.msgId,
-        enc: data.enc,
-        expireSec: data.expireSec,
-        type: 'text',
-        username: socket.username.toLowerCase(),
-        realUsername: socket.username,
-        opened: false,
-        createdAt: Date.now()
-      };
-      db.rooms[room].messages.push(msg);
-      saveDB(db);
-      socket.to(room).emit('chat-message', {...data, username: socket.username.toLowerCase(), realUsername: socket.username });
-    });
-
-    socket.on('chat-media', (data) => {
-      // Foto/video da artık kalıcı
-      const msg = {
-        msgId: data.msgId,
-        enc: data.enc,
-        expireSec: data.expireSec,
-        type: data.mediaType,
-        mediaType: data.mediaType,
-        username: socket.username.toLowerCase(),
-        realUsername: socket.username,
-        opened: false,
-        createdAt: Date.now()
-      };
-      db.rooms[room].messages.push(msg);
-      saveDB(db);
-      socket.to(room).emit('chat-media', {...data, username: socket.username.toLowerCase(), realUsername: socket.username });
-    });
-
-    socket.on('message-opened', ({ msgId }) => {
-      const roomData = db.rooms[room];
-      if (!roomData) return;
-      const m = roomData.messages.find(x => x.msgId === msgId);
-      if (m &&!m.opened) {
-        m.opened = true;
-        m.deleteAt = Date.now() + m.expireSec * 1000;
-        saveDB(db);
-        io.to(room).emit('message-opened', { msgId, deleteAt: m.deleteAt, expireSec: m.expireSec });
-        socket.emit('message-opened-ack', { msgId, deleteAt: m.deleteAt, expireSec: m.expireSec });
-      }
-    });
-
-    socket.on('reduce-request', ({ msgId, newExpireSec }) => {
-      const roomData = db.rooms[room];
-      const m = roomData?.messages.find(x => x.msgId === msgId);
-      if (m && m.deleteAt) {
-        m.deleteAt = Date.now() + newExpireSec * 1000;
-        m.expireSec = newExpireSec;
-        saveDB(db);
-        io.to(room).emit('reduce-accepted', { msgId, newExpireSec, newDeleteAt: m.deleteAt });
-      }
-    });
-
-    socket.on('extend-request', ({ msgId, extraSec }) => {
-      const roomData = db.rooms[room];
-      const m = roomData?.messages.find(x => x.msgId === msgId);
-      if (m && m.deleteAt) {
-        m.deleteAt += extraSec * 1000;
-        saveDB(db);
-        io.to(room).emit('extend-accepted', { msgId, newDeleteAt: m.deleteAt, extraSec });
-      }
-    });
-
-    socket.on('disconnect', () => {
-      if (rooms[room]) {
-        rooms[room].users = rooms[room].users.filter(u => u.id!== socket.id);
-        if (rooms[room].users.length === 0) {
-          // Oda boşalsa bile mesajları SİLME - KALICI KALSIN
-          // delete rooms[room] demiyoruz mesajlar için
-        }
-        socket.to(room).emit('user-disconnected');
-      }
-    });
-
-    // diğer eventler (nudge, fly-emoji, typing, phone-mode, panic) aynı kalsın
-    socket.on('nudge', () => socket.to(room).emit('nudge'));
-    socket.on('fly-emoji', (d) => socket.to(room).emit('fly-emoji', d));
-    socket.on('typing', (b) => socket.to(room).emit('typing', { username: socket.username, typing: b }));
-    socket.on('signal', ({ room, signal }) => socket.to(room).emit('signal', signal));
-    socket.on('ping-check', (t) => socket.emit('pong-check', t));
-    socket.on('phone-mode', (e) => socket.to(room).emit('phone-mode', e));
-    socket.on('panic', () => {
-      if (db.rooms[room]) { db.rooms[room].messages = []; saveDB(db); }
-      socket.to(room).emit('panic');
-    });
-    socket.on('change-password', (p) => { if(rooms[room]) rooms[room].password = p; });
-    socket.on('quality-change', () => {});
-    socket.on('message-read', () => {});
-    socket.on('messages-read-all', () => {});
+    const now=Date.now();
+    const pending = persistedMessages.filter(m=> m.room===room && (m.deleteAt||m.expireAt) > now);
+    socket.emit('pending-messages', pending.map(m=>({msgId:m.msgId, enc:m.enc, expireSec: Math.max(1,Math.floor(((m.deleteAt||m.expireAt)-now)/1000)), type:m.type, username:m.username, realUsername:m.realUsername, opened:!!m.deleteAt, deleteAt:m.deleteAt })));
+    if(count===2) socket.to(room).emit('user-connected',{username});
   });
+
+  socket.on('chat-message', async data=>{
+    const room=socket.room; if(!room||!rooms[room]) return;
+    const msg={msgId:data.msgId, enc:data.enc, expireSec:data.expireSec, type:'text', username:socket.username, realUsername:socket.realUsername, opened:false, room, expireAt: Date.now()+data.expireSec*1000, deleteAt: null};
+    rooms[room].messages.set(data.msgId, msg);
+    persistedMessages.push(msg); await saveDisk();
+    socket.to(room).emit('chat-message',{...data, username:socket.username, realUsername:socket.realUsername});
+  });
+  socket.on('chat-media', async data=>{
+    const room=socket.room; if(!room||!rooms[room]) return;
+    const msg={msgId:data.msgId, enc:data.enc, expireSec:data.expireSec, type:data.mediaType, username:socket.username, realUsername:socket.realUsername, opened:false, room, expireAt: Date.now()+data.expireSec*1000, deleteAt: null};
+    rooms[room].messages.set(data.msgId, msg);
+    persistedMessages.push(msg); await saveDisk();
+    socket.to(room).emit('chat-media',{...data, username:socket.username, realUsername:socket.realUsername});
+  });
+  socket.on('message-opened', async ({msgId})=>{
+    const room=socket.room; if(!room) return;
+    const t=rooms[room]?.messages.get(msgId);
+    let idx=persistedMessages.findIndex(m=>m.msgId===msgId && m.room===room);
+    const baseSec = t?.expireSec || (idx>=0? persistedMessages[idx].expireSec : 24*3600);
+    const deleteAt = Date.now()+baseSec*1000;
+    if(t){ t.opened=true; t.deleteAt=deleteAt; }
+    if(idx>=0){ persistedMessages[idx].opened=true; persistedMessages[idx].deleteAt=deleteAt; persistedMessages[idx].expireAt=deleteAt; await saveDisk(); }
+    io.to(room).emit('message-opened',{msgId, deleteAt, expireSec: baseSec});
+  });
+  socket.on('disconnect', ()=>{
+    const room=socket.room;
+    if(room&&rooms[room]){
+      delete rooms[room].users[socket.id];
+      socket.to(room).emit('user-disconnected');
+      socket.to(room).emit('clear-remote-video');
+    }
+  });
+  socket.on('signal', d=> socket.to(d.room).emit('signal', d.signal));
+  socket.on('typing', b=>{ if(socket.room) socket.to(socket.room).emit('typing',{username:socket.realUsername, typing:b}); });
+  socket.on('nudge', ()=>{ if(socket.room) socket.to(socket.room).emit('nudge'); });
+  socket.on('fly-emoji', d=>{ if(socket.room) socket.to(socket.room).emit('fly-emoji', d); });
+  socket.on('phone-mode', b=>{ if(socket.room) socket.to(socket.room).emit('phone-mode', b); });
+  socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); }});
 });
 
-server.listen(PORT, () => console.log('GOR calisiyor port ' + PORT));
+server.listen(process.env.PORT||10000, ()=> console.log("GOR calisiyor port 10000"));
