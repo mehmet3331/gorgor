@@ -1,4 +1,4 @@
-console.log("V12.3 FIX3 - gizli bulmaca + 20MB + tel %10 + 3 nokta");
+console.log("V12.3 FIX3 - gizli bulmaca + 20MB + tel %10 + 3 nokta - BEYAZ LAMBA FIX");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
 const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
@@ -66,84 +66,61 @@ const attachMenu = document.getElementById("attachMenu");
 const cameraBtn = document.getElementById("cameraBtn");
 const cameraInput = document.getElementById("cameraInput");
 
-let peer = null; let localStream = null; let currentRoom = ""; let currentPassword = ""; let myUsername = ""; let myRealUsername = "";
+let peer = null; let localStream;
 let micEnabled = true; let camEnabled = true;
 let currentQuality = 720; let currentFacingMode = "user"; let pingTimer = null; let currentMediaData = null;
 let typingTimer; let isTyping = false; let messageIdCounter = 0;
 const sentMessages = new Map();
-let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "1800");
+let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "14400");
 let activeTimers = new Map();
 let isPhoneMode = false;
+let currentRoom=null, currentPassword="", myUsername="", myRealUsername="";
+let lampOn=false;
 const MAX_SEC = 604800;
 
 const REAL_ROOM = "oda1";
 const FAKE_ROOMS = ["oda","oda2","oda3","oda4","oda5","oda6","oda7","oda8","oda9"];
 const REAL_USERS = ["varım","yokum"];
 const FAKE_USERS = ["buradayım","geldim","bekliyorum","hazırım","uyuyorum","meşgulüm","çevrimiçiyim","çevrimdışıyım","yoldayım","müsaitim","dinleniyorum","çalışıyorum"];
-
 function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
-
 function renderFakeLists(){
     if(fakeUsersList){
         fakeUsersList.innerHTML="";
         const allUsers = [...REAL_USERS,...FAKE_USERS].sort(() => Math.random() - 0.5);
         allUsers.forEach(u=>{
-            const sp=document.createElement("span");
-            sp.className="userTag";
-            sp.textContent=u;
-            sp.onclick=()=>{ userName.value=u; };
-            fakeUsersList.appendChild(sp);
+            const sp=document.createElement("span"); sp.className="userTag"; sp.textContent=u;
+            sp.onclick=()=>{ userName.value=u; }; fakeUsersList.appendChild(sp);
         });
     }
     if(fakeRoomsList){
         fakeRoomsList.innerHTML="";
         const allRooms = [REAL_ROOM,...FAKE_ROOMS].sort(() => Math.random() - 0.5);
         allRooms.forEach(r=>{
-            const sp=document.createElement("span");
-            sp.className="userTag";
-            sp.textContent=r;
-            sp.onclick=()=>{ roomName.value=r; roomName.dispatchEvent(new Event('input')); };
-            fakeRoomsList.appendChild(sp);
+            const sp=document.createElement("span"); sp.className="userTag"; sp.textContent=r;
+            sp.onclick=()=>{ roomName.value=r; roomName.dispatchEvent(new Event('input')); }; fakeRoomsList.appendChild(sp);
         });
     }
 }
 renderFakeLists();
-
 roomName.addEventListener("input",()=>{
     const v=normalize(roomName.value);
-    if(v.length>0){
-        if(fakeRoomsHint) fakeRoomsHint.style.display="block";
-    }else{
-        if(fakeRoomsHint) fakeRoomsHint.style.display="none";
-    }
-    if(v===REAL_ROOM || v.length>=2){
-        userName.style.display="block";
-        userListBox.style.display="block";
-    }else{
-        userName.style.display="none";
-        userListBox.style.display="none";
-    }
+    if(fakeRoomsHint) fakeRoomsHint.style.display = v.length>0? "block" : "none";
+    if(v===REAL_ROOM || v.length>=2){ userName.style.display="block"; userListBox.style.display="block"; }
+    else{ userName.style.display="none"; userListBox.style.display="none"; }
 });
-
 async function deriveKey(password){
     const enc = new TextEncoder();
     const hash = await crypto.subtle.digest('SHA-256', enc.encode(password));
     return await crypto.subtle.importKey('raw', hash, { name:'AES-GCM' }, false, ['encrypt','decrypt']);
 }
 function bufToB64(buf){
-    const bytes = new Uint8Array(buf);
-    let binary = "";
-    const chunk = 8192;
-    for(let i=0;i<bytes.length;i+=chunk){
-        binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
-    }
+    const bytes = new Uint8Array(buf); let binary = ""; const chunk = 8192;
+    for(let i=0;i<bytes.length;i+=chunk){ binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk)); }
     return btoa(binary);
 }
 function b64ToBuf(b64){
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
-    return bytes;
+    const binary = atob(b64); const bytes = new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i); return bytes;
 }
 async function encryptText(text,password){
     const key = await deriveKey(password);
@@ -160,9 +137,8 @@ async function decryptText(b64,password){
         const iv = combined.slice(0,12); const ct = combined.slice(12);
         const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
         return new TextDecoder().decode(pt);
-    }catch(e){ console.log("decrypt fail",e); return null; }
+    }catch(e){ return null; }
 }
-
 if(defaultSelfDestructSelect) defaultSelfDestructSelect.value = defaultExpire.toString();
 micBtn.textContent = "🎤"; camBtn.textContent = "📷";
 
@@ -175,8 +151,18 @@ async function startCamera(height=720, facingMode=currentFacingMode){
         });
         myVideo.srcObject = localStream;
         myVideo.style.transform = facingMode==="user"?"scaleX(-1)":"scaleX(1)";
-        micEnabled=true; camEnabled=true;
-        micBtn.classList.remove("offIcon"); camBtn.classList.remove("offIcon");
+        if(!window._firstCamDone){
+          localStream.getVideoTracks().forEach(t=> t.enabled=false);
+          localStream.getAudioTracks().forEach(t=> t.enabled=false);
+          micEnabled=false; camEnabled=false;
+          micBtn.classList.add("offIcon"); camBtn.classList.add("offIcon");
+          micBtn.textContent="🔇";
+          window._firstCamDone=true;
+        }else{
+          micEnabled=true; camEnabled=true;
+          micBtn.classList.remove("offIcon"); camBtn.classList.remove("offIcon");
+          micBtn.textContent="🎤"; camBtn.textContent="📷";
+        }
         return true;
     }catch(err){ return false; }
 }
@@ -189,20 +175,16 @@ socket.on("pong-check", ts=>{
     else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; }
     else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; }
 });
-
 joinBtn.onclick = async()=>{
     const room = roomName.value.trim(); const password = roomPassword.value.trim(); const uname = userName.value.trim();
     if(!room){ alert("Oda adı gir"); return; }
     if(!uname){ alert("Kullanıcı adı gir"); return; }
     if(!password){ alert("Şifre gerekli"); return; }
-    currentPassword=password;
-    myUsername=normalize(uname);
-    myRealUsername=uname;
+    currentPassword=password; myUsername=normalize(uname); myRealUsername=uname;
     await startCamera(currentQuality);
     currentRoom=room;
     socket.emit("join-room",{ room, password, username: uname });
 };
-
 socket.on("room-error", msg=> alert(msg));
 socket.on("joined-room", data=>{
     roomScreen.style.display="none"; mainScreen.style.display="block";
@@ -220,8 +202,7 @@ function createPeer(initiator){
     peer.on("stream", stream=>{
         remoteVideo.srcObject=stream; remoteVideo.play().catch(()=>{});
         if(candleContainer) candleContainer.classList.remove("show");
-        if(isPhoneMode){ remoteVideo.style.display="none"; } else{ remoteVideo.style.display="block"; }
-        
+        remoteVideo.style.display = isPhoneMode? "none" : "block";
     });
     peer.on("close", ()=>{
         if(remoteVideo){ remoteVideo.pause(); try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.load(); remoteVideo.style.display="none"; }
@@ -230,13 +211,7 @@ function createPeer(initiator){
 }
 socket.on("signal", signal=>{ if(!peer) createPeer(false); peer.signal(signal); });
 socket.on("user-disconnected",()=>{
-    if(remoteVideo){
-        remoteVideo.pause();
-        try{ remoteVideo.srcObject=null; }catch(e){}
-        remoteVideo.removeAttribute("src");
-        remoteVideo.load();
-        remoteVideo.style.display="none";
-    }
+    if(remoteVideo){ remoteVideo.pause(); try{ remoteVideo.srcObject=null; }catch(e){} remoteVideo.removeAttribute("src"); remoteVideo.load(); remoteVideo.style.display="none"; }
     if(peer){ try{peer.destroy();}catch(e){} peer=null; }
     if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
     if(connectionQuality){ connectionQuality.textContent="Karşı yok - Mum 🕯"; connectionQuality.className="bad"; }
@@ -250,7 +225,6 @@ qualitySelect.onchange = async()=>{
 };
 settingsBtn.onclick = ()=> settingsContainer.classList.toggle("menu-open");
 if(fullscreenBtn){ fullscreenBtn.onclick = ()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }; }
-
 function formatTime(sec){
     if(sec<60) return `${sec} sn`;
     const m=Math.floor(sec/60); const s=sec%60;
@@ -289,7 +263,7 @@ async function addMyMessage(text, expireSec, realName){
     const msgId=`msg-${Date.now()}-${messageIdCounter++}`;
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC);
     const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-    div.innerHTML=`<span class="expireInfo">🔒 ${realName} • ⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="message-tick">✓</span><span class="countdown">⏳ Karşı açınca ${formatTime(expireSec)}</span>`;
+    div.innerHTML=`<span class="expireInfo">🔒 ${realName} • ⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks"> ✓</span><span class="countdown">⏳ Karşı açınca ${formatTime(expireSec)}</span>`;
     messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); div._expireSec=expireSec; addReduceExtendButtons(div,msgId); return msgId;
 }
 async function addMyMediaMessage(dataUrl, mediaType, expireSec, fileName){
@@ -325,7 +299,7 @@ async function addLockedMessage(msgId, expireSec, enc, mediaType, senderReal){
         }
         div.className="otherMessage";
         socket.emit("message-opened",{ msgId });
-        socket.emit("message-read",msgId);
+        socket.emit("message-read",{msgId, reader: myRealUsername});
         startSelfDestruct(div,msgId,expireSec);
         addReduceExtendButtons(div,msgId);
     };
@@ -336,12 +310,8 @@ function getExpireFromSelect(){
     let val = perMessageTimerSelect.value;
     if(val==="default") return defaultExpire;
     if(val==="custom"){
-        let custom = prompt(`Manuel süre saniye:`);
-        if(!custom) return defaultExpire;
-        let num = parseInt(custom.replace(/[^0-9]/g,''));
-        if(isNaN(num)||num<=0) return defaultExpire;
-        if(num>MAX_SEC) num=MAX_SEC;
-        return num;
+        let custom = prompt(`Manuel süre saniye:`); if(!custom) return defaultExpire;
+        let num = parseInt(custom.replace(/[^0-9]/g,'')); if(isNaN(num)||num<=0) return defaultExpire; if(num>MAX_SEC) num=MAX_SEC; return num;
     }
     return Math.min(parseInt(val),MAX_SEC);
 }
@@ -379,17 +349,10 @@ socket.on("pending-messages", async(list)=>{
         }else{
             if(isMine){
                 const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId; div._expireSec=m.expireSec;
-                if(m.type==="text"){
-                    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - Henüz açılmadı</span>BEN (${m.realUsername}) → ${plain}<span class="countdown">⏳ Karşı açınca ${formatTime(m.expireSec)}</span>`;
-                }else{
-                    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - Henüz açılmadı</span>`;
-                    if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); }
-                    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ Karşı açınca ${formatTime(m.expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
-                }
+                if(m.type==="text"){ div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - Henüz açılmadı</span>BEN (${m.realUsername}) → ${plain}<span class="countdown">⏳ Karşı açınca ${formatTime(m.expireSec)}</span>`; }
+                else{ div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - Henüz açılmadı</span>`; if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); } const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ Karşı açınca ${formatTime(m.expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd); }
                 messages.appendChild(div); sentMessages.set(m.msgId,div); addReduceExtendButtons(div,m.msgId);
-            }else{
-                addLockedMessage(m.msgId, m.expireSec, m.enc, m.type, m.realUsername);
-            }
+            }else{ addLockedMessage(m.msgId, m.expireSec, m.enc, m.type, m.realUsername); }
         }
     }
     messages.scrollTop=messages.scrollHeight;
@@ -406,15 +369,8 @@ socket.on("message-opened-ack",({msgId,deleteAt,expireSec})=>{
     const cd=div.querySelector(".countdown"); if(cd){ cd.style.display="block"; cd.textContent=`⏳ ${formatTime(expireSec)}`; }
     startSelfDestruct(div,msgId,expireSec,deleteAt);
 });
-socket.on("reduce-accepted",({msgId,newExpireSec,newDeleteAt})=>{
-    const div=document.getElementById(msgId); if(!div) return;
-    if(newDeleteAt) startSelfDestruct(div,msgId,newExpireSec,newDeleteAt);
-});
-socket.on("extend-accepted",({msgId,newDeleteAt,extraSec})=>{
-    const div=document.getElementById(msgId); if(!div) return;
-    const remaining = Math.max(0, Math.floor((newDeleteAt - Date.now())/1000));
-    startSelfDestruct(div,msgId,remaining,newDeleteAt);
-});
+socket.on("reduce-accepted",({msgId,newExpireSec,newDeleteAt})=>{ const div=document.getElementById(msgId); if(!div) return; if(newDeleteAt) startSelfDestruct(div,msgId,newExpireSec,newDeleteAt); });
+socket.on("extend-accepted",({msgId,newDeleteAt})=>{ const div=document.getElementById(msgId); if(!div) return; const remaining = Math.max(0, Math.floor((newDeleteAt - Date.now())/1000)); startSelfDestruct(div,msgId,remaining,newDeleteAt); });
 chatToggle.onclick=()=>{
     if(chatPanel.style.display==="flex"){ chatPanel.style.display="none"; document.body.classList.remove("chat-open"); chatToggle.textContent="💬"; }
     else{ chatPanel.style.display="flex"; document.body.classList.add("chat-open"); chatToggle.classList.remove("newMessageBlink"); chatToggle.textContent="✖"; socket.emit("messages-read-all"); }
@@ -425,17 +381,7 @@ socket.on('typing',(data)=>{
     if(!td){ td=document.createElement('div'); td.id='typingIndicator'; td.className='otherMessage'; messages.appendChild(td); }
     td.textContent=data.typing?`${data.username} yazıyor...`:''; td.style.display=data.typing?'block':'none';
 });
-// TITRESIM FIX - ESKI GUZEL VERSIYON
-// ... üst kısımlar aynı kalsın, SADECE en alttaki kısmı değiştir:
-
-// TITRESIM FIX - ESKI GUZEL VERSIYON
-if(nudgeBtn){
-    nudgeBtn.onclick=(e)=>{
-        e.stopPropagation();
-        socket.emit("nudge");
-        triggerNudge(true);
-    };
-}
+if(nudgeBtn){ nudgeBtn.onclick=(e)=>{ e.stopPropagation(); socket.emit("nudge"); triggerNudge(true); }; }
 function triggerNudge(isMine){
     document.body.classList.add("screen-shake");
     setTimeout(()=> document.body.classList.remove("screen-shake"),800);
@@ -443,8 +389,6 @@ function triggerNudge(isMine){
     if(messages) { messages.classList.add("shake"); setTimeout(()=> messages.classList.remove("shake"),600); }
 }
 socket.on("nudge",()=>{ triggerNudge(false); });
-
-// EMOJI + MSN WINK FINAL - TEK FONKSIYON
 if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.toggle("show"); };
 document.querySelectorAll('.flyEmoji').forEach(emoji=>{
     if(emoji.id==='addCustomEmoji') return;
@@ -457,69 +401,23 @@ document.querySelectorAll('.flyEmoji').forEach(emoji=>{
     };
 });
 socket.on('fly-emoji',(data)=> createFlyingEmoji(data.emoji,data.effect,false));
-
-// TEK VE DOGRU createFlyingEmoji - OPÜCÜK + WATER BALLOON
 function createFlyingEmoji(emoji,effect,isMine){
-    const startX = isMine? window.innerWidth-120 : 80;
-    const baseY = 140;
-
+    const startX = isMine? window.innerWidth-120 : 80; const baseY = 140;
     if(effect==='big-kiss'){
-        const big=document.createElement('div');
-        big.className='big-kiss-mark'; big.textContent='💋';
-        document.body.appendChild(big);
-        setTimeout(()=>big.remove(),2500);
-        if(navigator.vibrate) navigator.vibrate([100,50,100]);
-        return;
+        const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋';
+        document.body.appendChild(big); setTimeout(()=>big.remove(),2500); return;
     }
     if(effect==='water'){
-        const splash=document.createElement('div'); splash.className='water-drop';
-        document.body.appendChild(splash);
+        const splash=document.createElement('div'); splash.className='water-drop'; document.body.appendChild(splash);
         setTimeout(()=>splash.remove(),1200);
-        for(let i=0;i<8;i++){
-            setTimeout(()=>{
-                const d=document.createElement('div');
-                d.className='flying-emoji'; d.textContent='💧';
-                d.style.left=(window.innerWidth/2 + Math.random()*200-100)+'px';
-                d.style.bottom='50%'; d.style.fontSize='40px';
-                d.style.animation='kissRain 1.5s forwards';
-                document.body.appendChild(d);
-                setTimeout(()=>d.remove(),1500);
-            }, i*80);
-        }
+        for(let i=0;i<8;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji'; d.textContent='💧'; d.style.left=(window.innerWidth/2 + Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='kissRain 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*80); }
         return;
     }
-
-    let count=1;
-    if(effect==='heart'||effect==='love'||effect==='kiss') count=8;
-    else if(effect==='kiss-rain') count=12;
-    else if(effect==='flower') count=5;
-    else if(effect==='fire') count=3;
-
-    for(let i=0;i<count;i++){
-        setTimeout(()=>{
-            const fly=document.createElement('div');
-            fly.className='flying-emoji '+(effect||'custom');
-            if(effect==='kiss'||effect==='kiss-rain') fly.classList.add('kiss-rain');
-            fly.textContent=emoji;
-            fly.style.left=(startX+Math.random()*180-90 + i*15)+'px';
-            fly.style.bottom=(baseY+Math.random()*40)+'px';
-            fly.style.fontSize=(effect==='fire'||effect==='wow')? '72px' : (58 + Math.random()*24)+'px';
-            document.body.appendChild(fly);
-            setTimeout(()=>fly.remove(), 3500);
-        }, i*90);
-    }
-
+    let count=1; if(effect==='heart'||effect==='love'||effect==='kiss') count=8; else if(effect==='kiss-rain') count=12; else if(effect==='flower') count=5; else if(effect==='fire') count=3;
+    for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+(effect||'custom'); if(effect==='kiss'||effect==='kiss-rain') fly.classList.add('kiss-rain'); fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90 + i*15)+'px'; fly.style.bottom=(baseY+Math.random()*40)+'px'; fly.style.fontSize=(effect==='fire'||effect==='wow')? '72px' : (58 + Math.random()*24)+'px'; document.body.appendChild(fly); setTimeout(()=>fly.remove(), 3500); }, i*90); }
     if(effect==='fire' || effect==='wow' || effect==='thumbs'){
-        document.body.classList.add('mega-shake');
-        setTimeout(()=> document.body.classList.remove('mega-shake'),700);
-        if(msnEffectLayer){
-            msnEffectLayer.style.background = effect==='fire'? 'radial-gradient(circle at 50% 70%, rgba(255,80,0,0.25), transparent 65%)' : 'radial-gradient(circle at 50% 50%, rgba(255,255,0,0.2), transparent 60%)';
-            msnEffectLayer.style.display='block';
-            setTimeout(()=> msnEffectLayer.style.display='none', 600);
-        }
-        if(navigator.vibrate) navigator.vibrate([80,40,80]);
-    } else if(effect==='heart'||effect==='kiss'||effect==='kiss-rain'||effect==='love'){
-        if(navigator.vibrate) navigator.vibrate([50,30,50]);
+        document.body.classList.add('mega-shake'); setTimeout(()=> document.body.classList.remove('mega-shake'),700);
+        if(msnEffectLayer){ msnEffectLayer.style.background = effect==='fire'? 'radial-gradient(circle at 50% 70%, rgba(255,80,0,0.25), transparent 65%)' : 'radial-gradient(circle at 50% 50%, rgba(255,255,0,0.2), transparent 60%)'; msnEffectLayer.style.display='block'; setTimeout(()=> msnEffectLayer.style.display='none', 600); }
     }
 }
 micBtn.onclick=()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=> t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; };
@@ -529,24 +427,18 @@ remoteVideo.muted=false; remoteVideo.volume=0.1; volumeSlider.value=0.1;
 volumeSlider.oninput=()=>{ const v=parseFloat(volumeSlider.value); remoteVideo.volume=v; remoteVideo.muted=v<=0; soundBtn.textContent=v<=0?"🔇":"🔊"; };
 soundBtn.onclick=()=>{ remoteVideo.muted=!remoteVideo.muted; if(!remoteVideo.muted && parseFloat(volumeSlider.value)===0){ volumeSlider.value=0.5; remoteVideo.volume=0.5; } soundBtn.textContent=remoteVideo.muted?"🔇":"🔊"; };
 changePasswordBtn.onclick=()=>{ const p=prompt("Yeni sifre"); if(!p) return; currentPassword=p; socket.emit("change-password",p); };
-
 let isDragging=false,sx,sy,sl,st;
 myVideoContainer.addEventListener("touchstart",(e)=>{ if(isPhoneMode) return; if(e.touches.length===1){ isDragging=true; sx=e.touches[0].clientX; sy=e.touches[0].clientY; sl=myVideoContainer.offsetLeft; st=myVideoContainer.offsetTop; } });
 myVideoContainer.addEventListener("touchmove",(e)=>{ if(isPhoneMode) return; if(e.touches.length===1 && isDragging){ e.preventDefault(); myVideoContainer.style.left=sl+(e.touches[0].clientX-sx)+"px"; myVideoContainer.style.top=st+(e.touches[0].clientY-sy)+"px"; myVideoContainer.style.right="auto"; } });
 myVideoContainer.addEventListener("touchend",()=> isDragging=false);
-
 if(attachMenuBtn){ attachMenuBtn.onclick=(e)=>{ e.stopPropagation(); attachMenu.classList.toggle("show"); }; }
 mediaBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); mediaInput.click(); };
 drawBtn.onclick=()=>{ attachMenu.classList.remove("show"); drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
 locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); socket.emit("chat-message",{ msgId, enc, expireSec:expire }); }); };
-
-if(cameraBtn){
-  cameraBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); cameraInput.click(); };
-}
+if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); cameraInput.click(); }; }
 if(cameraInput){
   cameraInput.onchange=async()=>{
-    const file=cameraInput.files[0]; if(!file) return;
-    const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); return; }
+    const file=cameraInput.files[0]; if(!file) return; const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); return; }
     let expire=getExpireFromSelect();
     const img=await createImageBitmap(file);
     const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; }
@@ -558,10 +450,8 @@ if(cameraInput){
     socket.emit("chat-media",{ msgId, enc, expireSec:expire, mediaType:"image" }); cameraInput.value="";
   };
 }
-
 mediaInput.onchange=async()=>{
-    const file=mediaInput.files[0]; if(!file) return;
-    const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); return; }
+    const file=mediaInput.files[0]; if(!file) return; const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); return; }
     let expire=getExpireFromSelect();
     let dataUrl="";
     if(file.type.startsWith('image/')){
@@ -570,9 +460,7 @@ mediaInput.onchange=async()=>{
         canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h);
         const blob=await new Promise(r=> canvas.toBlob(r,'image/jpeg',0.7));
         dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=> res(e.target.result); fr.readAsDataURL(blob); });
-    }else{
-        dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=> res(e.target.result); fr.readAsDataURL(file); });
-    }
+    }else{ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=> res(e.target.result); fr.readAsDataURL(file); }); }
     const enc=await encryptText(dataUrl,currentPassword);
     const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file';
     const msgId=await addMyMediaMessage(dataUrl,mediaType,expire,file.name);
@@ -581,47 +469,33 @@ mediaInput.onchange=async()=>{
 function openPreview(data){ currentMediaData=data; mediaPreview.style.display="flex"; if(data.type==="image"){ previewImg.src=data.data; previewImg.style.display="block"; previewVideo.style.display="none"; }else if(data.type==="video"){ previewVideo.src=data.data; previewVideo.style.display="block"; previewImg.style.display="none"; } }
 closePreview.onclick=()=>{ mediaPreview.style.display="none"; previewVideo.pause(); };
 downloadMediaBtn.onclick=()=>{ const pass=prompt("İndirmek için şifre:"); if(!pass||pass!==currentPassword){ alert("Şifre yanlış."); return; } const a=document.createElement("a"); a.href=currentMediaData.data; a.download=currentMediaData.name||"gizli"; a.click(); };
-if(lightModeBtn) lightModeBtn.onclick=()=>{
-  remoteVideo.classList.toggle("light-mode");
-  lightModeBtn.classList.toggle("active");
-};
-
+if(lightModeBtn){ lightModeBtn.onclick=()=>{ lampOn=!lampOn; remoteVideo.classList.toggle("lamp-on", lampOn); lightModeBtn.classList.toggle("active", lampOn); }; }
 if(phoneModeBtn){
     phoneModeBtn.onclick=()=>{
-        if(!isPhoneMode){
-            volumeSlider.value=0.1; remoteVideo.volume=0.1; remoteVideo.muted=false; soundBtn.textContent="🔊";
-        }
+        if(!isPhoneMode){ volumeSlider.value=0.1; remoteVideo.volume=0.1; remoteVideo.muted=false; soundBtn.textContent="🔊"; }
         isPhoneMode=!isPhoneMode;
         document.body.classList.toggle("phone-mode",isPhoneMode);
         phoneModeBtn.classList.toggle("active",isPhoneMode);
         if(isPhoneMode){
             if(localStream){ localStream.getVideoTracks().forEach(t=> t.enabled=false); }
             camEnabled=false; camBtn.classList.add("offIcon");
-            phoneCallUI.style.display="flex";
-            if(remoteVideo) remoteVideo.style.display="none";
-            if(myVideoContainer) myVideoContainer.style.display="none";
+            phoneCallUI.style.display="flex"; remoteVideo.style.display="none"; myVideoContainer.style.display="none";
             if(candleContainer) candleContainer.classList.remove("show");
             socket.emit("phone-mode",true);
         }else{
             if(localStream){ localStream.getVideoTracks().forEach(t=> t.enabled=true); }
             camEnabled=true; camBtn.classList.remove("offIcon");
-            phoneCallUI.style.display="none";
-            if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
-            if(myVideoContainer) myVideoContainer.style.display="block";
+            phoneCallUI.style.display="none"; remoteVideo.style.display= remoteVideo.srcObject? "block" : "none"; myVideoContainer.style.display="block";
             socket.emit("phone-mode",false);
         }
     };
 }
 socket.on("phone-mode",(enabled)=>{
-    isPhoneMode=enabled;
-    document.body.classList.toggle("phone-mode",enabled);
-    phoneModeBtn.classList.toggle("active",enabled);
+    isPhoneMode=enabled; document.body.classList.toggle("phone-mode",enabled); phoneModeBtn.classList.toggle("active",enabled);
     if(enabled){ phoneCallUI.style.display="flex"; if(remoteVideo) remoteVideo.style.display="none"; if(candleContainer) candleContainer.classList.remove("show"); volumeSlider.value=0.1; remoteVideo.volume=0.1; }
     else{ phoneCallUI.style.display="none"; if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block"; if(myVideoContainer) myVideoContainer.style.display="block"; }
 });
-if(defaultSelfDestructSelect){
-    defaultSelfDestructSelect.onchange=()=>{ let val=parseInt(defaultSelfDestructSelect.value); if(val>MAX_SEC) val=MAX_SEC; defaultExpire=val; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); };
-}
+if(defaultSelfDestructSelect){ defaultSelfDestructSelect.onchange=()=>{ let val=parseInt(defaultSelfDestructSelect.value); if(val>MAX_SEC) val=MAX_SEC; defaultExpire=val; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }; }
 function doPanic(){
     if(!confirm("🚨 PANİK: Tüm mesajlar silinsin mi?")) return;
     messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
@@ -631,7 +505,6 @@ function doPanic(){
 }
 if(panicBtn) panicBtn.onclick=doPanic;
 socket.on("panic",()=>{ messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear(); const div=document.createElement("div"); div.className="selfDestructed"; div.textContent="🚨 Karşı taraf panik attı - silindi"; messages.appendChild(div); });
-
 let drawing=false;
 drawCanvas.addEventListener("mousedown", e=>{ drawing=true; const ctx=window._drawCtx; if(!ctx) return; ctx.beginPath(); ctx.moveTo(e.clientX,e.clientY); });
 drawCanvas.addEventListener("touchstart", e=>{ drawing=true; const ctx=window._drawCtx; if(!ctx) return; const t=e.touches[0]; ctx.beginPath(); ctx.moveTo(t.clientX,t.clientY); });
@@ -650,28 +523,46 @@ drawSend.onclick=async()=>{
     drawOverlay.style.display="none";
 };
 window.addEventListener("beforeunload",()=>{ if(peer) peer.destroy(); if(localStream) localStream.getTracks().forEach(t=> t.stop()); });
-
-// PINCH ZOOM - SADECE NORMAL MODDA
 let lastScale=1, currentScale=1;
 if(remoteVideo){
   remoteVideo.style.transition="transform 0.1s";
   remoteVideo.addEventListener('touchstart', e=>{
     if(e.touches.length===2 &&!document.fullscreenElement &&!isPhoneMode){
-      e.preventDefault();
-      const dist = Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY);
-      lastScale = dist;
+      e.preventDefault(); const dist = Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); lastScale = dist;
     }
   }, {passive:false});
   remoteVideo.addEventListener('touchmove', e=>{
     if(e.touches.length===2 &&!document.fullscreenElement &&!isPhoneMode){
-      e.preventDefault();
-      const dist = Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY);
+      e.preventDefault(); const dist = Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY);
       currentScale = Math.min(Math.max(1, currentScale * (dist/lastScale)), 4);
-      remoteVideo.style.transform = `scale(${currentScale})`;
-      lastScale = dist;
+      remoteVideo.style.transform = `scale(${currentScale})`; lastScale = dist;
     }
   }, {passive:false});
-  remoteVideo.addEventListener('touchend', ()=>{
-    if(currentScale<1.1){ remoteVideo.style.transform="scale(1)"; currentScale=1; }
+  remoteVideo.addEventListener('touchend', ()=>{ if(currentScale<1.1){ remoteVideo.style.transform="scale(1)"; currentScale=1; } });
+}
+let typingTimeout2;
+if(input){
+  input.addEventListener('input', ()=>{
+    socket.emit('typing', {from: myRealUsername, to: currentRoom});
+    clearTimeout(typingTimeout2);
+    typingTimeout2=setTimeout(()=>socket.emit('stop-typing'),1500);
   });
 }
+socket.on('user-typing', ({from})=>{
+  let td=document.getElementById('typingIndicator');
+  if(!td){ td=document.createElement('div'); td.id='typingIndicator'; document.body.appendChild(td); }
+  td.textContent=`${from} yazıyor...`; td.style.display='block';
+  setTimeout(()=> td.style.display='none', 2000);
+});
+socket.on('message-read', ({msgId})=>{
+  const el=document.getElementById(msgId);
+  if(el){ el.classList.add('read'); const ticks=el.querySelector('.ticks'); if(ticks) ticks.textContent=' ✓✓'; ticks.style.color='#00bfff'; }
+});
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden && mainScreen.style.display!=="none"){
+    if(localStream) localStream.getTracks().forEach(t=> t.enabled=false);
+    document.getElementById('fakeCalc').style.display='flex';
+    mainScreen.style.display='none';
+    socket.emit('paused');
+  }
+});
