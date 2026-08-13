@@ -71,6 +71,7 @@ let currentQuality = 720; let currentFacingMode = "user"; let pingTimer = null; 
 let typingTimer; let isTyping = false; let messageIdCounter = 0;
 const sentMessages = new Map();
 let defaultExpire = 14400;
+let isPickingFile = false; // FOTO SEÇERKEN GİZLİLİK MODU KAPANMASIN DİYE
 try{ defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "14400"); }catch(e){ defaultExpire=14400; }
 let activeTimers = new Map();
 let isPhoneMode = false;
@@ -144,19 +145,15 @@ async function startCamera(height=720, facingMode=currentFacingMode){
         });
         myVideo.srcObject=localStream;
         myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)";
-        if(!window._firstCamDone){
-          localStream.getVideoTracks().forEach(t=>t.enabled=false);
-          localStream.getAudioTracks().forEach(t=>t.enabled=false);
-          micEnabled=false; camEnabled=false;
-          micBtn.classList.add("offIcon"); camBtn.classList.add("offIcon");
-          micBtn.textContent="🔇"; window._firstCamDone=true;
-        }else{
-          micEnabled=true; camEnabled=true;
-          micBtn.classList.remove("offIcon"); camBtn.classList.remove("offIcon");
-          micBtn.textContent="🎤"; camBtn.textContent="📷";
-        }
+        // HER GİRİŞTE KAPALI - İLK, İKİNCİ FARK ETMEZ
+        localStream.getVideoTracks().forEach(t=>t.enabled=false);
+        localStream.getAudioTracks().forEach(t=>t.enabled=false);
+        micEnabled=false; camEnabled=false;
+        micBtn.classList.add("offIcon"); camBtn.classList.add("offIcon");
+        micBtn.textContent="🔇";
+        window._firstCamDone=true;
         return true;
-    }catch(err){ return false; }
+    }catch(err){ console.log("kamera hata",err); return false; }
 }
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=>socket.emit("ping-check",Date.now()),3000); }
 socket.on("pong-check", ts=>{
@@ -429,7 +426,9 @@ locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigato
 if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); cameraInput.click(); }; }
 if(cameraInput){
   cameraInput.onchange=async()=>{
-    const file=cameraInput.files[0]; if(!file) return; const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); return; }
+    isPickingFile = true;
+    const file=cameraInput.files[0]; if(!file){ isPickingFile=false; return; }
+    const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); isPickingFile=false; return; }
     let expire=getExpireFromSelect();
     const img=await createImageBitmap(file);
     const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; }
@@ -438,23 +437,32 @@ if(cameraInput){
     const dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); });
     const enc=await encryptText(dataUrl,currentPassword);
     const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg");
-    socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image"}); cameraInput.value="";
+    socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image"});
+    cameraInput.value="";
+    isPickingFile = false;
   };
 }
 mediaInput.onchange=async()=>{
-    const file=mediaInput.files[0]; if(!file) return; const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); return; }
-    let expire=getExpireFromSelect(); let dataUrl="";
+    isPickingFile = true;
+    const file=mediaInput.files[0]; if(!file){ isPickingFile=false; return; }
+    const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); isPickingFile=false; return; }
+    let expire=getExpireFromSelect();
+    let dataUrl="";
     if(file.type.startsWith('image/')){
         const img=await createImageBitmap(file);
         const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; }
         canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h);
         const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.7));
         dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); });
-    }else{ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); }
+    }else{
+        dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); });
+    }
     const enc=await encryptText(dataUrl,currentPassword);
     const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file';
     const msgId=await addMyMediaMessage(dataUrl,mediaType,expire,file.name);
-    socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType}); mediaInput.value="";
+    socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType});
+    mediaInput.value="";
+    isPickingFile = false;
 };
 function openPreview(data){ currentMediaData=data; mediaPreview.style.display="flex"; if(data.type==="image"){ previewImg.src=data.data; previewImg.style.display="block"; previewVideo.style.display="none"; }else if(data.type==="video"){ previewVideo.src=data.data; previewVideo.style.display="block"; previewImg.style.display="none"; } }
 closePreview.onclick=()=>{ mediaPreview.style.display="none"; previewVideo.pause(); };
@@ -547,11 +555,17 @@ socket.on('message-read', ({msgId})=>{
   if(el){ el.classList.add('read'); const ticks=el.querySelector('.ticks'); if(ticks){ ticks.textContent=' ✓✓'; ticks.style.color='#00bfff'; } }
 });
 document.addEventListener('visibilitychange', ()=>{
-  if(document.hidden&&mainScreen.style.display!=="none"){
-    if(localStream) localStream.getTracks().forEach(t=>t.enabled=false);
-    const fk=document.getElementById('fakeCalc');
-    if(fk) fk.style.display='flex';
-    mainScreen.style.display='none';
-    socket.emit('paused');
+  if(isPickingFile) return; // DOSYA SEÇERKEN ATMA!
+  if(document.hidden && mainScreen.style.display!=="none"){
+    // 500ms bekle, gerçekten gizlendi mi diye (dosya seçici sahte hidden yapıyor)
+    setTimeout(()=>{
+      if(document.hidden &&!isPickingFile && mainScreen.style.display!=="none"){
+        if(localStream) localStream.getTracks().forEach(t=>t.enabled=false);
+        const fk=document.getElementById('fakeCalc');
+        if(fk) fk.style.display='flex';
+        mainScreen.style.display='none';
+        socket.emit('paused');
+      }
+    }, 500);
   }
 });

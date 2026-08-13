@@ -45,10 +45,10 @@
     <button id="fullscreenBtn" class="cameraOverlayBtn">⛶</button>
     <select id="qualitySelect" class="qualitySelect"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
   </div>
-  <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯️</p></div>
+  <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯</p></div>
   <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
   <div id="settingsContainer">
-    <button id="settingsBtn">⚙️</button>
+    <button id="settingsBtn">⚙</button>
     <button id="micBtn" title="Mikrofon"></button>
     <button id="camBtn" title="Kamera"></button>
     <button id="soundBtn" title="Ses">🔊</button>
@@ -58,20 +58,19 @@
     <button id="lightModeBtn" title="Işık">💡</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
-    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800" selected>30 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option></select></div>
+    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="3600">1 saat</option><option value="14400" selected>4 saat</option><option value="86400">24 saat</option></select></div>
   </div>
   <button id="chatToggle">💬</button>
-      <div id="chatPanel">
+  <div id="chatPanel">
     <div id="messages"></div>
     <div id="inputArea">
       <div class="inputTopRow">
-       <select id="perMessageTimerSelect">
-  <option value="300">5dk (RAM)</option>
-  <option value="900">15dk (RAM)</option>
-  <option value="14400">4 saat (Kalıcı)</option>
-  <option value="86400">24 saat (Kalıcı)</option>
-  <option value="604800">7 gün (Kalıcı)</option>
-</select>
+        <select id="perMessageTimerSelect">
+          <option value="300">5 dakika</option>
+          <option value="3600">1 saat</option>
+          <option value="14400" selected>4 saat (varsayılan)</option>
+          <option value="86400">1 gün</option>
+        </select>
         <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
         <button id="emojiBtn" title="Emoji">😊</button>
         <button id="nudgeBtn" title="Titreşim">👉</button>
@@ -81,37 +80,36 @@
           <button id="attachMenuBtn">⋯</button>
           <div id="attachMenu">
             <button id="cameraBtn">📷 Kameradan Çek</button>
-            <button id="mediaBtn">🖼️ Galeriden Seç (20MB)</button>
-            <button id="drawBtn">✏️ Çizim</button>
+            <button id="mediaBtn">🖼 Galeriden Seç (20MB)</button>
+            <button id="drawBtn">✏ Çizim</button>
             <button id="locationBtn">📍 Konum</button>
           </div>
         </div>
         <input id="messageInput" placeholder="Mesaj..." autocomplete="off" />
         <button id="sendBtn">Gönder</button>
       </div>
-            </div>
-      <div id="emojiPanel">
-        <span class="flyEmoji" data-effect="heart">❤️</span>
-        <span class="flyEmoji" data-effect="kiss">💋</span>
-        <span class="flyEmoji" data-effect="big-kiss">💋</span>
-        <span class="flyEmoji" data-effect="kiss-rain">😘</span>
-        <span class="flyEmoji" data-effect="kiss-rain">😍</span>
-        <span class="flyEmoji" data-effect="water">💦</span>
-        <span class="flyEmoji" data-effect="fire">🔥</span>
-        <span class="flyEmoji" data-effect="flower">🌸</span>
-        <span class="flyEmoji" data-effect="thumbs">👍</span>
-        <span class="flyEmoji" data-effect="wow">😮</span>
-        <span id="addCustomEmoji" class="flyEmoji">➕</span>
-      </div>
-      <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" />
-      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" />
     </div>
+    <div id="emojiPanel">
+      <span class="flyEmoji" data-effect="heart">❤</span>
+      <span class="flyEmoji" data-effect="kiss">💋</span>
+      <span class="flyEmoji" data-effect="big-kiss">💋</span>
+      <span class="flyEmoji" data-effect="kiss-rain">😘</span>
+      <span class="flyEmoji" data-effect="kiss-rain">😍</span>
+      <span class="flyEmoji" data-effect="water">💦</span>
+      <span class="flyEmoji" data-effect="fire">🔥</span>
+      <span class="flyEmoji" data-effect="flower">🌸</span>
+      <span class="flyEmoji" data-effect="thumbs">👍</span>
+      <span class="flyEmoji" data-effect="wow">😮</span>
+      <span id="addCustomEmoji" class="flyEmoji">➕</span>
+    </div>
+    <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" />
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" />
   </div>
-  </div>
-  <div id="mediaPreview"><span id="closePreview">×</span><img id="previewImg" /><video id="previewVideo" controls></video><button id="downloadMediaBtn">⬇️ İndir</button></div>
-  <div id="drawOverlay" style="display:none;"><canvas id="drawCanvas"></canvas><div style="display:flex; gap:10px; padding:10px;"><button id="drawClear">Temizle</button><button id="drawSend" style="background:#00c853;color:white;">Gönder</button><button id="drawClose">Kapat</button></div></div>
-  <div id="msnEffectLayer"></div>
 </div>
+
+<div id="mediaPreview"><span id="closePreview">×</span><img id="previewImg" /><video id="previewVideo" controls></video><button id="downloadMediaBtn">⬇ İndir</button></div>
+<div id="drawOverlay" style="display:none;"><canvas id="drawCanvas"></canvas><div style="display:flex; gap:10px; padding:10px;"><button id="drawClear">Temizle</button><button id="drawSend" style="background:#00c853;color:white;">Gönder</button><button id="drawClose">Kapat</button></div></div>
+<div id="msnEffectLayer"></div>
 
 <script>
 let calcBuf="";
