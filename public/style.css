@@ -129,31 +129,43 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
 body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; }
 
 /* === LAMBA FIX - BEYAZ DIS CERCEVE === */
-#remoteVideo {
-  border: 4px solid transparent;
-  border-radius: 12px;
-  transition: all 0.4s ease;
+/* === FINAL LAMBA - KALIN BEYAZ CERCEVE + GECE AYDINLATMA === */
+#remoteVideo{
+  border-radius:20px;
+  transition: all 0.5s ease;
+  border: 0 solid transparent;
 }
-#remoteVideo.lamp-on {
-  border-color: #ffffff !important;
+#remoteVideo.lamp-on{
+  border: 18px solid #ffffff !important;
   box-shadow: 
-    0 0 12px #ffffff,
-    0 0 25px #ffffff,
-    0 0 50px rgba(255,255,255,0.7) !important;
-  filter: none !important;
+    0 0 20px #fff,
+    0 0 50px #fff,
+    0 0 90px #fff,
+    0 0 140px rgba(255,255,255,0.9),
+    inset 0 0 25px rgba(255,255,255,0.6) !important;
+  filter: brightness(1.35) contrast(1.1) !important;
 }
-#lightModeBtn.active { 
-  background: #ffffff !important; 
-  color: #000 !important; 
-  box-shadow: 0 0 15px #ffffff; 
+body.lamp-active::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.05) 40%, transparent 75%);
+  pointer-events:none;
+  z-index:2;
+}
+#lightModeBtn.active{
+  background:#ffffff !important;
+  color:#000 !important;
+  box-shadow:0 0 30px #fff, 0 0 60px #fff;
+  border:2px solid #fff;
 }
 
 /* YAZIYOR + OKUNDU */
-#typingIndicator {
+#typingIndicator{
   position: fixed;
   bottom: 54%;
   left: 12px;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.85);
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 12px;
@@ -161,6 +173,3 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
   display: none;
   z-index: 950;
 }
-.msg.read .ticks{ color:#00bfff !important; }
-.typing-dots span{ animation: blink 1s infinite; }
-@keyframes blink { 0%,100%{opacity:0.2} 50%{opacity:1} }

@@ -65,16 +65,21 @@
     <div id="messages"></div>
     <div id="inputArea">
       <div class="inputTopRow">
-        <select id="perMessageTimerSelect">
-          <option value="300">5 dakika</option>
-          <option value="3600">1 saat</option>
-          <option value="14400" selected>4 saat (varsayılan)</option>
-          <option value="86400">1 gün</option>
-        </select>
-        <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
-        <button id="emojiBtn" title="Emoji">😊</button>
-        <button id="nudgeBtn" title="Titreşim">👉</button>
-      </div>
+  <select id="perMessageTimerSelect">
+    <option value="300">5 dk</option>
+    <option value="3600">1 saat</option>
+    <option value="14400" selected>4 saat</option>
+    <option value="86400">1 gün</option>
+    <option value="custom">✏️ Özel</option>
+  </select>
+  <div id="customTimeBox" style="display:none; gap:4px; align-items:center;">
+    <input id="customHours" type="number" min="0" max="168" placeholder="0" style="width:50px; height:36px; border-radius:8px; background:#111; color:#fff; border:1px solid #333; text-align:center;">sa
+    <input id="customMins" type="number" min="0" max="59" placeholder="0" style="width:50px; height:36px; border-radius:8px; background:#111; color:#fff; border:1px solid #333; text-align:center;">dk
+  </div>
+  <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
+  <button id="emojiBtn">😊</button>
+  <button id="nudgeBtn">👉</button>
+</div>
       <div class="inputBottomRow">
         <div style="position:relative;">
           <button id="attachMenuBtn">⋯</button>

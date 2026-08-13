@@ -1,4 +1,4 @@
-console.log("V12.3 FIX3 - BEYAZ LAMBA + InPrivate FIX");
+console.log("V12.4 FINAL - BEYAZ LAMBA KALIN + FOTO FIX + OZEL SURE");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
 const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
@@ -64,6 +64,9 @@ const attachMenuBtn = document.getElementById("attachMenuBtn");
 const attachMenu = document.getElementById("attachMenu");
 const cameraBtn = document.getElementById("cameraBtn");
 const cameraInput = document.getElementById("cameraInput");
+const customTimeBoxEl = document.getElementById("customTimeBox");
+const customHoursEl = document.getElementById("customHours");
+const customMinsEl = document.getElementById("customMins");
 
 let peer = null; let localStream;
 let micEnabled = true; let camEnabled = true;
@@ -71,7 +74,7 @@ let currentQuality = 720; let currentFacingMode = "user"; let pingTimer = null; 
 let typingTimer; let isTyping = false; let messageIdCounter = 0;
 const sentMessages = new Map();
 let defaultExpire = 14400;
-let isPickingFile = false; // FOTO SEÇERKEN GİZLİLİK MODU KAPANMASIN DİYE
+let isPickingFile = false;
 try{ defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "14400"); }catch(e){ defaultExpire=14400; }
 let activeTimers = new Map();
 let isPhoneMode = false;
@@ -145,13 +148,11 @@ async function startCamera(height=720, facingMode=currentFacingMode){
         });
         myVideo.srcObject=localStream;
         myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)";
-        // HER GİRİŞTE KAPALI - İLK, İKİNCİ FARK ETMEZ
         localStream.getVideoTracks().forEach(t=>t.enabled=false);
         localStream.getAudioTracks().forEach(t=>t.enabled=false);
         micEnabled=false; camEnabled=false;
         micBtn.classList.add("offIcon"); camBtn.classList.add("offIcon");
         micBtn.textContent="🔇";
-        window._firstCamDone=true;
         return true;
     }catch(err){ console.log("kamera hata",err); return false; }
 }
@@ -170,11 +171,10 @@ joinBtn.onclick = async()=>{
     if(!uname){ alert("Kullanıcı adı gir"); return; }
     if(!password){ alert("Şifre gerekli"); return; }
     currentPassword=password; myUsername=normalize(uname); myRealUsername=uname; currentRoom=room;
-    try{ await startCamera(currentQuality); }catch(e){ console.log("kamera hatası ama devam",e); }
+    try{ await startCamera(currentQuality); }catch(e){}
     socket.emit("join-room",{room,password,username:uname});
     setTimeout(()=>{
       if(roomScreen.style.display!=="none"){
-        console.log("socket gelmedi, zorla açıyorum");
         roomScreen.style.display="none"; mainScreen.style.display="block";
         if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
       }
@@ -301,14 +301,29 @@ async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal){
     messages.appendChild(div); messages.scrollTop=messages.scrollHeight;
     if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); }
 }
+if(perMessageTimerSelect){
+  perMessageTimerSelect.onchange=()=>{
+    if(perMessageTimerSelect.value==="custom"){
+      if(customTimeBoxEl) customTimeBoxEl.style.display="flex";
+      if(customHoursEl) customHoursEl.focus();
+    }else{
+      if(customTimeBoxEl) customTimeBoxEl.style.display="none";
+    }
+  };
+}
 function getExpireFromSelect(){
-    let val=perMessageTimerSelect.value;
+    let val=perMessageTimerSelect?.value||"14400";
     if(val==="default") return defaultExpire;
     if(val==="custom"){
-        let custom=prompt(`Manuel süre saniye:`); if(!custom) return defaultExpire;
-        let num=parseInt(custom.replace(/[^0-9]/g,'')); if(isNaN(num)||num<=0) return defaultExpire; if(num>MAX_SEC) num=MAX_SEC; return num;
+        let h=parseInt(customHoursEl?.value||0)||0;
+        let m=parseInt(customMinsEl?.value||0)||0;
+        if(h===0 && m===0) return defaultExpire;
+        let total=(h*3600)+(m*60);
+        if(total<10) total=10;
+        if(total>604800) total=604800;
+        return total;
     }
-    return Math.min(parseInt(val),MAX_SEC);
+    return Math.min(parseInt(val),604800);
 }
 sendBtn.onclick=async()=>{
     const text=input.value.trim(); if(!text) return;
@@ -420,10 +435,26 @@ myVideoContainer.addEventListener("touchstart",(e)=>{ if(isPhoneMode) return; if
 myVideoContainer.addEventListener("touchmove",(e)=>{ if(isPhoneMode) return; if(e.touches.length===1&&isDragging){ e.preventDefault(); myVideoContainer.style.left=sl+(e.touches[0].clientX-sx)+"px"; myVideoContainer.style.top=st+(e.touches[0].clientY-sy)+"px"; myVideoContainer.style.right="auto"; } });
 myVideoContainer.addEventListener("touchend",()=>isDragging=false);
 if(attachMenuBtn){ attachMenuBtn.onclick=(e)=>{ e.stopPropagation(); attachMenu.classList.toggle("show"); }; }
-mediaBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); mediaInput.click(); };
+if(mediaBtn){
+  mediaBtn.onclick=(e)=>{
+    e.preventDefault();
+    isPickingFile = true;
+    attachMenu.classList.remove("show");
+    setTimeout(()=> mediaInput.click(), 100);
+    setTimeout(()=> isPickingFile=false, 10000);
+  };
+}
 drawBtn.onclick=()=>{ attachMenu.classList.remove("show"); drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
 locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); socket.emit("chat-message",{msgId,enc,expireSec:expire}); }); };
-if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); cameraInput.click(); }; }
+if(cameraBtn){
+  cameraBtn.onclick=(e)=>{
+    e.preventDefault();
+    isPickingFile = true;
+    attachMenu.classList.remove("show");
+    setTimeout(()=> cameraInput.click(), 100);
+    setTimeout(()=> isPickingFile=false, 10000);
+  };
+}
 if(cameraInput){
   cameraInput.onchange=async()=>{
     isPickingFile = true;
@@ -438,8 +469,7 @@ if(cameraInput){
     const enc=await encryptText(dataUrl,currentPassword);
     const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg");
     socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image"});
-    cameraInput.value="";
-    isPickingFile = false;
+    cameraInput.value=""; isPickingFile = false;
   };
 }
 mediaInput.onchange=async()=>{
@@ -461,13 +491,19 @@ mediaInput.onchange=async()=>{
     const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file';
     const msgId=await addMyMediaMessage(dataUrl,mediaType,expire,file.name);
     socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType});
-    mediaInput.value="";
-    isPickingFile = false;
+    mediaInput.value=""; isPickingFile = false;
 };
 function openPreview(data){ currentMediaData=data; mediaPreview.style.display="flex"; if(data.type==="image"){ previewImg.src=data.data; previewImg.style.display="block"; previewVideo.style.display="none"; }else if(data.type==="video"){ previewVideo.src=data.data; previewVideo.style.display="block"; previewImg.style.display="none"; } }
 closePreview.onclick=()=>{ mediaPreview.style.display="none"; previewVideo.pause(); };
 downloadMediaBtn.onclick=()=>{ const pass=prompt("İndirmek için şifre:"); if(!pass||pass!==currentPassword){ alert("Şifre yanlış."); return; } const a=document.createElement("a"); a.href=currentMediaData.data; a.download=currentMediaData.name||"gizli"; a.click(); };
-if(lightModeBtn){ lightModeBtn.onclick=()=>{ lampOn=!lampOn; remoteVideo.classList.toggle("lamp-on",lampOn); lightModeBtn.classList.toggle("active",lampOn); }; }
+if(lightModeBtn){
+  lightModeBtn.onclick=()=>{
+    lampOn=!lampOn;
+    remoteVideo.classList.toggle("lamp-on", lampOn);
+    lightModeBtn.classList.toggle("active", lampOn);
+    document.body.classList.toggle("lamp-active", lampOn);
+  };
+}
 if(phoneModeBtn){
     phoneModeBtn.onclick=()=>{
         if(!isPhoneMode){ volumeSlider.value=0.1; remoteVideo.volume=0.1; remoteVideo.muted=false; soundBtn.textContent="🔊"; }
@@ -555,9 +591,8 @@ socket.on('message-read', ({msgId})=>{
   if(el){ el.classList.add('read'); const ticks=el.querySelector('.ticks'); if(ticks){ ticks.textContent=' ✓✓'; ticks.style.color='#00bfff'; } }
 });
 document.addEventListener('visibilitychange', ()=>{
-  if(isPickingFile) return; // DOSYA SEÇERKEN ATMA!
+  if(isPickingFile) return;
   if(document.hidden && mainScreen.style.display!=="none"){
-    // 500ms bekle, gerçekten gizlendi mi diye (dosya seçici sahte hidden yapıyor)
     setTimeout(()=>{
       if(document.hidden &&!isPickingFile && mainScreen.style.display!=="none"){
         if(localStream) localStream.getTracks().forEach(t=>t.enabled=false);
