@@ -139,6 +139,8 @@ async function decryptText(b64,password){
 if(defaultSelfDestructSelect) try{ defaultSelfDestructSelect.value=defaultExpire.toString(); }catch(e){}
 micBtn.textContent="🎤"; camBtn.textContent="📷";
 
+micBtn.textContent="🎤"; camBtn.textContent="📷";
+
 async function startCamera(height=720, facingMode=currentFacingMode){
     try{
         if(localStream){ localStream.getVideoTracks().forEach(t=>t.stop()); }
@@ -148,11 +150,14 @@ async function startCamera(height=720, facingMode=currentFacingMode){
         });
         myVideo.srcObject=localStream;
         myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)";
+        myVideo.style.opacity="0.3"; // KAPALI OLDUĞU BELLİ OLSUN - SOLUK
+        // HER GİRİŞTE KAPALI
         localStream.getVideoTracks().forEach(t=>t.enabled=false);
         localStream.getAudioTracks().forEach(t=>t.enabled=false);
         micEnabled=false; camEnabled=false;
         micBtn.classList.add("offIcon"); camBtn.classList.add("offIcon");
         micBtn.textContent="🔇";
+        window._firstCamDone=true;
         return true;
     }catch(err){ console.log("kamera hata",err); return false; }
 }
@@ -423,8 +428,30 @@ function createFlyingEmoji(emoji,effect,isMine){
         if(msnEffectLayer){ msnEffectLayer.style.background=effect==='fire'?'radial-gradient(circle at 50% 70%, rgba(255,80,0,0.25), transparent 65%)':'radial-gradient(circle at 50% 50%, rgba(255,255,0,0.2), transparent 60%)'; msnEffectLayer.style.display='block'; setTimeout(()=>msnEffectLayer.style.display='none',600); }
     }
 }
-micBtn.onclick=()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; };
-camBtn.onclick=()=>{ if(!localStream) return; camEnabled=!camEnabled; localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled); camBtn.classList.toggle("offIcon",!camEnabled); };
+micBtn.onclick=()=>{
+  if(!localStream) return;
+  micEnabled=!micEnabled;
+  localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled);
+  micBtn.classList.toggle("offIcon",!micEnabled);
+  micBtn.textContent=micEnabled?"🎤":"🔇";
+  if(peer && peer._pc){
+    const audioTrack = localStream.getAudioTracks()[0];
+    const sender = peer._pc.getSenders().find(s=>s.track && s.track.kind==="audio");
+    if(sender && audioTrack) sender.replaceTrack(audioTrack).catch(()=>{});
+  }
+};
+camBtn.onclick=()=>{
+  if(!localStream) return;
+  camEnabled=!camEnabled;
+  localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled);
+  camBtn.classList.toggle("offIcon",!camEnabled);
+  if(peer && peer._pc){
+    const videoTrack = localStream.getVideoTracks()[0];
+    const sender = peer._pc.getSenders().find(s=>s.track && s.track.kind==="video");
+    if(sender && videoTrack) sender.replaceTrack(videoTrack).catch(()=>{});
+  }
+  if(myVideo) myVideo.style.opacity = camEnabled? "1" : "0.3";
+};
 if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ try{ currentFacingMode=currentFacingMode==="user"?"environment":"user"; await startCamera(currentQuality,currentFacingMode); if(peer&&localStream){ const s=peer._pc.getSenders().find(x=>x.track&&x.track.kind==="video"); if(s) await s.replaceTrack(localStream.getVideoTracks()[0]); } }catch(err){ alert("Ikinci kamera yok"); } }; }
 remoteVideo.muted=false; remoteVideo.volume=0.1; volumeSlider.value=0.1;
 volumeSlider.oninput=()=>{ const v=parseFloat(volumeSlider.value); remoteVideo.volume=v; remoteVideo.muted=v<=0; soundBtn.textContent=v<=0?"🔇":"🔊"; };
