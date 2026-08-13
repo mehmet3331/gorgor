@@ -71,7 +71,8 @@ let micEnabled = true; let camEnabled = true;
 let currentQuality = 720; let currentFacingMode = "user"; let pingTimer = null; let currentMediaData = null;
 let typingTimer; let isTyping = false; let messageIdCounter = 0;
 const sentMessages = new Map();
-let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "14400");
+let defaultExpire = 14400;
+try{ defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "14400"); }catch(e){ defaultExpire = 14400; }
 let activeTimers = new Map();
 let isPhoneMode = false;
 let currentRoom=null, currentPassword="", myUsername="", myRealUsername="";
@@ -180,10 +181,28 @@ joinBtn.onclick = async()=>{
     if(!room){ alert("Oda adı gir"); return; }
     if(!uname){ alert("Kullanıcı adı gir"); return; }
     if(!password){ alert("Şifre gerekli"); return; }
-    currentPassword=password; myUsername=normalize(uname); myRealUsername=uname;
-    await startCamera(currentQuality);
+    currentPassword=password;
+    myUsername=normalize(uname);
+    myRealUsername=uname;
     currentRoom=room;
+    
+    // KAMERA İZNİ ALINANA KADAR BEKLEME, DİREKT ODAYA GİR
+    try{
+      await startCamera(currentQuality);
+    }catch(e){
+      console.log("kamera hatası ama odaya giriyorum", e);
+    }
+    
     socket.emit("join-room",{ room, password, username: uname });
+    // SOCKET GELMEZSE 2 SN SONRA ZORLA AÇ (acil fix)
+    setTimeout(()=>{
+      if(roomScreen.style.display!=="none"){
+        console.log("socket gelmedi, zorla açıyorum");
+        roomScreen.style.display="none"; 
+        mainScreen.style.display="block";
+        if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
+      }
+    }, 2000);
 };
 socket.on("room-error", msg=> alert(msg));
 socket.on("joined-room", data=>{
@@ -319,7 +338,7 @@ sendBtn.onclick=async()=>{
     const text=input.value.trim(); if(!text) return;
     let expire=getExpireFromSelect();
     const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once";
-    if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); }
+    if(persistMode==="persist"){ defaultExpire=expire; try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(e){}
     const msgId=await addMyMessage(text,expire,myRealUsername);
     const enc=await encryptText(text,currentPassword);
     socket.emit("chat-message",{ msgId, enc, expireSec:expire });
@@ -495,7 +514,7 @@ socket.on("phone-mode",(enabled)=>{
     if(enabled){ phoneCallUI.style.display="flex"; if(remoteVideo) remoteVideo.style.display="none"; if(candleContainer) candleContainer.classList.remove("show"); volumeSlider.value=0.1; remoteVideo.volume=0.1; }
     else{ phoneCallUI.style.display="none"; if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block"; if(myVideoContainer) myVideoContainer.style.display="block"; }
 });
-if(defaultSelfDestructSelect){ defaultSelfDestructSelect.onchange=()=>{ let val=parseInt(defaultSelfDestructSelect.value); if(val>MAX_SEC) val=MAX_SEC; defaultExpire=val; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }; }
+if(defaultSelfDestructSelect){ defaultSelfDestructSelect.onchange=()=>{ let val=parseInt(defaultSelfDestructSelect.value); if(val>MAX_SEC) val=MAX_SEC; defaultExpire=val; try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(e){}
 function doPanic(){
     if(!confirm("🚨 PANİK: Tüm mesajlar silinsin mi?")) return;
     messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
