@@ -1,60 +1,75 @@
-/* GORGOR V12.2 LUXURY FINAL - 14 Ağustos - GÜVENLİK + TASARIM BİRLEŞİK */
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #000; color: #fff; font-family: Arial, sans-serif; overflow: hidden; -webkit-user-select: none; user-select: none; }
-#fakeCalc { position: fixed; inset: 0; background: #111; z-index: 10000; display: flex; justify-content: center; align-items: center; }
-.calc-container { background: #222; padding: 20px; border-radius: 16px; width: 300px; }
-.calc-container h3 { text-align: center; margin-bottom: 10px; }
-.calc-container input { width: 100%; height: 50px; font-size: 22px; text-align: right; padding: 10px; border-radius: 10px; border: none; margin-bottom: 10px; background: #000; color: #0f0; }
-.calc-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
-.calc-grid button { height: 50px; border: none; border-radius: 10px; font-size: 18px; background: #333; color: white; cursor: pointer; }
-#roomScreen { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; background: #000; z-index: 9999; }
-#roomScreen h2 { font-size: 28px; }
-#roomScreen input { width: 280px; height: 45px; padding: 10px; border: none; border-radius: 10px; font-size: 16px; }
-#roomScreen button { width: 280px; height: 45px; border: none; border-radius: 10px; background: #00c853; color: white; font-size: 16px; cursor: pointer; font-weight: bold; }
-#mainScreen { display: none; width: 100%; height: 100vh; }
-#remoteVideo { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 1; border-radius:20px; transition: all 0.5s ease; border: 0 solid transparent; }
-#remoteVideo.lamp-on{ border: 18px solid #ffffff !important; box-shadow: 0 0 20px #fff, 0 0 50px #fff, 0 0 90px #fff, 0 0 140px rgba(255,255,255,0.9), inset 0 0 25px rgba(255,255,255,0.6) !important; filter: brightness(1.35) contrast(1.1) !important; }
-#myVideoContainer { position: fixed; top: 15px; right: 15px; width: 180px; height: 240px; border-radius: 12px; border: 2px solid #fff; background: #000; z-index: 100; touch-action: none; cursor: move; resize: both; overflow: hidden; min-width: 90px; min-height: 120px; max-width: 90vw; max-height: 70vh; }
-#myVideo { width: 100%; height: 100%; border-radius: 10px; object-fit: cover; transform: scaleX(-1); }
-.cameraOverlayBtn { position: absolute; width: 32px; height: 32px; border: none; border-radius: 50%; background: rgba(0,0,0,.7); color: white; font-size: 16px; cursor: pointer; z-index: 120; }
-#switchCameraBtn { bottom: 5px; left: 5px; } #fullscreenBtn { top: 5px; right: 5px; }
-.qualitySelect { position: absolute; bottom: 5px; right: 5px; width: 60px; height: 28px; border: none; border-radius: 6px; background: rgba(0,0,0,.8); color: white; font-size: 12px; }
-#settingsContainer { position: fixed; top: 10px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; max-height: 90vh; overflow-y: auto; }
-#settingsBtn { width: 46px; height: 46px; border: none; border-radius: 50%; font-size: 22px; cursor: pointer; background: rgba(0,0,0,.7); color: white; }
-#settingsContainer > button:not(#settingsBtn), #settingsContainer > #statusBar, #settingsContainer > #secretSettings { display: none; width: 50px; height: 50px; border: none; border-radius: 12px; font-size: 22px; cursor: pointer; background: rgba(0,0,0,.8); color: white; }
-#settingsContainer.menu-open > button:not(#settingsBtn), #settingsContainer.menu-open > #statusBar { display: block; }
-#settingsContainer.menu-open > #secretSettings { display: flex; width: 190px; height: auto; flex-direction: column; padding: 10px; font-size: 13px; background: rgba(0,0,0,0.9); border-radius: 10px; }
-#secretSettings select { width: 100%; height: 32px; background: #111; color: #c9a96e; border: 1px solid #333; border-radius: 6px; margin-top: 4px; }
-#statusBar { display: flex; flex-direction: column; gap: 6px; margin-top: 5px; width: auto; height: auto; background: none; }
-.statusBox { background: rgba(0,0,0,.75); padding: 8px; border-radius: 10px; font-size: 12px; color: white; width: max-content; }
-#chatToggle { position: fixed; bottom: 15px; right: 15px; width: 60px; height: 60px; border: none; border-radius: 50%; background: #c9a96e; color: white; font-size: 26px; font-weight: bold; cursor: pointer; z-index: 1000; box-shadow: 0 0 20px rgba(201,169,110,0.5); }
-#chatPanel { position: fixed; left: 0; bottom: 0; width: 100%; height: 52%; background: #0a0a0a; display: none; flex-direction: column; z-index: 900; border-top: 1.5px solid #c9a96e; background-image: radial-gradient(rgba(201,169,110,0.04) 1px, transparent 1px); background-size: 30px 30px; }
-.chat-open #chatPanel { display: flex; }.chat-open #remoteVideo { height: 48%; }.chat-open #chatToggle { bottom: 53%; }
-#messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; min-height: 0; gap: 8px; }
-.myMessage { color: #fff; text-align: right; margin: 4px 0; font-weight: 500; word-break: break-word; position: relative; background: #3d3225; padding: 12px 14px; border-radius: 18px 18px 4px 18px; border: 1.5px solid #c9a96e; box-shadow: 0 4px 12px rgba(0,0,0,0.4); align-self: flex-end; max-width: 78%; }
-.otherMessage { color: #fff; text-align: left; margin: 4px 0; font-weight: 500; word-break: break-word; background: #2a2a2e; padding: 12px 14px; border-radius: 18px 18px 18px 4px; border: 1px solid #3a3a3e; box-shadow: 0 4px 12px rgba(0,0,0,0.4); align-self: flex-start; max-width: 78%; }
-#inputArea { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: #0f0f0f; flex-shrink: 0; border-top: 1px solid #222; }
-.inputTopRow { display: flex; gap: 8px; align-items: center; }
-.inputTopRow select { flex: 1; height: 40px; border-radius: 14px; background: #111; color: #c9a96e; border: 1px solid #333; font-size: 12px; padding-left: 10px; }
-.inputBottomRow { display: flex; gap: 10px; align-items: center; }
-#attachMenuBtn { width: 48px; height: 48px; min-width:48px; border: none; border-radius: 14px; background: #1a1a1a; color: #999; font-size: 22px; cursor: pointer; border: 1px solid #333; }
-#messageInput { flex: 1; height: 50px; padding: 14px 16px; border-radius: 24px; font-size: 15px; background: #1e1e1e; color: white; border: 1.5px solid #c9a96e; }
-#messageInput:focus { outline: none; border-color: #f5d58b; background: #252525; }
-#sendBtn { width: 80px; height: 48px; min-width:80px; border: none; border-radius: 24px; background: #c9a96e; color: #000; cursor: pointer; font-weight: bold; font-size: 13px; }
-#mediaPreview { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 99999; gap: 15px; }
-#mediaPreview img, #mediaPreview video { max-width: 90%; max-height: 80%; border-radius: 10px; }
-#closePreview { position: absolute; top: 20px; right: 20px; font-size: 35px; color: white; cursor: pointer; }
-#downloadMediaBtn { padding: 12px 30px; border: none; border-radius: 10px; background: #c9a96e; color: #000; font-size: 18px; cursor: pointer; font-weight:bold; }
-.mediaMessage { max-width: 220px; max-height: 220px; border-radius: 10px; cursor: pointer; margin: 5px 0; }
-#candleContainer { position: fixed; inset: 0; background: radial-gradient(circle at center, #1a0f00 0%, #000 70%); z-index: 5; display: none; flex-direction: column; justify-content: center; align-items: center; gap: 20px; } #candleContainer.show { display: flex; }
-.candle { position: relative; width: 60px; height: 120px; }.wax { position: absolute; bottom: 0; width: 60px; height: 80px; background: linear-gradient(to bottom, #fff8dc, #f5e6c8); border-radius: 6px 6px 0 0; }.wick { position: absolute; bottom: 78px; left: 28px; width: 4px; height: 12px; background: #222; }.flame { position: absolute; bottom: 88px; left: 18px; width: 24px; height: 36px; background: radial-gradient(ellipse at center, #ffff00 0%, #ffcc00 40%, #ff6600 80%); border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; animation: flicker 0.3s infinite alternate; } @keyframes flicker { 0% { transform: scaleY(1); } 100% { transform: scaleY(1.1); } }
-#phoneCallUI { position: fixed; inset: 0; background: radial-gradient(circle at center, #0a2a12 0%, #000 80%); z-index: 4; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; color: white; }
-.phoneAvatar { font-size: 90px; background: #111; width: 140px; height: 140px; border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 3px solid #c9a96e; }
-.phoneName { font-size: 26px; font-weight: bold; }.phoneWave { display: flex; gap: 6px; }.phoneWave span { width: 6px; height: 24px; background: #c9a96e; border-radius: 4px; animation: wave 1s infinite; } @keyframes wave { 0%,100% { height: 12px; } 50% { height: 28px; } }
-body.phone-mode #myVideoContainer, body.phone-mode #remoteVideo, body.phone-mode #candleContainer { display: none!important; }
-body.phone-mode #settingsContainer > button:not(#settingsBtn):not(#phoneModeBtn):not(#micBtn):not(#soundBtn) { opacity: 0.15; pointer-events: none; }
-#phoneModeBtn.active { background: #c9a96e!important; color:#000!important; }
-.countdown { font-size: 11px; color: #c9a96e; display: flex; margin-top: 6px; font-weight: bold; background: rgba(0,0,0,0.8); padding: 4px 8px; border: 1.5px solid #c9a96e; width:58px; height:58px; border-radius:50%; flex-direction:column; align-items:center; justify-content:center; }
-.openBtn { font-size: 13px; background: #c9a96e; color: #000; border: none; border-radius: 8px; padding: 6px 14px; margin-top: 8px; cursor: pointer; font-weight: bold; }
-.lockedMessage { background: #1a1a1a!important; border: 2px dashed #c9a96e!important; text-align: center; padding: 14px!important; }
-#typingIndicator{ position: fixed; bottom: 54%; left: 12px; background: rgba(0,0,0,0.85); padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #c9a96e; display: none; z-index: 950; }
+/* FOTO ILE BIREBIR - GORGOR V12.6 LUXURY EXACT */
+#chatPanel {
+  background: #0a0a0a;
+  border-top: 1px solid rgba(201,169,110,0.4);
+  background-image: 
+    radial-gradient(circle at 20% 20%, rgba(201,169,110,0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(201,169,110,0.02) 0%, transparent 50%);
+}
+#messages .myMessage {
+  background: #3d2f1f !important;
+  border: 1.5px solid #c9a96e !important;
+  color: #f5f1e8 !important;
+  border-radius: 18px 18px 4px 18px !important;
+  padding: 14px 16px !important;
+  max-width: 75% !important;
+  align-self: flex-end !important;
+  font-size: 15px !important;
+  line-height: 1.4 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+}
+#messages .otherMessage {
+  background: #252529 !important;
+  border: none !important;
+  color: #e8e6e1 !important;
+  border-radius: 18px 18px 18px 4px !important;
+  padding: 14px 16px !important;
+  max-width: 75% !important;
+  align-self: flex-start !important;
+  font-size: 15px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+}
+.countdown {
+  width: 56px !important;
+  height: 56px !important;
+  border: 3px solid #c9a96e !important;
+  border-radius: 50% !important;
+  background: #1a1a1a !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  color: #c9a96e !important;
+  font-weight: bold !important;
+  position: relative !important;
+  margin-top: 8px !important;
+}
+.countdown::before {
+  content: "💡" !important;
+  font-size: 20px !important;
+  display: block !important;
+}
+#inputArea {
+  background: #141414 !important;
+  border: 1px solid #c9a96e !important;
+  border-radius: 28px !important;
+  margin: 10px !important;
+  padding: 6px !important;
+}
+#messageInput {
+  background: transparent !important;
+  border: none !important;
+  color: #f5f1e8 !important;
+}
+#sendBtn {
+  background: #c9a96e !important;
+  color: #000 !important;
+  border-radius: 50% !important;
+  width: 44px !important;
+  height: 44px !important;
+}
+#chatToggle {
+  background: #c9a96e !important;
+  box-shadow: 0 0 15px rgba(201,169,110,0.4) !important;
+}
