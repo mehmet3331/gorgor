@@ -631,3 +631,56 @@ document.addEventListener('visibilitychange', ()=>{
     }, 500);
   }
 });
+// Tam kapanış - aşağı indirince / sekme değişince
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    // Hesap makinesi ekranına dön
+    document.getElementById('mainScreen').style.display='none';
+    document.getElementById('roomScreen').style.display='flex';
+    // Güvenlik: tüm oda bilgilerini sil
+    localStorage.removeItem('gorgor_room');
+    localStorage.removeItem('gorgor_pass');
+    sessionStorage.clear();
+  }
+});
+window.addEventListener('pagehide', () => {
+  localStorage.clear(); sessionStorage.clear();
+});
+// Telefon kapatınca kamera otomatik açılmasın
+phoneModeBtn.addEventListener('click', () => {
+  if(phoneMode) {
+    isCamOn = false; // Kapalı kalsın
+    myVideo.srcObject.getTracks().forEach(t=>t.enabled=false);
+  }
+});
+// V12.2 GUVENLIK - Asagiya indirince tamamen kapan
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    const main = document.getElementById('mainScreen');
+    const room = document.getElementById('roomScreen');
+    if(main) main.style.display='none';
+    // Hesap makinesi varsa onu göster, yoksa roomScreen
+    const calc = document.getElementById('fakeCalc');
+    if(calc) calc.style.display='flex';
+    else if(room) { room.style.display='flex'; room.querySelectorAll('input').forEach(i=>i.value=''); }
+    localStorage.removeItem('gorgor_room');
+    localStorage.removeItem('gorgor_pass');
+    localStorage.removeItem('gorgor_roomName');
+    sessionStorage.clear();
+    console.log('GUVENLIK: Oda bilgileri silindi');
+  }
+});
+window.addEventListener('pagehide', () => { localStorage.clear(); sessionStorage.clear(); });
+
+// V12.2 TELEFON - Kapatinca kamera otomatik acilmasin
+const oldPhoneBtn = document.getElementById('phoneModeBtn');
+if(oldPhoneBtn){
+  oldPhoneBtn.addEventListener('click', () => {
+    setTimeout(()=>{
+      if(!document.body.classList.contains('phone-mode')){
+        // Telefon modundan ciktik, kamerayi acma, kapali birak
+        window.isCamOn = false;
+      }
+    },100);
+  });
+}
