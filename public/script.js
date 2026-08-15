@@ -82,7 +82,7 @@ let activeTimers = new Map();
 let isPhoneMode = false;
 let currentRoom=null, currentPassword="", myUsername="", myRealUsername="";
 let lampOn=false;
-const MAX_SEC = 86400; // 24 saat // 24 saat
+const MAX_SEC = 604800;
 
 const REAL_ROOM = "oda1";
 const FAKE_ROOMS = ["oda","oda2","oda3","oda4","oda5","oda6","oda7","oda8","oda9"];
@@ -267,75 +267,53 @@ function addReduceExtendButtons(div,msgId){
     extend.onclick=(e)=>{ e.stopPropagation(); const inp=prompt("Ne kadar uzatayım? saniye"); if(!inp) return; let v=parseInt(inp.replace(/[^0-9]/g,'')); if(isNaN(v)||v<=0) return; socket.emit("extend-request",{msgId,extraSec:v}); };
     div.appendChild(reduce); div.appendChild(extend);
 }
-
 async function addMyMessage(text,expireSec,realName){
-    const now = Date.now();
-    const msgId=`msg-${now}-${messageIdCounter++}`;
+    const msgId=`msg-${Date.now()}-${messageIdCounter++}`;
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC);
     const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks single" style="color:#999;"> ✓</span><span class="countdown">⏳ ${formatTime(expireSec)}</span>`;
-    div._sentAt=now; div._deleteAt=now+expireSec*1000;
-    messages.appendChild(div); 
-    messages.scrollTop=messages.scrollHeight; 
-    sentMessages.set(msgId,div); div._expireSec=expireSec; 
-    startSelfDestruct(div,msgId,expireSec,div._deleteAt);
-    addReduceExtendButtons(div,msgId); 
-    return msgId;
+    div.innerHTML=`<span class="expireInfo">🔒 ${realName} • ⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks"> ✓</span><span class="countdown">⏳ Karşı açınca ${formatTime(expireSec)}</span>`;
+    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); div._expireSec=expireSec; addReduceExtendButtons(div,msgId); return msgId;
 }
 async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){
-    const now=Date.now();
-    const msgId=`media-${now}-${messageIdCounter++}`;
-    const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=now; div._deleteAt=now+expireSec*1000;
-    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)}</span>`;
-    if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; div.appendChild(im); setupLongPress(im, msgId); }
+    const msgId=`media-${Date.now()}-${messageIdCounter++}`;
+    const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec;
+    div.innerHTML=`<span class="expireInfo">🔒 ${myRealUsername} • ⏰ ${formatTime(expireSec)}</span>`;
+    if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; div.appendChild(im); }
     else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
-    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
-    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); 
-    startSelfDestruct(div,msgId,expireSec,div._deleteAt);
-    addReduceExtendButtons(div,msgId); return msgId;
+    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ Karşı açınca ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
+    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); addReduceExtendButtons(div,msgId); return msgId;
 }
-function setupLongPress(img, msgId){ 
-  let timer; 
-  img.addEventListener("touchstart", (e)=>{ timer=setTimeout(()=>{ const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0 && v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; startSelfDestruct(div,msgId,v,newDelete); } } }, 800); }, {passive:true}); 
-  img.addEventListener("touchend", ()=>clearTimeout(timer)); 
-  img.addEventListener("mousedown", (e)=>{ timer=setTimeout(()=>{ const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0 && v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; startSelfDestruct(div,msgId,v,newDelete); } } }, 800); });
-  img.addEventListener("mouseup", ()=>clearTimeout(timer));
-}
-async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal, sentAt){
+async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal){
     if(document.getElementById(msgId)) return;
-    expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
-    const sent = sentAt || Date.now();
-    const deleteAt = sent + expireSec*1000;
-    try{
-        const plain = await decryptText(enc, currentPassword);
-        if(!plain){ console.log("decrypt fail", msgId); return; }
-        const div=document.createElement("div");
-        div.className="otherMessage";
-        div.id=msgId;
-        div._expireSec=expireSec;
-        div._sentAt=sent;
-        div._deleteAt=deleteAt;
-        const remaining = Math.max(1, Math.floor((deleteAt-Date.now())/1000));
-        if(mediaType==="text"||!mediaType){
+    const div=document.createElement("div"); div.className="otherMessage lockedMessage"; div.id=msgId; expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
+    div._enc=enc; div._expireSec=expireSec; div._mediaType=mediaType||"text";
+    div.innerHTML=`${senderReal}: Yeni gizli ${mediaType||"mesaj"} - ${formatTime(expireSec)}<br><button class="openBtn">🔓 Aç</button><span class="countdown" style="display:none;"></span>`;
+    const btn=div.querySelector(".openBtn");
+    btn.onclick=async(e)=>{
+        e.stopPropagation();
+        const pass=prompt(`🔐 Mesajı açmak için oda şifresini gir:`);
+        if(!pass) return; if(pass!==currentPassword){ alert("❌ Şifre yanlış!"); return; }
+        btn.textContent="Açılıyor...";
+        const plain=await decryptText(enc,pass);
+        if(!plain){ alert("Şifre çözülemedi!"); btn.textContent="🔓 Aç"; return; }
+        if(div._mediaType==="text"||!div._mediaType){
             const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-            div.innerHTML=`<span class="senderName">${senderReal}</span> → ${linked}<span class="ticks single" style="color:#999;"> ✓</span><span class="countdown">⏳ ${formatTime(remaining)}</span>`;
+            div.innerHTML=`${senderReal} → ${linked}<span class="countdown">⏳ ${formatTime(expireSec)}</span>`;
         }else{
-            div.innerHTML=`<span class="senderName">${senderReal}</span> - ⏰ ${formatTime(remaining)}`;
-            if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); setupLongPress(img, msgId); }
-            else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
-            const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(remaining)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
+            div.innerHTML=`${senderReal} - ⏰ ${formatTime(expireSec)}`;
+            if(div._mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; img.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:plain,name:"gizli.jpg"}); }; div.appendChild(img); }
+            else if(div._mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
+            const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
         }
-        messages.appendChild(div); 
-        messages.scrollTop=messages.scrollHeight;
-        startSelfDestruct(div,msgId,remaining,deleteAt);
-        addReduceExtendButtons(div,msgId);
+        div.className="otherMessage";
         socket.emit("message-opened",{msgId});
         socket.emit("message-read",{msgId,reader:myRealUsername});
-        if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); }
-        return;
-    }catch(e){ console.log("addLockedMessage err", e); }
+        startSelfDestruct(div,msgId,expireSec);
+        addReduceExtendButtons(div,msgId);
+    };
+    messages.appendChild(div); messages.scrollTop=messages.scrollHeight;
+    if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); }
 }
-
 function getExpireFromSelect(){
     let val=perMessageTimerSelect.value;
     if(val==="default") return defaultExpire;
@@ -352,12 +330,15 @@ sendBtn.onclick=async()=>{
     if(persistMode==="persist"){ defaultExpire=expire; try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(e){} if(defaultSelfDestructSelect) try{ defaultSelfDestructSelect.value=defaultExpire.toString(); }catch(e){} }
     const msgId=await addMyMessage(text,expire,myRealUsername);
     const enc=await encryptText(text,currentPassword);
-    socket.emit("chat-message",{msgId,enc,expireSec:expire});
+    const sentAt=Date.now();
+    const msgId=await addMyMessage(text,expire,myRealUsername);
+    const enc=await encryptText(text,currentPassword);
+    socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt});
     input.value=""; socket.emit('typing',false); isTyping=false;
 };
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
-socket.on("chat-message", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username, data.sentAt); });
-socket.on("chat-media", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username, data.sentAt); });
+socket.on("chat-message", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username); });
+socket.on("chat-media", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username); });
 socket.on("pending-messages", async(list)=>{
     for(const m of list){
         const plain=await decryptText(m.enc,currentPassword); if(!plain) continue;
@@ -444,23 +425,7 @@ function createFlyingEmoji(emoji,effect,isMine){
     }
 }
 micBtn.onclick=async()=>{ if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ alert("Mikrofon izni gerekli"); return; } } micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>{ t.enabled=micEnabled; console.log("Mikrofon", micEnabled? "acik":"kapali"); }); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer && peer._pc){ const at=localStream.getAudioTracks()[0]; if(at){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of senders){ await s.replaceTrack(at); console.log("Audio track peer e gonderildi"); } } } }catch(e){ console.log("mic replaceTrack hata", e); } };
-camBtn.onclick=async()=>{ 
-  if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
-  camEnabled=!camEnabled; 
-  localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled); 
-  camBtn.classList.toggle("offIcon",!camEnabled);
-  console.log("Kamera", camEnabled?"açık":"kapalı", "user", myRealUsername);
-  try{
-    if(peer && peer._pc && localStream){
-      const vt = localStream.getVideoTracks()[0];
-      if(vt){
-        const senders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==="video");
-        for(const s of senders){ await s.replaceTrack(vt); }
-        console.log("Video track peer'e gönderildi - yokum fix");
-      }
-    }
-  }catch(e){ console.log("cam replaceTrack hata", e); }
-};
+camBtn.onclick=()=>{ if(!localStream) return; camEnabled=!camEnabled; localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled); camBtn.classList.toggle("offIcon",!camEnabled); };
 if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ 
         try{ 
             const wasCamOn = camEnabled;
@@ -500,26 +465,38 @@ myVideoContainer.addEventListener("touchend",()=>isDragging=false);
 if(attachMenuBtn){ attachMenuBtn.onclick=(e)=>{ e.stopPropagation(); attachMenu.classList.toggle("show"); }; }
 mediaBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); mediaInput.click(); };
 drawBtn.onclick=()=>{ attachMenu.classList.remove("show"); drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
-locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); socket.emit("chat-message",{msgId,enc,expireSec:expire}); }); };
+locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); const sentAt=Date.now();
+    const msgId=await addMyMessage(text,expire,myRealUsername);
+    const enc=await encryptText(text,currentPassword);
+    socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt}); }); };
 if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); cameraInput.click(); }; }
 if(cameraInput){
   cameraInput.onchange=async()=>{
     isPickingFile = true;
-    const file=cameraInput.files[0]; if(!file){ isPickingFile=false; return; }
-    const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); isPickingFile=false; return; }
-    let expire=getExpireFromSelect();
-    const img=await createImageBitmap(file);
-    const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; }
-    canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h);
-    const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.75));
-    const dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); });
-    const enc=await encryptText(dataUrl,currentPassword);
-    const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg");
-    socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image"});
-    cameraInput.value="";
+    try{
+      const file=cameraInput.files[0]; if(!file){ isPickingFile=false; return; }
+      const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); isPickingFile=false; return; }
+      let expire=getExpireFromSelect();
+      let dataUrl="";
+      try{
+        const img=await createImageBitmap(file);
+        const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; }
+        canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h);
+        const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.75));
+        dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); });
+      }catch(e){
+        dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); });
+      }
+      const enc=await encryptText(dataUrl,currentPassword);
+      const sentAt=Date.now();
+      const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg");
+      socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image",sentAt});
+      cameraInput.value="";
+    }catch(err){ console.log("cameraInput hata", err); }
     isPickingFile = false;
   };
 }
+
 mediaInput.onchange=async()=>{
     isPickingFile = true;
     const file=mediaInput.files[0]; if(!file){ isPickingFile=false; return; }
@@ -559,18 +536,38 @@ if(phoneModeBtn){
             if(candleContainer) candleContainer.classList.remove("show");
             socket.emit("phone-mode",true);
         }else{
-            // TELEFON MODUNDAN ÇIKINCA KAMERA KAPALI KALSIN
             if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
-            camEnabled=false; camBtn.classList.add("offIcon");
+            camEnabled=true; camBtn.classList.remove("offIcon");
             phoneCallUI.style.display="none"; remoteVideo.style.display=remoteVideo.srcObject?"block":"none"; myVideoContainer.style.display="block";
             socket.emit("phone-mode",false);
         }
     };
 }
 socket.on("phone-mode",(enabled)=>{
-    isPhoneMode=enabled; document.body.classList.toggle("phone-mode",enabled); phoneModeBtn.classList.toggle("active",enabled);
-    if(enabled){ phoneCallUI.style.display="flex"; if(remoteVideo) remoteVideo.style.display="none"; if(candleContainer) candleContainer.classList.remove("show"); volumeSlider.value=0.1; remoteVideo.volume=0.1; }
-    else{ phoneCallUI.style.display="none"; if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block"; if(myVideoContainer) myVideoContainer.style.display="block"; }
+    isPhoneMode=enabled; 
+    document.body.classList.toggle("phone-mode",enabled); 
+    phoneModeBtn.classList.toggle("active",enabled);
+    if(enabled){ 
+        phoneCallUI.style.display="flex"; 
+        if(remoteVideo) remoteVideo.style.display="none"; 
+        if(candleContainer) candleContainer.classList.remove("show"); 
+        volumeSlider.value=0.1; remoteVideo.volume=0.1; 
+        // karşı taraf telefon açtıysa bizde de kamera kapansın
+        if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
+        camEnabled=false; camBtn.classList.add("offIcon");
+        phoneModeBtn.style.opacity='1'; phoneModeBtn.style.pointerEvents='auto';
+    }
+    else{ 
+        phoneCallUI.style.display="none"; 
+        if(remoteVideo&&remoteVideo.srcObject){ 
+            remoteVideo.style.display="block"; 
+            remoteVideo.play().catch(()=>{});
+        }
+        if(myVideoContainer) myVideoContainer.style.display="block"; 
+        if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
+        camEnabled=false; camBtn.classList.add("offIcon");
+        document.querySelectorAll('#settingsContainer button').forEach(b=>{b.style.opacity=''; b.style.pointerEvents='';});
+    }
 });
 if(defaultSelfDestructSelect){ defaultSelfDestructSelect.onchange=()=>{ let val=parseInt(defaultSelfDestructSelect.value); if(val>MAX_SEC) val=MAX_SEC; defaultExpire=val; try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(e){} }; }
 function doPanic(){
