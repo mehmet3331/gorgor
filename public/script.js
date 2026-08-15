@@ -82,7 +82,7 @@ let activeTimers = new Map();
 let isPhoneMode = false;
 let currentRoom=null, currentPassword="", myUsername="", myRealUsername="";
 let lampOn=false;
-const MAX_SEC = 604800;
+const MAX_SEC = 86400; // 24 saat
 
 const REAL_ROOM = "oda1";
 const FAKE_ROOMS = ["oda","oda2","oda3","oda4","oda5","oda6","oda7","oda8","oda9"];
@@ -422,7 +422,23 @@ function createFlyingEmoji(emoji,effect,isMine){
     }
 }
 micBtn.onclick=async()=>{ if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ alert("Mikrofon izni gerekli"); return; } } micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>{ t.enabled=micEnabled; console.log("Mikrofon", micEnabled? "acik":"kapali"); }); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer && peer._pc){ const at=localStream.getAudioTracks()[0]; if(at){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of senders){ await s.replaceTrack(at); console.log("Audio track peer e gonderildi"); } } } }catch(e){ console.log("mic replaceTrack hata", e); } };
-camBtn.onclick=()=>{ if(!localStream) return; camEnabled=!camEnabled; localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled); camBtn.classList.toggle("offIcon",!camEnabled); };
+camBtn.onclick=async()=>{ 
+  if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
+  camEnabled=!camEnabled; 
+  localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled); 
+  camBtn.classList.toggle("offIcon",!camEnabled);
+  console.log("Kamera", camEnabled?"açık":"kapalı", "user", myRealUsername);
+  try{
+    if(peer && peer._pc && localStream){
+      const vt = localStream.getVideoTracks()[0];
+      if(vt){
+        const senders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==="video");
+        for(const s of senders){ await s.replaceTrack(vt); }
+        console.log("Video track peer'e gönderildi - yokum fix");
+      }
+    }
+  }catch(e){ console.log("cam replaceTrack hata", e); }
+};
 if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ 
         try{ 
             const wasCamOn = camEnabled;
