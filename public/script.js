@@ -505,18 +505,35 @@ if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList
 if(cameraInput){
   cameraInput.onchange=async()=>{
     isPickingFile = true;
+    console.log("KAMERA SECILIYOR, isPickingFile true");
     try{
-      const file=cameraInput.files[0]; if(!file){ isPickingFile=false; return; }
-      const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); isPickingFile=false; return; }
+      const file=cameraInput.files[0]; 
+      if(!file){ 
+        console.log("file yok");
+        isPickingFile=false; 
+        return; 
+      }
+      const MAX=20*1024*1024; 
+      if(file.size>MAX){ 
+        alert("Max 20MB"); 
+        isPickingFile=false; 
+        return; 
+      }
       let expire=getExpireFromSelect();
       let dataUrl="";
       try{
+        // createImageBitmap bazı telefonlarda çöküyor, try/catch içinde
         const img=await createImageBitmap(file);
-        const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; }
-        canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h);
+        const canvas=document.createElement('canvas'); 
+        const max=1280; 
+        let w=img.width,h=img.height; 
+        if(w>max){ h=h*max/w; w=max; }
+        canvas.width=w; canvas.height=h; 
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
         const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.75));
         dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); });
       }catch(e){
+        console.log("createImageBitmap hata, fallback FileReader", e);
         dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); });
       }
       const enc=await encryptText(dataUrl,currentPassword);
@@ -524,10 +541,17 @@ if(cameraInput){
       const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg");
       socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image",sentAt});
       cameraInput.value="";
-    }catch(err){ console.log("cameraInput hata", err); }
-    isPickingFile = false;
+      // mesaj atınca en alta scroll
+      setTimeout(()=>{ messages.scrollTop = messages.scrollHeight; }, 100);
+    }catch(err){ 
+      console.log("cameraInput hata", err); 
+      alert("Foto hata: "+(err.message||err));
+    }
+    // 1 saniye sonra isPickingFile false yap - hesap makinesine dönmesin
+    setTimeout(()=>{ isPickingFile = false; console.log("isPickingFile false"); }, 1000);
   };
 }
+
 
 
 mediaInput.onchange=async()=>{
