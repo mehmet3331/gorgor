@@ -276,7 +276,7 @@ async function addMyMessage(text,expireSec,realName){
     div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks single" style="color:#999;"> ✓</span><span class="countdown">⏳ ${formatTime(expireSec)}</span>`;
     div._sentAt=now; div._deleteAt=now+expireSec*1000;
     messages.appendChild(div); 
-    messages.scrollTop=messages.scrollHeight; 
+    setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; }, 10);
     sentMessages.set(msgId,div); div._expireSec=expireSec; 
     startSelfDestruct(div,msgId,expireSec,div._deleteAt);
     addReduceExtendButtons(div,msgId); 
@@ -290,7 +290,7 @@ async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){
     if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; div.appendChild(im); setupLongPress(im, msgId); }
     else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
     const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
-    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); 
+    messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; }, 10); sentMessages.set(msgId,div); 
     startSelfDestruct(div,msgId,expireSec,div._deleteAt);
     addReduceExtendButtons(div,msgId); return msgId;
 }
@@ -556,26 +556,34 @@ if(cameraInput){
 
 mediaInput.onchange=async()=>{
     isPickingFile = true;
-    const file=mediaInput.files[0]; if(!file){ isPickingFile=false; return; }
-    const MAX=20*1024*1024; if(file.size>MAX){ alert("Max 20MB"); isPickingFile=false; return; }
-    let expire=getExpireFromSelect();
-    let dataUrl="";
-    if(file.type.startsWith('image/')){
-        const img=await createImageBitmap(file);
-        const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; }
-        canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h);
-        const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.7));
-        dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); });
-    }else{
+    _photoPicking = true;
+    try{
+      const file=mediaInput.files[0]; if(!file){ isPickingFile=false; _photoPicking=false; return; }
+      if(file.size>20*1024*1024){ alert("Max 20MB"); isPickingFile=false; _photoPicking=false; return; }
+      let expire=getExpireFromSelect();
+      let dataUrl="";
+      if(file.type.startsWith('image/')){
+        try{
+          const img=await createImageBitmap(file);
+          const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; }
+          canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h);
+          const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.7));
+          dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); });
+        }catch(e){ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); }
+      }else{
         dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); });
-    }
-    const enc=await encryptText(dataUrl,currentPassword);
-    const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file';
-    const msgId=await addMyMediaMessage(dataUrl,mediaType,expire,file.name);
-    socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType});
-    mediaInput.value="";
-    isPickingFile = false;
+      }
+      const enc=await encryptText(dataUrl,currentPassword);
+      const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file';
+      const sentAt=Date.now();
+      const msgId=await addMyMediaMessage(dataUrl,mediaType,expire,file.name);
+      socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType,sentAt});
+      mediaInput.value="";
+      setTimeout(()=>{ messages.scrollTop = messages.scrollHeight; }, 100);
+    }catch(e){ console.log("mediaInput hata", e); }
+    setTimeout(()=>{ isPickingFile=false; _photoPicking=false; }, 1500);
 };
+
 function openPreview(data){ currentMediaData=data; mediaPreview.style.display="flex"; if(data.type==="image"){ previewImg.src=data.data; previewImg.style.display="block"; previewVideo.style.display="none"; }else if(data.type==="video"){ previewVideo.src=data.data; previewVideo.style.display="block"; previewImg.style.display="none"; } }
 closePreview.onclick=()=>{ mediaPreview.style.display="none"; previewVideo.pause(); };
 downloadMediaBtn.onclick=()=>{ const pass=prompt("İndirmek için şifre:"); if(!pass||pass!==currentPassword){ alert("Şifre yanlış."); return; } const a=document.createElement("a"); a.href=currentMediaData.data; a.download=currentMediaData.name||"gizli"; a.click(); };
@@ -621,7 +629,93 @@ socket.on("phone-mode",(enabled)=>{
         document.querySelectorAll('#settingsContainer button').forEach(b=>{b.style.opacity=''; b.style.pointerEvents='';});
     }
 });
-if(defaultSelfDestructSelect){ defaultSelfDestructSelect.onchange=()=>{ let val=parseInt(defaultSelfDestructSelect.value); if(val>MAX_SEC) val=MAX_SEC; defaultExpire=val; try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(e){} }; }
+if(defaultSelfDestructSelect){ 
+  defaultSelfDestructSelect.onchange=()=>{ 
+    let val=defaultSelfDestructSelect.value;
+    if(val==="custom"){
+      let custom=prompt("Manuel süre saniye (max 86400):", defaultExpire.toString());
+      if(!custom) return;
+      let num=parseInt(custom.replace(/[^0-9]/g,''));
+      if(isNaN(num)||num<=0) return;
+      if(num>MAX_SEC) num=MAX_SEC;
+      defaultExpire=num;
+      // custom option ekle
+      let opt=document.createElement("option");
+      opt.value=num.toString();
+      opt.textContent=formatTime(num)+" (özel)";
+      opt.selected=true;
+      defaultSelfDestructSelect.appendChild(opt);
+    }else{
+      let v=parseInt(val); if(v>MAX_SEC) v=MAX_SEC; defaultExpire=v;
+    }
+    try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(e){} 
+  };
+  
+  // YUKARI ASAGI KAYDIRARAK SURE DEGISTIRME
+  let startY=0, startExpire=0;
+  let isDraggingExpire=false;
+  
+  defaultSelfDestructSelect.addEventListener('touchstart', (e)=>{
+    startY=e.touches[0].clientY;
+    startExpire=defaultExpire;
+    isDraggingExpire=false;
+  }, {passive:true});
+  
+  defaultSelfDestructSelect.addEventListener('touchmove', (e)=>{
+    if(!e.touches[0]) return;
+    let diff = startY - e.touches[0].clientY; // yukari kaydirma = artir
+    if(Math.abs(diff) > 20){
+      isDraggingExpire=true;
+      e.preventDefault();
+      let steps = Math.floor(diff/15); // her 15px 1 adim
+      let newVal = startExpire + steps*60; // her adim 60sn
+      if(newVal < 10) newVal=10;
+      if(newVal > MAX_SEC) newVal=MAX_SEC;
+      defaultExpire=newVal;
+      try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(e){}
+      // select'i guncelle
+      defaultSelfDestructSelect.value="custom";
+      let customOpt = defaultSelfDestructSelect.querySelector('option[value="custom_display"]');
+      if(!customOpt){
+        customOpt=document.createElement("option");
+        customOpt.value="custom_display";
+        defaultSelfDestructSelect.appendChild(customOpt);
+      }
+      customOpt.textContent=formatTime(defaultExpire)+" (kaydirma)";
+      customOpt.selected=true;
+      // gorsel geri bildirim
+      if(defaultSelfDestructSelect.parentElement){
+        defaultSelfDestructSelect.parentElement.title=formatTime(defaultExpire);
+      }
+    }
+  }, {passive:false});
+  
+  defaultSelfDestructSelect.addEventListener('touchend', ()=>{
+    if(isDraggingExpire){
+      setTimeout(()=>{ isDraggingExpire=false; }, 100);
+    }
+  });
+  
+  // Mouse wheel ile de degistirme (PC icin)
+  defaultSelfDestructSelect.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    let delta = e.deltaY < 0 ? 60 : -60;
+    let newVal = defaultExpire + delta;
+    if(newVal < 10) newVal=10;
+    if(newVal > MAX_SEC) newVal=MAX_SEC;
+    defaultExpire=newVal;
+    try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(ex){}
+    let customOpt = defaultSelfDestructSelect.querySelector('option[value="custom_display"]');
+    if(!customOpt){
+      customOpt=document.createElement("option");
+      customOpt.value="custom_display";
+      defaultSelfDestructSelect.appendChild(customOpt);
+    }
+    customOpt.textContent=formatTime(defaultExpire)+" (tekerlek)";
+    customOpt.selected=true;
+  }, {passive:false});
+}
+
 function doPanic(){
     if(!confirm("🚨 PANİK: Tüm mesajlar silinsin mi?")) return;
     messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
@@ -682,21 +776,31 @@ socket.on('message-read', ({msgId})=>{
   const el=document.getElementById(msgId);
   if(el){ el.classList.add('read'); const ticks=el.querySelector('.ticks'); if(ticks){ ticks.textContent=' ✓✓'; ticks.style.color='#00bfff'; } }
 });
+
+
+
+
+let _photoPicking = false;
 document.addEventListener('visibilitychange', ()=>{
-  if(isPickingFile) return; // DOSYA SEÇERKEN ATMA!
+  if(isPickingFile || _photoPicking){
+    console.log("VISIBLE IGNORE - foto seciliyor, atma");
+    return;
+  }
   if(document.hidden && mainScreen.style.display!=="none"){
-    // 500ms bekle, gerçekten gizlendi mi diye (dosya seçici sahte hidden yapıyor)
     setTimeout(()=>{
-      if(document.hidden &&!isPickingFile && mainScreen.style.display!=="none"){
-        if(localStream) localStream.getTracks().forEach(t=>t.enabled=false);
+      if(isPickingFile || _photoPicking) return;
+      if(document.hidden && mainScreen.style.display!=="none"){
+        if(localStream) localStream.getVideoTracks().forEach(t=>t.enabled=false);
         const fk=document.getElementById('fakeCalc');
         if(fk) fk.style.display='flex';
         mainScreen.style.display='none';
         socket.emit('paused');
       }
-    }, 500);
+    }, 800);
   }
 });
+
+
 if(myVideo){
     myVideo.addEventListener("click", ()=>{
         const ctrls=document.querySelectorAll("#settingsContainer button, #settingsContainer .statusBox, #settingsContainer #secretSettings, #myVideoContainer button, #myVideoContainer select");
