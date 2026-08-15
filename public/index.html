@@ -10,7 +10,6 @@
 <script>if(typeof SimplePeer==="undefined"){document.write('<script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"><\/script>')}</script>
 </head>
 <body>
-
 <div id="fakeCalc" style="display:flex;">
   <div class="calc-container">
     <h3>🔢 Hesap Makinesi</h3>
@@ -40,43 +39,48 @@
 </div>
 
 <div id="mainScreen" style="display:none;">
-  <!-- INSTAGRAM HEADER -->
+
+  <!-- INSTAGRAM HEADER - 7-8 FIX: no backBtn, no avatar photo, only name + big dot -->
   <div id="instagramHeader">
     <div id="volumeRow"><input id="volumeSlider" type="range" min="0" max="1" step="0.05" value="0.1" /></div>
     <div id="topBar">
       <div id="leftTop">
-        <div id="backBtn">‹</div>
-        <img id="avatarImg" src="https://i.pravatar.cc/100?img=5" alt="avatar" />
         <div id="nameWrap">
-          <div id="topNameRow"><span id="currentUserBox">yokum</span><span id="onlineDot" class="onlineDot online"></span></div>
-          <span id="statusText">Active now • 5:26</span>
+          <div id="topNameRow"><span id="currentUserBox">yokum</span><span id="onlineDot" class="onlineDot online big"></span></div>
+          <span id="statusText">Active now</span>
         </div>
       </div>
       <div id="rightTop">
-        <button id="videoCallBtn" title="Görüntülü">📹</button>
         <button id="phoneModeBtn" title="Telefon">📞</button>
         <button id="settingsBtn" title="Ayar">⚙️</button>
       </div>
     </div>
-    <div id="settingsContainer">
-      <button id="micBtn" title="Mikrofon"></button>
-      <button id="camBtn" title="Kamera"></button>
-      <button id="soundBtn" title="Ses">🔊</button>
-      <button id="panicBtn" title="Panik">🚨</button>
-      <button id="lightModeBtn" title="Işık">💡</button>
-      <button id="changePasswordBtn" title="Şifre">🔑</button>
-      <button id="fullscreenBtn" title="Tam ekran">⛶</button>
-      <button id="switchCameraBtn" title="Kamera değiştir">🔄</button>
-      <select id="qualitySelect"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
-      <div id="statusBar"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div>
-      <div id="secretSettings"><label>Varsayılan:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="3600">1 saat</option><option value="28800" selected>8 saat</option><option value="86400">24 saat</option></select></div>
-    </div>
   </div>
 
   <video id="remoteVideo" autoplay playsinline></video>
-  <div id="myVideoContainer"><video id="myVideo" autoplay muted playsinline></video></div>
+  
+  <!-- MY VIDEO CONTAINER - 2-3-4 FIX: switch cam bottom left, quality bottom right, fullscreen top right -->
+  <div id="myVideoContainer">
+    <video id="myVideo" autoplay muted playsinline></video>
+    <button id="switchCameraBtn" class="cameraOverlayBtn" title="Arka kamera">🔄</button>
+    <button id="fullscreenBtn" class="cameraOverlayBtn" title="Tam ekran">⛶</button>
+    <select id="qualitySelect" class="qualitySelect" title="Çözünürlük"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
+  </div>
+
   <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯</p></div>
   <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
+
+  <!-- SETTINGS - 5 FIX: camBtn inside settings, works for video -->
+  <div id="settingsContainer">
+    <button id="micBtn" title="Mikrofon">🎤</button>
+    <button id="camBtn" title="Kamera">📷</button>
+    <button id="soundBtn" title="Ses">🔊</button>
+    <button id="panicBtn" title="Panik">🚨</button>
+    <button id="lightModeBtn" title="Işık">💡</button>
+    <button id="changePasswordBtn" title="Şifre">🔑</button>
+    <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div></div>
+    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="3600">1 saat</option><option value="28800" selected>8 saat</option><option value="86400">24 saat</option></select></div>
+  </div>
 
   <button id="chatToggle">💬</button>
 
@@ -119,15 +123,6 @@ function calcEqual(){
   }
   try{ let r=eval(calcBuf); document.getElementById("calcDisplay").value=r; calcBuf=r.toString(); }catch(e){ document.getElementById("calcDisplay").value="Hata"; calcBuf=""; }
 }
-document.getElementById('backBtn')?.addEventListener('click', ()=>{
-  const cp=document.getElementById('chatPanel');
-  if(cp.style.display==='flex'){ cp.style.display='none'; document.body.classList.remove('chat-open'); }
-  else{ document.getElementById('mainScreen').style.display='none'; document.getElementById('roomScreen').style.display='flex'; }
-});
-document.getElementById('videoCallBtn')?.addEventListener('click', ()=>{
-  document.getElementById('chatPanel').style.display='none';
-  document.body.classList.remove('chat-open');
-});
 </script>
 <script src="script.js"></script>
 </body>

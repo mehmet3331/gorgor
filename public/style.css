@@ -27,13 +27,15 @@ body { background:#000; color:#fff; font-family: -apple-system, BlinkMacSystemFo
 #volumeRow #volumeSlider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:white; cursor:pointer; }
 #topBar { flex:1; display:flex; justify-content:space-between; align-items:center; padding:0 12px; }
 #leftTop { display:flex; align-items:center; gap:10px; }
-#backBtn { font-size:28px; color:white; cursor:pointer; width:24px; text-align:center; }
-#avatarImg { width:32px; height:32px; border-radius:50%; object-fit:cover; }
+/* backBtn removed */
+/* avatarImg removed - no photo */
 #nameWrap { display:flex; flex-direction:column; }
 #topNameRow { display:flex; align-items:center; gap:6px; font-weight:600; font-size:16px; }
 #currentUserBox { color:white; }
 .onlineDot { width:10px; height:10px; border-radius:50%; display:inline-block; border:2px solid #000; }
-.onlineDot.online { background:#00ff00; box-shadow:0 0 6px #00ff00; }
+.onlineDot.online { background:#00ff00; box-shadow:0 0 8px #00ff00; }
+.onlineDot.big { width:14px; height:14px; border-width:3px; }
+#topNameRow .onlineDot { width:14px; height:14px; }
 .onlineDot.offline { background:#777; }
 #statusText { font-size:12px; color:#8e8e8e; }
 #rightTop { display:flex; align-items:center; gap:8px; }
@@ -51,7 +53,7 @@ body { background:#000; color:#fff; font-family: -apple-system, BlinkMacSystemFo
 
 /* VIDEO */
 #remoteVideo { position:fixed; top:70px; left:0; width:100%; height:calc(100% - 70px); object-fit:contain; background:#000; z-index:1; }
-#myVideoContainer { position:fixed; top:85px; right:15px; width:110px; height:145px; border-radius:12px; border:2px solid #333; background:#000; z-index:100; overflow:hidden; }
+#myVideoContainer { position:fixed; top:85px; right:15px; width:130px; height:175px; border-radius:12px; border:2px solid #333; background:#000; z-index:100; overflow:hidden; }
 #myVideo { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
 #candleContainer { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:2; text-align:center; display:none; }
 #candleContainer.show { display:flex; flex-direction:column; align-items:center; }
@@ -127,3 +129,13 @@ body { background:#000; color:#fff; font-family: -apple-system, BlinkMacSystemFo
 @keyframes screenShake { 0%,100%{transform:translate(0,0);} 10%{transform:translate(-10px,-5px);} 20%{transform:translate(10px,5px);} 30%{transform:translate(-8px,8px);} 40%{transform:translate(8px,-8px);} }
 .screen-shake { animation:screenShake 0.8s; }
 .offIcon::after { content:""; position:absolute; left:3px; top:22px; width:34px; height:4px; background:#ff0000; transform:rotate(-45deg); border-radius:5px; pointer-events:none; }
+
+.cameraOverlayBtn { position:absolute; width:32px; height:32px; border:none; border-radius:50%; background:rgba(0,0,0,0.7); color:white; font-size:16px; cursor:pointer; z-index:120; }
+#switchCameraBtn { bottom:5px; left:5px; }
+#fullscreenBtn { top:5px; right:5px; }
+.qualitySelect { position:absolute; bottom:5px; right:5px; width:60px; height:28px; border:none; border-radius:6px; background:rgba(0,0,0,0.8); color:white; font-size:12px; }
+
+.cameraOverlayBtn { position:absolute; width:32px; height:32px; border:none; border-radius:50%; background:rgba(0,0,0,0.7); color:white; font-size:16px; cursor:pointer; z-index:120; }
+#switchCameraBtn { bottom:5px; left:5px; }
+#fullscreenBtn { top:5px; right:5px; }
+.qualitySelect { position:absolute; bottom:5px; right:5px; width:60px; height:28px; border:none; border-radius:6px; background:rgba(0,0,0,0.8); color:white; font-size:12px; }

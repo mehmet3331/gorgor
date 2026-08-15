@@ -726,6 +726,50 @@ if(defaultSelfDestructSelect){
   }, {passive:false});
 }
 
+
+if(defaultSelfDestructSelect){
+  let startX=0, startVal=0;
+  defaultSelfDestructSelect.addEventListener('touchstart', (e)=>{
+    startX=e.touches[0].clientX;
+    startVal=defaultExpire;
+  }, {passive:true});
+  defaultSelfDestructSelect.addEventListener('touchmove', (e)=>{
+    e.preventDefault();
+    let diff = e.touches[0].clientX - startX;
+    let steps = Math.round(diff/10);
+    let newVal = startVal + steps*60;
+    if(newVal < 10) newVal=10;
+    if(newVal > MAX_SEC) newVal=MAX_SEC;
+    defaultExpire=newVal;
+    try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(ex){}
+    let customOpt = defaultSelfDestructSelect.querySelector('option[value="custom_display"]');
+    if(!customOpt){
+      customOpt=document.createElement("option");
+      customOpt.value="custom_display";
+      defaultSelfDestructSelect.appendChild(customOpt);
+    }
+    customOpt.textContent=formatTime(defaultExpire)+" (kaydir)";
+    customOpt.selected=true;
+  }, {passive:false});
+  defaultSelfDestructSelect.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    let delta = e.deltaY < 0 ? 60 : -60;
+    let newVal = defaultExpire + delta;
+    if(newVal < 10) newVal=10;
+    if(newVal > MAX_SEC) newVal=MAX_SEC;
+    defaultExpire=newVal;
+    try{ localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); }catch(ex){}
+    let customOpt = defaultSelfDestructSelect.querySelector('option[value="custom_display"]');
+    if(!customOpt){
+      customOpt=document.createElement("option");
+      customOpt.value="custom_display";
+      defaultSelfDestructSelect.appendChild(customOpt);
+    }
+    customOpt.textContent=formatTime(defaultExpire)+" (tekerlek)";
+    customOpt.selected=true;
+  }, {passive:false});
+}
+
 function doPanic(){
     if(!confirm("🚨 PANİK: Tüm mesajlar silinsin mi?")) return;
     messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
