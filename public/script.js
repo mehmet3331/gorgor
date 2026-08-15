@@ -82,7 +82,7 @@ let activeTimers = new Map();
 let isPhoneMode = false;
 let currentRoom=null, currentPassword="", myUsername="", myRealUsername="";
 let lampOn=false;
-const MAX_SEC = 86400;
+const MAX_SEC = 86400; // 24 saat
 
 const REAL_ROOM = "oda1";
 const FAKE_ROOMS = ["oda","oda2","oda3","oda4","oda5","oda6","oda7","oda8","oda9"];
@@ -165,7 +165,7 @@ function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=s
 socket.on('online-users',(l)=>{updateOnlineDots(l);});
 socket.on('user-joined',(d)=>{ if(d.name!==myRealUsername){showOnlineToast(d.name);} socket.emit('get-online-users');});
 socket.on('user-left',()=>{socket.emit('get-online-users');});
-socket.on('message-delivered',({msgId})=>{const div=document.getElementById(msgId); if(div){const tick=div.querySelector('.ticks'); if(tick){tick.className='ticks double'; tick.textContent=' ✓✓'; tick.style.color='#999';}}}); socket.on('online-users',(l)=>{updateOnlineDots(l); const offline=l.length<=1; document.querySelectorAll('.myMessage .ticks.single').forEach(t=>{ if(offline){ t.className='ticks single'; t.style.color='#999'; } else { t.className='ticks double'; t.textContent=' ✓✓'; t.style.color='#999'; } }); });
+socket.on('message-delivered',({msgId})=>{const div=document.getElementById(msgId); if(div){const tick=div.querySelector('.ticks'); if(tick){tick.className='ticks double'; tick.textContent=' ✓✓'; tick.style.color='#999';}}});
 socket.on('message-read',({msgId})=>{const div=document.getElementById(msgId); if(div){const tick=div.querySelector('.ticks'); if(tick){tick.className='ticks double read'; tick.textContent=' ✓✓'; tick.style.color='#00ff88';}}});
 socket.on('joined-room',()=>{ if(globalChatTimer) clearTimeout(globalChatTimer); globalChatTimer=setTimeout(()=>{if(confirm('Sohbet 8 saat doldu, silinsin mi?')){document.getElementById('messages').innerHTML='<div style=text-align:center;color:#666;padding:20px;>🧹 Temizlendi (8 saat)</div>'; socket.emit('clear-all-messages');}}, 28800*1000); socket.emit('get-online-users');});
 
@@ -259,7 +259,6 @@ function startSelfDestruct(div,msgId,expireSec,deleteAt){
     },expireAt-Date.now());
     activeTimers.set(msgId,{interval,timeout,expireAt});
 }
-function setupLongPress(img, msgId){ let timer; img.addEventListener("touchstart", ()=>{ timer=setTimeout(()=>{ const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0 && v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; startSelfDestruct(div,msgId,v,newDelete); } } }, 800); }); img.addEventListener("touchend", ()=>clearTimeout(timer)); img.addEventListener("contextmenu", (e)=>{ e.preventDefault(); const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0 && v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; startSelfDestruct(div,msgId,v,newDelete); } } }); }
 function addReduceExtendButtons(div,msgId){
     if(div.querySelector(".reduceBtn")) return;
     const reduce=document.createElement("button"); reduce.className="reduceBtn"; reduce.textContent="⏩ Azalt";
@@ -268,21 +267,37 @@ function addReduceExtendButtons(div,msgId){
     extend.onclick=(e)=>{ e.stopPropagation(); const inp=prompt("Ne kadar uzatayım? saniye"); if(!inp) return; let v=parseInt(inp.replace(/[^0-9]/g,'')); if(isNaN(v)||v<=0) return; socket.emit("extend-request",{msgId,extraSec:v}); };
     div.appendChild(reduce); div.appendChild(extend);
 }
-async function addMyMessage(text,expireSec,realName, sentAtArg){
-    const msgId=`msg-${Date.now()}-${messageIdCounter++}`;
+
+async function addMyMessage(text,expireSec,realName){
+    const now = Date.now();
+    const msgId=`msg-${now}-${messageIdCounter++}`;
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC);
     const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-    div.innerHTML=`<span class="expireInfo">🔒 ${realName} • ⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks"> ✓</span><span class="countdown">⏳ Karşı açınca ${formatTime(expireSec)}</span>`;
-    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); div._expireSec=expireSec; addReduceExtendButtons(div,msgId); return msgId;
+    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks single" style="color:#999;"> ✓</span><span class="countdown">⏳ ${formatTime(expireSec)}</span>`;
+    div._sentAt=now; div._deleteAt=now+expireSec*1000; 
+    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); div._expireSec=expireSec; 
+    startSelfDestruct(div,msgId,expireSec,div._deleteAt);
+    addReduceExtendButtons(div,msgId); 
+    return msgId;
 }
 async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){
-    const msgId=`media-${Date.now()}-${messageIdCounter++}`;
-    const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec;
-    div.innerHTML=`<span class="expireInfo">🔒 ${myRealUsername} • ⏰ ${formatTime(expireSec)}</span>`;
-    if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; div.appendChild(im); }
+    const now=Date.now();
+    const msgId=`media-${now}-${messageIdCounter++}`;
+    const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=now; div._deleteAt=now+expireSec*1000;
+    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)}</span>`;
+    if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; div.appendChild(im); setupLongPress(im, msgId); }
     else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
-    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ Karşı açınca ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
-    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); addReduceExtendButtons(div,msgId); return msgId;
+    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
+    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); 
+    startSelfDestruct(div,msgId,expireSec,div._deleteAt);
+    addReduceExtendButtons(div,msgId); return msgId;
+}
+function setupLongPress(img, msgId){ 
+  let timer; 
+  img.addEventListener("touchstart", (e)=>{ timer=setTimeout(()=>{ const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0 && v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; startSelfDestruct(div,msgId,v,newDelete); } } }, 800); }, {passive:true}); 
+  img.addEventListener("touchend", ()=>clearTimeout(timer)); 
+  img.addEventListener("mousedown", (e)=>{ timer=setTimeout(()=>{ const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0 && v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; startSelfDestruct(div,msgId,v,newDelete); } } }, 800); });
+  img.addEventListener("mouseup", ()=>clearTimeout(timer));
 }
 async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal, sentAt){
     if(document.getElementById(msgId)) return;
@@ -291,19 +306,20 @@ async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal, sentAt
     const deleteAt = sent + expireSec*1000;
     try{
         const plain = await decryptText(enc, currentPassword);
-        if(!plain) return;
+        if(!plain){ console.log("decrypt fail"); return; }
         const div=document.createElement("div");
         div.className="otherMessage";
         div.id=msgId;
         div._expireSec=expireSec;
         div._sentAt=sent;
+        div._deleteAt=deleteAt;
         const remaining = Math.max(1, Math.floor((deleteAt-Date.now())/1000));
         if(mediaType==="text"||!mediaType){
             const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
             div.innerHTML=`<span class="senderName">${senderReal}</span> → ${linked}<span class="ticks single" style="color:#999;"> ✓</span><span class="countdown">⏳ ${formatTime(remaining)}</span>`;
         }else{
             div.innerHTML=`<span class="senderName">${senderReal}</span> - ⏰ ${formatTime(remaining)}`;
-            if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); if(typeof setupLongPress==='function') setupLongPress(img, msgId); }
+            if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); setupLongPress(img, msgId); }
             else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
             const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(remaining)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
         }
@@ -314,9 +330,18 @@ async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal, sentAt
         socket.emit("message-read",{msgId,reader:myRealUsername});
         if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); }
         return;
-    }catch(e){ console.log(e); }
+    }catch(e){ console.log("addLockedMessage err", e); }
 }
 
+function getExpireFromSelect(){
+    let val=perMessageTimerSelect.value;
+    if(val==="default") return defaultExpire;
+    if(val==="custom"){
+        let custom=prompt(`Manuel süre saniye:`); if(!custom) return defaultExpire;
+        let num=parseInt(custom.replace(/[^0-9]/g,'')); if(isNaN(num)||num<=0) return defaultExpire; if(num>MAX_SEC) num=MAX_SEC; return num;
+    }
+    return Math.min(parseInt(val),MAX_SEC);
+}
 sendBtn.onclick=async()=>{
     const text=input.value.trim(); if(!text) return;
     let expire=getExpireFromSelect();
