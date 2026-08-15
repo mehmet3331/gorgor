@@ -1,0 +1,129 @@
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#000; color:#fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow:hidden; -webkit-user-select:none; user-select:none; }
+
+/* CALC */
+#fakeCalc { position:fixed; inset:0; background:#111; z-index:10000; display:flex; justify-content:center; align-items:center; }
+.calc-container { background:#222; padding:20px; border-radius:16px; width:300px; }
+.calc-container h3 { text-align:center; margin-bottom:10px; }
+.calc-container input { width:100%; height:50px; font-size:22px; text-align:right; padding:10px; border-radius:10px; border:none; margin-bottom:10px; background:#000; color:#0f0; }
+.calc-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.calc-grid button { height:50px; border:none; border-radius:10px; font-size:18px; background:#333; color:white; cursor:pointer; }
+
+/* ROOM */
+#roomScreen { position:fixed; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:12px; background:#000; z-index:9999; }
+#roomScreen h2 { font-size:28px; }
+#roomScreen input { width:280px; height:45px; padding:10px; border:none; border-radius:10px; font-size:16px; }
+#roomScreen button { width:280px; height:45px; border:none; border-radius:10px; background:#0095f6; color:white; font-size:16px; cursor:pointer; font-weight:bold; }
+.userTag { padding:6px 11px; border-radius:20px; font-size:12px; cursor:pointer; background:#1a1a1a; border:1px solid #2a2a2a; color:#777; }
+.userTag:hover { background:#222; color:#aaa; border-color:#444; }
+
+/* MAIN */
+#mainScreen { display:none; width:100%; height:100vh; background:#000; position:relative; }
+
+/* INSTAGRAM HEADER - YENİ */
+#instagramHeader { position:fixed; top:0; left:0; right:0; height:70px; background:#000; border-bottom:1px solid #262626; z-index:1000; display:flex; flex-direction:column; }
+#volumeRow { height:20px; display:flex; justify-content:center; align-items:center; background:#000; }
+#volumeRow #volumeSlider { -webkit-appearance:none; width:180px; height:2px; background:#363636; border-radius:2px; outline:none; }
+#volumeRow #volumeSlider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:white; cursor:pointer; }
+#topBar { flex:1; display:flex; justify-content:space-between; align-items:center; padding:0 12px; }
+#leftTop { display:flex; align-items:center; gap:10px; }
+#backBtn { font-size:28px; color:white; cursor:pointer; width:24px; text-align:center; }
+#avatarImg { width:32px; height:32px; border-radius:50%; object-fit:cover; }
+#nameWrap { display:flex; flex-direction:column; }
+#topNameRow { display:flex; align-items:center; gap:6px; font-weight:600; font-size:16px; }
+#currentUserBox { color:white; }
+.onlineDot { width:10px; height:10px; border-radius:50%; display:inline-block; border:2px solid #000; }
+.onlineDot.online { background:#00ff00; box-shadow:0 0 6px #00ff00; }
+.onlineDot.offline { background:#777; }
+#statusText { font-size:12px; color:#8e8e8e; }
+#rightTop { display:flex; align-items:center; gap:8px; }
+#rightTop button { width:40px; height:40px; border:none; border-radius:50%; background:#1a1a1a; color:white; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+#rightTop button:hover { background:#262626; }
+#videoCallBtn { background:#1a1a1a !important; }
+
+/* SETTINGS - gizli panel */
+#settingsContainer { position:fixed; top:70px; left:10px; z-index:1001; display:flex; flex-direction:column; gap:8px; max-height:90vh; overflow-y:auto; background:rgba(0,0,0,0.95); padding:10px; border-radius:12px; border:1px solid #333; display:none; }
+#settingsContainer.menu-open { display:flex; }
+#settingsContainer > button, #settingsContainer select { width:44px; height:44px; border:none; border-radius:12px; background:#1a1a1a; color:white; font-size:18px; cursor:pointer; }
+#settingsContainer #statusBar, #settingsContainer #secretSettings { width:200px; height:auto; background:#111; padding:8px; border-radius:10px; font-size:12px; }
+#secretSettings select { width:100%; height:32px; background:#111; color:#0095f6; border:1px solid #333; border-radius:6px; margin-top:4px; }
+.statusBox { padding:4px 0; }
+
+/* VIDEO */
+#remoteVideo { position:fixed; top:70px; left:0; width:100%; height:calc(100% - 70px); object-fit:contain; background:#000; z-index:1; }
+#myVideoContainer { position:fixed; top:85px; right:15px; width:110px; height:145px; border-radius:12px; border:2px solid #333; background:#000; z-index:100; overflow:hidden; }
+#myVideo { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+#candleContainer { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:2; text-align:center; display:none; }
+#candleContainer.show { display:flex; flex-direction:column; align-items:center; }
+#phoneCallUI { position:fixed; top:70px; left:0; width:100%; height:calc(100% - 70px); background:#000; z-index:5; display:none; flex-direction:column; justify-content:center; align-items:center; gap:20px; }
+.phoneAvatar { font-size:80px; }
+.phoneName { font-size:24px; font-weight:bold; }
+.phoneStatus { color:#8e8e8e; }
+.phoneWave span { display:inline-block; width:8px; height:8px; background:#00ff00; border-radius:50%; margin:0 4px; animation:wave 1s infinite; }
+@keyframes wave { 0%,100%{transform:scale(1); opacity:1} 50%{transform:scale(1.5); opacity:0.5} }
+
+/* CHAT TOGGLE */
+#chatToggle { position:fixed; bottom:20px; right:20px; width:60px; height:60px; border:none; border-radius:50%; background:#0095f6; color:white; font-size:26px; font-weight:bold; cursor:pointer; z-index:960; box-shadow:0 8px 24px rgba(0,149,246,0.4); }
+.chat-open #chatToggle { bottom:52%; }
+
+/* CHAT PANEL - INSTAGRAM FULL */
+#chatPanel { position:fixed; left:0; right:0; bottom:0; top:70px; background:#000; display:none; flex-direction:column; z-index:900; }
+.chat-open #chatPanel { display:flex; }
+.chat-open #remoteVideo { height:48%; top:70px; }
+#messages { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; min-height:0; }
+
+/* INSTAGRAM BUBBLES */
+.myMessage { align-self:flex-end; background:linear-gradient(135deg, #0095f6 0%, #8a2be2 50%, #ff00ff 100%); border-radius:22px 22px 4px 22px; max-width:75%; color:white; padding:12px 16px; font-weight:500; font-size:15px; line-height:1.35; position:relative; word-break:break-word; box-shadow:0 1px 2px rgba(0,0,0,0.3); }
+.otherMessage { align-self:flex-start; background:#262626; border-radius:22px 22px 22px 4px; max-width:75%; color:white; padding:12px 16px; font-size:15px; line-height:1.35; position:relative; word-break:break-word; }
+.myMessage .expireInfo, .otherMessage .expireInfo, .myMessage .countdown, .otherMessage .countdown, .senderName { font-size:10px; color:#8e8e8e; display:block; margin-bottom:4px; }
+.myMessage .countdown { color:rgba(255,255,255,0.7); margin-top:4px; }
+.otherMessage .countdown { color:#8e8e8e; margin-top:4px; }
+.ticks { font-size:11px; margin-left:4px; opacity:0.7; }
+.mediaMessage { max-width:200px; border-radius:16px; margin-top:6px; cursor:pointer; }
+.voiceMessage { display:flex; align-items:center; gap:10px; min-width:220px; padding:10px 12px !important; }
+.voiceMessage .wave { display:flex; align-items:center; gap:2px; flex:1; height:28px; }
+.voiceMessage .wave span { width:3px; background:rgba(255,255,255,0.8); border-radius:10px; display:inline-block; height:60%; }
+.otherMessage.voiceMessage .wave span { background:rgba(255,255,255,0.6); }
+.reaction { position:absolute; bottom:-14px; left:12px; background:#262626; border-radius:12px; padding:2px 6px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.5); border:1px solid #333; }
+.myMessage .reaction { left:auto; right:12px; }
+.selfDestructed { text-align:center; color:#8e8e8e; font-style:italic; padding:10px; }
+.reduceBtn, .extendBtn { font-size:10px; background:#1a1a1a; border:1px solid #333; color:#8e8e8e; border-radius:12px; padding:4px 8px; margin:4px 2px; cursor:pointer; }
+
+/* INPUT AREA INSTAGRAM */
+#inputArea { display:flex; flex-direction:column; gap:8px; padding:10px 12px; background:#000; flex-shrink:0; border-top:1px solid #262626; }
+.inputTopRow { display:flex; gap:8px; align-items:center; }
+.inputTopRow select { flex:1; height:32px; border-radius:16px; background:#1a1a1a; color:#a8a8a8; border:1px solid #2a2a2a; font-size:11px; padding:0 10px; outline:none; }
+.topRightActions { margin-left:auto; display:flex; gap:6px; }
+#emojiBtn, #nudgeBtn { width:32px; height:32px; border:none; border-radius:50%; background:#1a1a1a; color:white; font-size:14px; cursor:pointer; }
+#emojiBtn:hover, #nudgeBtn:hover { background:#262626; }
+.inputBottomRow { display:flex; gap:8px; align-items:center; }
+#attachMenuBtn { width:36px; height:36px; min-width:36px; border:none; border-radius:50%; background:#262626; color:#a8a8a8; font-size:18px; cursor:pointer; }
+#messageInput { flex:1; height:40px; padding:10px 16px; border:none; border-radius:22px; font-size:15px; background:#262626; color:white; outline:none; }
+#messageInput::placeholder { color:#8e8e8e; }
+#messageInput:focus { background:#2a2a2a; }
+#sendBtn { min-width:60px; height:36px; border:none; border-radius:20px; background:#0095f6; color:white; cursor:pointer; font-weight:600; font-size:14px; padding:0 14px; }
+#sendBtn:hover { background:#0081d6; }
+#attachMenu { display:none; position:absolute; bottom:48px; left:0; background:#1a1a1a; border-radius:16px; padding:8px; flex-direction:column; gap:6px; z-index:200; width:200px; border:1px solid #333; box-shadow:0 10px 30px rgba(0,0,0,0.9); }
+#attachMenu.show { display:flex; }
+#attachMenu button { width:100%; height:40px; border:none; border-radius:12px; background:#262626; color:white; text-align:left; padding-left:12px; cursor:pointer; font-size:13px; }
+#attachMenu button:hover { background:#333; }
+
+#emojiPanel { display:none; position:absolute; bottom:90px; right:12px; background:#1a1a1a; border-radius:16px; padding:10px; gap:6px; z-index:100; flex-wrap:wrap; max-width:280px; border:1px solid #333; box-shadow:0 8px 20px rgba(0,0,0,0.8); }
+#emojiPanel.show { display:flex; flex-wrap:wrap; }
+.flyEmoji { font-size:22px; cursor:pointer; padding:4px; border-radius:8px; }
+.flyEmoji:hover { background:#262626; transform:scale(1.1); }
+
+/* OTHER */
+#mediaPreview { position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:2000; display:none; flex-direction:column; justify-content:center; align-items:center; }
+#mediaPreview img, #mediaPreview video { max-width:90%; max-height:80%; border-radius:12px; }
+#closePreview { position:absolute; top:20px; right:20px; font-size:28px; color:white; cursor:pointer; }
+#drawOverlay { position:fixed; inset:0; background:#000; z-index:2000; display:none; flex-direction:column; }
+#drawCanvas { flex:1; background:white; }
+.flying-emoji { position:fixed; font-size:50px; z-index:9999; pointer-events:none; text-shadow:0 0 10px rgba(255,255,255,0.8); }
+.newMessageBlink { animation:blink 0.8s infinite; } @keyframes blink { 0%{background:#ff0000;} 50%{background:#ffff00; color:#000;} 100%{background:#ff0000;} }
+#msnEffectLayer { position:fixed; inset:0; pointer-events:none; z-index:9998; display:none; }
+@keyframes shake { 0%,100%{transform:translateX(0);} 10%,30%,50%,70%,90%{transform:translateX(-3px);} 20%,40%,60%,80%{transform:translateX(3px);} }
+.shake { animation:shake 0.6s; }
+@keyframes screenShake { 0%,100%{transform:translate(0,0);} 10%{transform:translate(-10px,-5px);} 20%{transform:translate(10px,5px);} 30%{transform:translate(-8px,8px);} 40%{transform:translate(8px,-8px);} }
+.screen-shake { animation:screenShake 0.8s; }
+.offIcon::after { content:""; position:absolute; left:3px; top:22px; width:34px; height:4px; background:#ff0000; transform:rotate(-45deg); border-radius:5px; pointer-events:none; }
