@@ -40,7 +40,7 @@
 
 <div id="mainScreen" style="display:none;">
 
-  <!-- INSTAGRAM HEADER - 7-8 FIX: no backBtn, no avatar photo, only name + big dot -->
+    <!-- INSTAGRAM HEADER - FIX: camera button back next to phone -->
   <div id="instagramHeader">
     <div id="volumeRow"><input id="volumeSlider" type="range" min="0" max="1" step="0.05" value="0.1" /></div>
     <div id="topBar">
@@ -51,36 +51,25 @@
         </div>
       </div>
       <div id="rightTop">
+        <button id="camBtnTop" title="Kamera">📷</button>
         <button id="phoneModeBtn" title="Telefon">📞</button>
         <button id="settingsBtn" title="Ayar">⚙️</button>
       </div>
     </div>
   </div>
 
-  <video id="remoteVideo" autoplay playsinline></video>
-  
-  <!-- MY VIDEO CONTAINER - 2-3-4 FIX: switch cam bottom left, quality bottom right, fullscreen top right -->
-  <div id="myVideoContainer">
-    <video id="myVideo" autoplay muted playsinline></video>
-    <button id="switchCameraBtn" class="cameraOverlayBtn" title="Arka kamera">🔄</button>
-    <button id="fullscreenBtn" class="cameraOverlayBtn" title="Tam ekran">⛶</button>
-    <select id="qualitySelect" class="qualitySelect" title="Çözünürlük"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
-  </div>
-
-  <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯</p></div>
-  <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
-
-  <!-- SETTINGS - 5 FIX: camBtn inside settings, works for video -->
+  <!-- SETTINGS PANEL -->
   <div id="settingsContainer">
     <button id="micBtn" title="Mikrofon">🎤</button>
-    <button id="camBtn" title="Kamera">📷</button>
+    <button id="camBtn" title="Kamera" style="display:none;"></button>
     <button id="soundBtn" title="Ses">🔊</button>
     <button id="panicBtn" title="Panik">🚨</button>
     <button id="lightModeBtn" title="Işık">💡</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div></div>
-    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="3600">1 saat</option><option value="28800" selected>8 saat</option><option value="86400">24 saat</option></select></div>
+    <div id="secretSettings"><label>Varsayılan yok olma (kaydır/tekerlek):</label><select id="defaultSelfDestructSelect"><option value="60">1 dk</option><option value="300">5 dk</option><option value="1800">30 dk</option><option value="3600">1 saat</option><option value="28800" selected>8 saat</option><option value="86400">24 saat</option></select><div style="font-size:10px;color:#8e8e8e;margin-top:4px;">↔️ Sağa sola kaydır veya tekerlek ile değiştir</div></div>
   </div>
+
 
   <button id="chatToggle">💬</button>
 
@@ -124,6 +113,20 @@ function calcEqual(){
   try{ let r=eval(calcBuf); document.getElementById("calcDisplay").value=r; calcBuf=r.toString(); }catch(e){ document.getElementById("calcDisplay").value="Hata"; calcBuf=""; }
 }
 </script>
+
+<script>
+document.getElementById('camBtnTop')?.addEventListener('click', ()=>{
+  const realCamBtn = document.getElementById('camBtn');
+  if(realCamBtn) realCamBtn.click();
+  else {
+    // Fallback direct toggle
+    if(window.camEnabled !== undefined){
+      // handled by main script
+    }
+  }
+});
+</script>
+
 <script src="script.js"></script>
 </body>
 </html>
