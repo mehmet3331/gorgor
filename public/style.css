@@ -12,7 +12,9 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; overflow: 
 
 .calc-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
 
-.calc-grid button { height: 50px; border: none; border-radius: 10px; font-size: 18px; background: #333; color: white; cursor: pointer; }
+.calc-grid button { height: 50px; border: none; border-radius: 10px; font-size: 18px; background: #
+
+333; color: white; cursor: pointer; }
 
 #roomScreen { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; background: #000; z-index: 9999; }
 
@@ -54,7 +56,9 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; overflow: 
 
 #statusBar { display: flex; flex-direction: column; gap: 6px; margin-top: 5px; width: auto; height: auto; background: none; }
 
-.statusBox { background: rgba(0,0,0,.75); padding: 8px; border-radius: 10px; font-size: 12px; color: white; width: max-content; }
+.statusBox { back
+
+ground: rgba(0,0,0,.75); padding: 8px; border-radius: 10px; font-size: 12px; color: white; width: max-content; }
 
 #chatToggle { position: fixed; bottom: 15px; right: 15px; width: 60px; height: 60px; border: none; border-radius: 50%; background: #00bcd4; color: white; font-size: 26px; font-weight: bold; cursor: pointer; z-index: 1000; }
 
@@ -166,7 +170,8 @@ body.phone-mode #chatPanel { pointer-events: none; opacity: 0.2; } body.phone-mo
 
 .shake { animation: shake 0.6s; }
 
-@keyframes screenShake {
+@keyframes screenShake { 
+
   0%,100% { transform: translate(0,0); } 
 
   10% { transform: translate(-10px,-5px); } 
@@ -195,7 +200,9 @@ body.phone-mode #chatPanel { pointer-events: none; opacity: 0.2; } body.phone-mo
 
 #emojiBtn { background: #444 !important; }
 
-#emojiPanel { display: none; position: absolute; bottom: 125px; right: 10px; background: #222; border-radius: 14px; padding: 10px; gap: 10px; z-index: 100; flex-wrap: wrap; max-width: 280px; border: 1px solid #333; box-shadow: 0 8px 20px rgba(0,0,0,0.8); }
+#emoji
+
+Panel { display: none; position: absolute; bottom: 125px; right: 10px; background: #222; border-radius: 14px; padding: 10px; gap: 10px; z-index: 100; flex-wrap: wrap; max-width: 280px; border: 1px solid #333; box-shadow: 0 8px 20px rgba(0,0,0,0.8); }
 
 #emojiPanel.show { display: flex; }
 
@@ -254,6 +261,7 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
 /* === LAMBA FIX - BEYAZ DIS CERCEVE === */
 
 #remoteVideo {
+
   border: 4px solid transparent;
 
   border-radius: 12px;
@@ -263,6 +271,7 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
 }
 
 #remoteVideo.lamp-on {
+
   border-color: #ffffff !important;
 
   box-shadow: 
@@ -277,7 +286,8 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
 
 }
 
-#lightModeBtn.active {
+#lightModeBtn.active { 
+
   background: #ffffff !important; 
 
   color: #000 !important; 
@@ -289,6 +299,7 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
 /* YAZIYOR + OKUNDU */
 
 #typingIndicator {
+
   position: fixed;
 
   bottom: 54%;
