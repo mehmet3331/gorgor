@@ -1,6 +1,8 @@
 console.log("V12.3 FIX3 - BEYAZ LAMBA + InPrivate FIX");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
+
+let onlineUsersMap={}; let globalChatTimer=null; function showOnlineToast(n){ let t=document.getElementById('onlineToast'); if(!t){ t=document.createElement('div'); t.id='onlineToast'; t.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#00c853;color:white;padding:12px 22px;border-radius:24px;z-index:99999;font-weight:bold;display:none;'; document.body.appendChild(t);} t.textContent=n+' online oldu 🟢'; t.style.display='block'; setTimeout(()=>t.style.display='none',3000);} function updateOnlineDots(l){ onlineUsersMap={}; l.forEach(u=>{onlineUsersMap[u.name||u]={name:u.name||u,online:true};}); if(l.length>1){ document.querySelectorAll('.ticks.single').forEach(t=>{t.className='ticks double'; t.textContent=' ✓✓'; t.style.color='#999';});}}
 const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
 
 const myVideo = document.getElementById("myVideo");
@@ -156,6 +158,7 @@ async function startCamera(height=720, facingMode=currentFacingMode){
     }catch(err){ console.log("kamera hata",err); return false; }
 }
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=>socket.emit("ping-check",Date.now()),3000); }
+socket.on('online-users',(l)=>{updateOnlineDots(l);}); socket.on('user-joined',(d)=>{ if(d.name!==myRealUsername){showOnlineToast(d.name);} socket.emit('get-online-users');}); socket.on('user-left',()=>{socket.emit('get-online-users');}); socket.on('message-delivered',({msgId})=>{const div=document.getElementById(msgId); if(div){const tick=div.querySelector('.ticks'); if(tick){tick.className='ticks double'; tick.textContent=' ✓✓'; tick.style.color='#999';}}}); socket.on('message-read',({msgId})=>{const div=document.getElementById(msgId); if(div){const tick=div.querySelector('.ticks'); if(tick){tick.className='ticks double read'; tick.textContent=' ✓✓'; tick.style.color='#00ff88';}}}); socket.on('joined-room',()=>{ if(globalChatTimer) clearTimeout(globalChatTimer); globalChatTimer=setTimeout(()=>{if(confirm('Sohbet 8 saat doldu, silinsin mi?')){document.getElementById('messages').innerHTML='<div style=text-align:center;color:#666;padding:20px;>🧹 Temizlendi</div>'; socket.emit('clear-all-messages');}}, 28800*1000); socket.emit('get-online-users');});
 socket.on("pong-check", ts=>{
     const ping=Date.now()-ts;
     if(pingValue) pingValue.textContent=ping+" ms";
@@ -408,9 +411,9 @@ function createFlyingEmoji(emoji,effect,isMine){
         if(msnEffectLayer){ msnEffectLayer.style.background=effect==='fire'?'radial-gradient(circle at 50% 70%, rgba(255,80,0,0.25), transparent 65%)':'radial-gradient(circle at 50% 50%, rgba(255,255,0,0.2), transparent 60%)'; msnEffectLayer.style.display='block'; setTimeout(()=>msnEffectLayer.style.display='none',600); }
     }
 }
-micBtn.onclick=()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; };
+micBtn.onclick=async()=>{ if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } } micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer && peer._pc){ const at=localStream.getAudioTracks()[0]; const ss=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of ss){ await s.replaceTrack(at); } } }catch(e){} };
 camBtn.onclick=()=>{ if(!localStream) return; camEnabled=!camEnabled; localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled); camBtn.classList.toggle("offIcon",!camEnabled); };
-if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ try{ currentFacingMode=currentFacingMode==="user"?"environment":"user"; await startCamera(currentQuality,currentFacingMode); if(peer&&localStream){ const s=peer._pc.getSenders().find(x=>x.track&&x.track.kind==="video"); if(s) await s.replaceTrack(localStream.getVideoTracks()[0]); } }catch(err){ alert("Ikinci kamera yok"); } }; }
+if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ try{ currentFacingMode=currentFacingMode==="user"?"environment":"user"; await startCamera(currentQuality,currentFacingMode); if(peer&&localStream){ const s=peer._pc.getSenders().find(x=>x.track&&x.track.kind==="video"); if(s) await s.replaceTrack(localStream.getVideoTracks()[0]); } }catch(err){ alert("Arka kamera bulunamadi: "+(err.message||err)); currentFacingMode="user"; try{ await startCamera(currentQuality,"user"); }catch(e){}; } }; }
 remoteVideo.muted=false; remoteVideo.volume=0.1; volumeSlider.value=0.1;
 volumeSlider.oninput=()=>{ const v=parseFloat(volumeSlider.value); remoteVideo.volume=v; remoteVideo.muted=v<=0; soundBtn.textContent=v<=0?"🔇":"🔊"; };
 soundBtn.onclick=()=>{ remoteVideo.muted=!remoteVideo.muted; if(!remoteVideo.muted&&parseFloat(volumeSlider.value)===0){ volumeSlider.value=0.5; remoteVideo.volume=0.5; } soundBtn.textContent=remoteVideo.muted?"🔇":"🔊"; };
