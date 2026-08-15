@@ -82,7 +82,7 @@ let activeTimers = new Map();
 let isPhoneMode = false;
 let currentRoom=null, currentPassword="", myUsername="", myRealUsername="";
 let lampOn=false;
-const MAX_SEC = 604800;
+const MAX_SEC = 86400; // 24 saat
 
 const REAL_ROOM = "oda1";
 const FAKE_ROOMS = ["oda","oda2","oda3","oda4","oda5","oda6","oda7","oda8","oda9"];
@@ -267,53 +267,76 @@ function addReduceExtendButtons(div,msgId){
     extend.onclick=(e)=>{ e.stopPropagation(); const inp=prompt("Ne kadar uzatayım? saniye"); if(!inp) return; let v=parseInt(inp.replace(/[^0-9]/g,'')); if(isNaN(v)||v<=0) return; socket.emit("extend-request",{msgId,extraSec:v}); };
     div.appendChild(reduce); div.appendChild(extend);
 }
+
 async function addMyMessage(text,expireSec,realName){
-    const msgId=`msg-${Date.now()}-${messageIdCounter++}`;
+    const now = Date.now();
+    const msgId=`msg-${now}-${messageIdCounter++}`;
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC);
     const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-    div.innerHTML=`<span class="expireInfo">🔒 ${realName} • ⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks"> ✓</span><span class="countdown">⏳ Karşı açınca ${formatTime(expireSec)}</span>`;
-    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); div._expireSec=expireSec; addReduceExtendButtons(div,msgId); return msgId;
+    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks single" style="color:#999;"> ✓</span><span class="countdown">⏳ ${formatTime(expireSec)}</span>`;
+    div._sentAt=now; div._deleteAt=now+expireSec*1000;
+    messages.appendChild(div); 
+    messages.scrollTop=messages.scrollHeight; 
+    sentMessages.set(msgId,div); div._expireSec=expireSec; 
+    startSelfDestruct(div,msgId,expireSec,div._deleteAt);
+    addReduceExtendButtons(div,msgId); 
+    return msgId;
 }
 async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){
-    const msgId=`media-${Date.now()}-${messageIdCounter++}`;
-    const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec;
-    div.innerHTML=`<span class="expireInfo">🔒 ${myRealUsername} • ⏰ ${formatTime(expireSec)}</span>`;
-    if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; div.appendChild(im); }
+    const now=Date.now();
+    const msgId=`media-${now}-${messageIdCounter++}`;
+    const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=now; div._deleteAt=now+expireSec*1000;
+    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)}</span>`;
+    if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; div.appendChild(im); setupLongPress(im, msgId); }
     else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
-    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ Karşı açınca ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
-    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); addReduceExtendButtons(div,msgId); return msgId;
+    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
+    messages.appendChild(div); messages.scrollTop=messages.scrollHeight; sentMessages.set(msgId,div); 
+    startSelfDestruct(div,msgId,expireSec,div._deleteAt);
+    addReduceExtendButtons(div,msgId); return msgId;
 }
-async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal){
+function setupLongPress(img, msgId){ 
+  let timer; 
+  img.addEventListener("touchstart", (e)=>{ timer=setTimeout(()=>{ const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0 && v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; startSelfDestruct(div,msgId,v,newDelete); } } }, 800); }, {passive:true}); 
+  img.addEventListener("touchend", ()=>clearTimeout(timer)); 
+  img.addEventListener("mousedown", (e)=>{ timer=setTimeout(()=>{ const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0 && v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; startSelfDestruct(div,msgId,v,newDelete); } } }, 800); });
+  img.addEventListener("mouseup", ()=>clearTimeout(timer));
+}
+async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal, sentAt){
     if(document.getElementById(msgId)) return;
-    const div=document.createElement("div"); div.className="otherMessage lockedMessage"; div.id=msgId; expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
-    div._enc=enc; div._expireSec=expireSec; div._mediaType=mediaType||"text";
-    div.innerHTML=`${senderReal}: Yeni gizli ${mediaType||"mesaj"} - ${formatTime(expireSec)}<br><button class="openBtn">🔓 Aç</button><span class="countdown" style="display:none;"></span>`;
-    const btn=div.querySelector(".openBtn");
-    btn.onclick=async(e)=>{
-        e.stopPropagation();
-        const pass=prompt(`🔐 Mesajı açmak için oda şifresini gir:`);
-        if(!pass) return; if(pass!==currentPassword){ alert("❌ Şifre yanlış!"); return; }
-        btn.textContent="Açılıyor...";
-        const plain=await decryptText(enc,pass);
-        if(!plain){ alert("Şifre çözülemedi!"); btn.textContent="🔓 Aç"; return; }
-        if(div._mediaType==="text"||!div._mediaType){
-            const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-            div.innerHTML=`${senderReal} → ${linked}<span class="countdown">⏳ ${formatTime(expireSec)}</span>`;
-        }else{
-            div.innerHTML=`${senderReal} - ⏰ ${formatTime(expireSec)}`;
-            if(div._mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; img.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:plain,name:"gizli.jpg"}); }; div.appendChild(img); }
-            else if(div._mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
-            const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
-        }
+    expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
+    const sent = sentAt || Date.now();
+    const deleteAt = sent + expireSec*1000;
+    try{
+        const plain = await decryptText(enc, currentPassword);
+        if(!plain){ console.log("decrypt fail", msgId); return; }
+        const div=document.createElement("div");
         div.className="otherMessage";
+        div.id=msgId;
+        div._expireSec=expireSec;
+        div._sentAt=sent;
+        div._deleteAt=deleteAt;
+        const remaining = Math.max(1, Math.floor((deleteAt-Date.now())/1000));
+        if(mediaType==="text"||!mediaType){
+            const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
+            div.innerHTML=`<span class="senderName">${senderReal}</span> → ${linked}<span class="ticks single" style="color:#999;"> ✓</span><span class="countdown">⏳ ${formatTime(remaining)}</span>`;
+        }else{
+            div.innerHTML=`<span class="senderName">${senderReal}</span> - ⏰ ${formatTime(remaining)}`;
+            if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); setupLongPress(img, msgId); }
+            else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
+            const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(remaining)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
+        }
+        messages.appendChild(div); 
+        messages.scrollTop=messages.scrollHeight;
+        startSelfDestruct(div,msgId,remaining,deleteAt);
+        addReduceExtendButtons(div,msgId);
         socket.emit("message-opened",{msgId});
         socket.emit("message-read",{msgId,reader:myRealUsername});
-        startSelfDestruct(div,msgId,expireSec);
-        addReduceExtendButtons(div,msgId);
-    };
-    messages.appendChild(div); messages.scrollTop=messages.scrollHeight;
-    if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); }
+        if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); }
+        return;
+    }catch(e){ console.log("addLockedMessage err", e); }
 }
+
+
 function getExpireFromSelect(){
     let val=perMessageTimerSelect.value;
     if(val==="default") return defaultExpire;
@@ -337,8 +360,8 @@ sendBtn.onclick=async()=>{
     input.value=""; socket.emit('typing',false); isTyping=false;
 };
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
-socket.on("chat-message", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username); });
-socket.on("chat-media", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username); });
+socket.on("chat-message", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username, data.sentAt); });
+socket.on("chat-media", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username, data.sentAt); });
 socket.on("pending-messages", async(list)=>{
     for(const m of list){
         const plain=await decryptText(m.enc,currentPassword); if(!plain) continue;
@@ -425,7 +448,21 @@ function createFlyingEmoji(emoji,effect,isMine){
     }
 }
 micBtn.onclick=async()=>{ if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ alert("Mikrofon izni gerekli"); return; } } micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>{ t.enabled=micEnabled; console.log("Mikrofon", micEnabled? "acik":"kapali"); }); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer && peer._pc){ const at=localStream.getAudioTracks()[0]; if(at){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of senders){ await s.replaceTrack(at); console.log("Audio track peer e gonderildi"); } } } }catch(e){ console.log("mic replaceTrack hata", e); } };
-camBtn.onclick=()=>{ if(!localStream) return; camEnabled=!camEnabled; localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled); camBtn.classList.toggle("offIcon",!camEnabled); };
+camBtn.onclick=async()=>{ 
+  if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
+  camEnabled=!camEnabled; 
+  localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled); 
+  camBtn.classList.toggle("offIcon",!camEnabled);
+  try{
+    if(peer && peer._pc && localStream){
+      const vt = localStream.getVideoTracks()[0];
+      if(vt){
+        const senders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==="video");
+        for(const s of senders){ await s.replaceTrack(vt); }
+      }
+    }
+  }catch(e){}
+};
 if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ 
         try{ 
             const wasCamOn = camEnabled;
@@ -497,6 +534,7 @@ if(cameraInput){
   };
 }
 
+
 mediaInput.onchange=async()=>{
     isPickingFile = true;
     const file=mediaInput.files[0]; if(!file){ isPickingFile=false; return; }
@@ -552,17 +590,12 @@ socket.on("phone-mode",(enabled)=>{
         if(remoteVideo) remoteVideo.style.display="none"; 
         if(candleContainer) candleContainer.classList.remove("show"); 
         volumeSlider.value=0.1; remoteVideo.volume=0.1; 
-        // karşı taraf telefon açtıysa bizde de kamera kapansın
         if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
         camEnabled=false; camBtn.classList.add("offIcon");
-        phoneModeBtn.style.opacity='1'; phoneModeBtn.style.pointerEvents='auto';
     }
     else{ 
         phoneCallUI.style.display="none"; 
-        if(remoteVideo&&remoteVideo.srcObject){ 
-            remoteVideo.style.display="block"; 
-            remoteVideo.play().catch(()=>{});
-        }
+        if(remoteVideo&&remoteVideo.srcObject){ remoteVideo.style.display="block"; remoteVideo.play().catch(()=>{}); }
         if(myVideoContainer) myVideoContainer.style.display="block"; 
         if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
         camEnabled=false; camBtn.classList.add("offIcon");
