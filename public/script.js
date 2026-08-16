@@ -42,8 +42,8 @@ const emojiPanel = document.getElementById("emojiPanel");
 const lightModeBtn = document.getElementById("lightModeBtn");
 const locationBtn = document.getElementById("locationBtn");
 const addCustomEmoji = document.getElementById("addCustomEmoji");
-const perMessageTimerSelect = document.getElementById("perMessageTimerSelect"); // kaldırıldı - artık yok
-const perMessagePersistSelect = document.getElementById("perMessagePersistSelect"); // kaldırıldı
+const perMessageTimerSelect = document.getElementById("perMessageTimerSelect");
+const perMessagePersistSelect = document.getElementById("perMessagePersistSelect");
 const defaultSelfDestructSelect = document.getElementById("defaultSelfDestructSelect");
 const phoneModeBtn = document.getElementById("phoneModeBtn");
 const phoneCallUI = document.getElementById("phoneCallUI");
@@ -74,9 +74,7 @@ let micEnabled = true; let camEnabled = true;
 let currentQuality = 720; let currentFacingMode = "user"; let pingTimer = null; let currentMediaData = null;
 let typingTimer; let isTyping = false; let messageIdCounter = 0;
 const sentMessages = new Map();
-let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "14400"); // default 4 saat
-if(defaultExpire < 900) defaultExpire = 14400; // min 15dk, default 4 saat
-if(defaultExpire > 86400) defaultExpire = 86400;
+let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "1800");
 let activeTimers = new Map();
 let isPhoneMode = false;
 let isPickingFile = false;
@@ -128,6 +126,7 @@ roomName.addEventListener("input",()=>{
         if(userListBox) userListBox.style.display="none"; 
     }
 });
+
 
 // === FLOATING PILL - Karşı kişi gösterimi ===
 let opponentUsername = "";
@@ -325,8 +324,7 @@ socket.on("user-disconnected",()=>{
     // Karşı kişi ayrıldı - gri yap, ismi koru ama durumu offline yap
     updateOpponentDisplay(opponentUsername || "Bilinmeyen", "yokum");
 });
-// Eski handler - yeni aşağıda
-    // qualitySelect.onchange (eski) = async()=>{
+qualitySelect.onchange = async()=>{
     const wasCamOn = camEnabled;
     const wasMicOn = micEnabled;
     currentQuality=parseInt(qualitySelect.value);
@@ -476,42 +474,29 @@ async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal, sentAt
 }
 
 function getExpireFromSelect(){
-    // Yeni mantık: sadece genel kaybolma süresi (defaultExpire) kullan
-    // 15dk, 1 saat, 4 saat, 24 saat veya manuel
-    return Math.min(defaultExpire, MAX_SEC);
+    let val = perMessageTimerSelect.value;
+    if(val==="default") return defaultExpire;
+    if(val==="custom"){
+        let custom = prompt(`Manuel süre saniye:`);
+        if(!custom) return defaultExpire;
+        let num = parseInt(custom.replace(/[^0-9]/g,''));
+        if(isNaN(num)||num<=0) return defaultExpire;
+        if(num>MAX_SEC) num=MAX_SEC;
+        return num;
+    }
+    return Math.min(parseInt(val),MAX_SEC);
 }
-
-function updateExpireDisplay(){
-    const display = document.getElementById("currentExpireDisplay");
-    const customWheel = document.getElementById("customExpireWheel");
-    const customInput = document.getElementById("customExpireInput");
-    const customValue = document.getElementById("customExpireValue");
-    if(display){
-        display.textContent = formatTime(defaultExpire);
-    }
-    // Custom wheel göster/gizle
-    if(defaultSelfDestructSelect && defaultSelfDestructSelect.value === "custom"){
-        if(customWheel) customWheel.style.display = "block";
-    } else {
-        if(customWheel) customWheel.style.display = "none";
-    }
-    if(customInput && customValue){
-        customValue.textContent = `${customInput.value} dk (${formatTime(parseInt(customInput.value)*60)})`;
-    }
-}
-
 sendBtn.onclick=async()=>{
     const text=input.value.trim(); if(!text) return;
     let expire=getExpireFromSelect();
-    // Timer hemen başlasın - sentAt ile birlikte
+    const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once";
+    if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); }
     const msgId=await addMyMessage(text,expire,myRealUsername);
     const enc=await encryptText(text,currentPassword);
     const sentAt=Date.now();
     socket.emit("chat-message",{ msgId, enc, expireSec:expire, sentAt });
     input.value=""; socket.emit('typing',false); isTyping=false;
-    console.log("Mesaj gönderildi, sayaç hemen başladı:", formatTime(expire));
 };
-
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{ addLockedMessage(data.msgId, data.expireSec, data.enc, "text", data.realUsername||data.username, data.sentAt); });
 socket.on("chat-media", data=>{ addLockedMessage(data.msgId, data.expireSec, data.enc, data.mediaType||"image", data.realUsername||data.username, data.sentAt); });
@@ -535,22 +520,15 @@ socket.on("pending-messages", async(list)=>{
             if(isMine) sentMessages.set(m.msgId,div);
         }else{
             if(isMine){
-                // FIX: Sayaç atıldığı anda başlasın, karşı tarafın açmasını bekleme
-                const sent = m.sentAt || m.expireAt - m.expireSec*1000 || Date.now();
-                const deleteAt = sent + m.expireSec*1000;
-                const remaining = Math.max(1, Math.floor((deleteAt - Date.now())/1000));
-                if(remaining <= 0) continue; // süresi dolmuş atla
-                const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId; div._expireSec=m.expireSec; div._sentAt=sent; div._deleteAt=deleteAt;
+                const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId; div._expireSec=m.expireSec;
                 if(m.type==="text"){
-                    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - ${formatTime(remaining)} kaldı</span>BEN (${m.realUsername}) → ${plain}<span class="countdown">⏳ ${formatTime(remaining)}</span>`;
+                    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - Henüz açılmadı</span>BEN (${m.realUsername}) → ${plain}<span class="countdown">⏳ Karşı açınca ${formatTime(m.expireSec)}</span>`;
                 }else{
-                    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - ${formatTime(remaining)} kaldı</span>`;
+                    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(m.expireSec)} - Henüz açılmadı</span>`;
                     if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); }
-                    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(remaining)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
+                    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ Karşı açınca ${formatTime(m.expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
                 }
-                messages.appendChild(div); sentMessages.set(m.msgId,div); 
-                startSelfDestruct(div,m.msgId,remaining,deleteAt);
-                addReduceExtendButtons(div,m.msgId);
+                messages.appendChild(div); sentMessages.set(m.msgId,div); addReduceExtendButtons(div,m.msgId);
             }else{
                 addLockedMessage(m.msgId, m.expireSec, m.enc, m.type, m.realUsername);
             }
@@ -898,52 +876,35 @@ if(phoneModeBtn){
             volumeSlider.value=0.1; remoteVideo.volume=0.1; remoteVideo.muted=false; soundBtn.textContent="🔊";
             _phoneWasCamOn = camEnabled;
             _phoneWasMicOn = micEnabled;
-            console.log("Telefon açılıyor, önceki cam", _phoneWasCamOn, "mic", _phoneWasMicOn, "- şimdi mic otomatik açılacak");
+            console.log("Telefon aciliyor, onceki cam", _phoneWasCamOn, "mic", _phoneWasMicOn);
         }
         isPhoneMode=!isPhoneMode;
         document.body.classList.toggle("phone-mode",isPhoneMode);
         phoneModeBtn.classList.toggle("active",isPhoneMode);
         if(isPhoneMode){
-            // TELEFON MODU AÇILIYOR - kamera kapanıyor, mikrofon OTOMATİK AÇILIYOR
-            if(localStream){ 
-                localStream.getVideoTracks().forEach(t=> t.enabled=false);
-                localStream.getAudioTracks().forEach(t=> t.enabled=true); // Mic otomatik açık telefon görüşmesinde
-            }
+            if(localStream){ localStream.getVideoTracks().forEach(t=> t.enabled=false); }
             camEnabled=false; camBtn.classList.add("offIcon");
-            micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; // Mic otomatik açık
-            console.log("Telefon modu AÇIK - mic OTOMATİK açıldı, kamera kapalı");
             phoneCallUI.style.display="flex";
             if(remoteVideo) remoteVideo.style.display="none";
             if(myVideoContainer) myVideoContainer.style.display="none";
             if(candleContainer) candleContainer.classList.remove("show");
             socket.emit("phone-mode",true);
-            
-            // Peer'da audio track'i güncelle - karşı tarafa ses gitsin
-            if(peer && peer._pc && localStream){
-              const at = localStream.getAudioTracks()[0];
-              (async()=>{
-                if(at){
-                  const aSenders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==="audio");
-                  for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} }
-                }
-              })();
-            }
         }else{
-            // TELEFON MODU KAPANIYOR - mikrofon OTOMATİK KAPANIYOR, manuel istersem açarım
+            // FIX: Kamera otomatik aktif olmasin - onceki durumu geri yukle, hep acik yapma
             if(localStream){
                 localStream.getVideoTracks().forEach(t=> t.enabled=_phoneWasCamOn);
-                localStream.getAudioTracks().forEach(t=> t.enabled=false); // Mic otomatik kapanıyor
+                localStream.getAudioTracks().forEach(t=> t.enabled=_phoneWasMicOn);
             }
             camEnabled=_phoneWasCamOn;
-            micEnabled=false; // Mic otomatik kapalı
+            micEnabled=_phoneWasMicOn;
             if(camEnabled) camBtn.classList.remove("offIcon"); else camBtn.classList.add("offIcon");
-            micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; // Mic kapalı göster
-            console.log("Telefon modu KAPALI - mic OTOMATİK kapandı, kamera önceki durumuna döndü:", camEnabled);
+            if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+            console.log("Telefon kapaniyor, geri yuklendi cam", camEnabled, "mic", micEnabled);
             phoneCallUI.style.display="none";
             if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
             if(myVideoContainer) myVideoContainer.style.display="block";
             socket.emit("phone-mode",false);
-            // Peer'da trackleri güncelle
+            // Peer'da trackleri guncelle
             if(peer && peer._pc && localStream){
               const vt = localStream.getVideoTracks()[0];
               const at = localStream.getAudioTracks()[0];
@@ -969,121 +930,8 @@ socket.on("phone-mode",(enabled)=>{
     else{ phoneCallUI.style.display="none"; if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block"; if(myVideoContainer) myVideoContainer.style.display="block"; }
 });
 if(defaultSelfDestructSelect){
-    defaultSelfDestructSelect.onchange=()=>{
-        let val = defaultSelfDestructSelect.value;
-        if(val === "custom"){
-            const customInput = document.getElementById("customExpireInput");
-            if(customInput){
-                defaultExpire = parseInt(customInput.value) * 60;
-            }
-            const customWheel = document.getElementById("customExpireWheel");
-            if(customWheel) customWheel.style.display = "block";
-        } else {
-            let numVal = parseInt(val);
-            if(isNaN(numVal)) numVal = 14400;
-            if(numVal>MAX_SEC) numVal=MAX_SEC;
-            if(numVal < 900) numVal = 900; // min 15dk
-            defaultExpire = numVal;
-            const customWheel = document.getElementById("customExpireWheel");
-            if(customWheel) customWheel.style.display = "none";
-        }
-        localStorage.setItem("gorgor_default_expire",defaultExpire.toString());
-        updateExpireDisplay();
-        console.log("Genel kaybolma süresi:", formatTime(defaultExpire));
-    };
-    
-    // Custom expire input - 15dk to 24 saat (15 to 1440 dk) manual slider
-    const customInput = document.getElementById("customExpireInput");
-    const customValue = document.getElementById("customExpireValue");
-    if(customInput){
-        customInput.oninput = ()=>{
-            let dk = parseInt(customInput.value);
-            defaultExpire = dk * 60;
-            if(defaultExpire > MAX_SEC) defaultExpire = MAX_SEC;
-            localStorage.setItem("gorgor_default_expire",defaultExpire.toString());
-            if(customValue){
-                customValue.textContent = `${dk} dk (${formatTime(defaultExpire)})`;
-            }
-            updateExpireDisplay();
-        };
-    }
-    
-    // Init display
-    updateExpireDisplay();
+    defaultSelfDestructSelect.onchange=()=>{ let val=parseInt(defaultSelfDestructSelect.value); if(val>MAX_SEC) val=MAX_SEC; defaultExpire=val; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); };
 }
-
-// Kalite seçimi - hem benim hem karşıdakinin aynı anda değişsin
-if(qualitySelect){
-    // Eski onchange'i temizle ve yeniden yaz - hem benim hem karşıdakinin kalitesi aynı anda
-    qualitySelect.onchange = async()=>{
-        const wasCamOn = camEnabled;
-        const wasMicOn = micEnabled;
-        const newQuality = parseInt(qualitySelect.value);
-        currentQuality = newQuality;
-        console.log("Kalite değişiyor:", newQuality, "p - hem benim hem karşıdakinin");
-        
-        // Karşı tarafa bildir - onun da kalitesi aynı olsun
-        socket.emit("quality-change", newQuality);
-        
-        try{
-            await startCamera(currentQuality, currentFacingMode);
-            if(localStream){
-                localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn);
-                localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn);
-                camEnabled=wasCamOn; micEnabled=wasMicOn;
-                if(!wasCamOn) camBtn.classList.add("offIcon"); else camBtn.classList.remove("offIcon");
-                if(!wasMicOn) micBtn.classList.add("offIcon"); else micBtn.classList.remove("offIcon");
-                myVideo.srcObject = localStream;
-                myVideo.play().catch(()=>{});
-            }
-            if(peer && peer._pc && localStream){ 
-                const vt = localStream.getVideoTracks()[0];
-                if(vt){
-                    const senders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==="video");
-                    for(const s of senders){ 
-                        try{ await s.replaceTrack(vt); }catch(e){ console.log("replaceTrack video hata", e); }
-                    }
-                }
-                const at = localStream.getAudioTracks()[0];
-                if(at){
-                    const aSenders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==="audio");
-                    for(const s of aSenders){ 
-                        try{ await s.replaceTrack(at); }catch(e){ console.log("replaceTrack audio hata", e); }
-                    }
-                }
-            }
-            console.log("Kalite güncellendi:", newQuality, "p - benim ve karşı taraf aynı");
-        }catch(e){
-            console.error("Kalite değişim hata", e);
-        }
-    };
-    
-    // Karşı taraf kalite değiştirdiğinde benimki de değişsin
-    socket.on("quality-change", async(newQuality)=>{
-        console.log("Karşı taraf kalite değiştirdi:", newQuality, "p - benimki de aynı olacak");
-        if(qualitySelect) qualitySelect.value = newQuality.toString();
-        currentQuality = newQuality;
-        const wasCamOn = camEnabled;
-        const wasMicOn = micEnabled;
-        try{
-            await startCamera(currentQuality, currentFacingMode);
-            if(localStream){
-                localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn);
-                localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn);
-                myVideo.srcObject = localStream;
-                myVideo.play().catch(()=>{});
-            }
-            if(peer && peer._pc && localStream){ 
-                const vt = localStream.getVideoTracks()[0];
-                if(vt){
-                    const senders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==="video");
-                    for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} }
-                }
-            }
-        }catch(e){ console.error("Karşı kalite değişim uygulama hata", e); }
-    });
-}
-
 function doPanic(){
     if(!confirm("🚨 PANİK: Tüm mesajlar silinsin mi?")) return;
     messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
