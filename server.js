@@ -79,24 +79,40 @@ io.on('connection', socket=>{
 
   socket.on('join-room', (data)=>{
     const room = data.room;
-    socket.room = room;
-    socket.username = data.username;
-    socket.realUsername = data.realUsername || data.username;
-
+    const requestedUsername = data.username;
+    
+    // MAX 2 KİŞİ KONTROLÜ - 3. kişi engellensin
     if(!rooms[room]) rooms[room] = { users: {}, messages: new Map() };
+    const currentCount = Object.keys(rooms[room].users).length;
+    if(currentCount >= 2){
+      console.log(`ODA DOLU: ${room} - ${requestedUsername} giremedi, zaten ${currentCount} kişi var`);
+      socket.emit('room-error', 'Oda dolu - sadece 2 kişi girebilir');
+      return;
+    }
+
+    socket.room = room;
+    socket.username = requestedUsername;
+    socket.realUsername = data.realUsername || requestedUsername;
+
     rooms[room].users[socket.id] = socket.username;
 
     socket.join(room);
 
     const count = Object.keys(rooms[room].users).length;
     socket.emit('joined-room', {username: data.username, count});
-    socket.to(room).emit('user-connected', {username: data.username});
+    socket.to(room).emit('user-connected', {username: data.username, realUsername: socket.realUsername});
+    
+    const otherUsers = Object.values(rooms[room].users).filter(u => u !== data.username);
+    if(otherUsers.length > 0){
+      socket.emit('existing-users', otherUsers);
+    }
 
-    // KALICI MESAJLARI GÖNDER - ÇIKIP GİRİNCE KAYBOLMASIN
     const pending = persistedMessages.filter(m=>m.room===room);
     if(pending.length){
       socket.emit('pending-messages', pending);
     }
+    
+    console.log(`ODA: ${room} - ${data.username} girdi, toplam ${count} kişi`);
   });
 
   socket.on('chat-message', async data=>{
@@ -123,11 +139,11 @@ io.on('connection', socket=>{
     const room=socket.room; if(!room) return;
     const t=rooms[room]?.messages.get(msgId);
     let idx=persistedMessages.findIndex(m=>m.msgId===msgId && m.room===room);
+    const existingDeleteAt = t?.deleteAt || (idx>=0 ? persistedMessages[idx].deleteAt : null) || (t?.expireAt || Date.now()+14400*1000);
     const baseSec = t?.expireSec || (idx>=0? persistedMessages[idx].expireSec : 14400);
-    const deleteAt = Date.now()+baseSec*1000;
-    if(t){ t.opened=true; t.deleteAt=deleteAt; }
-    if(idx>=0){ persistedMessages[idx].opened=true; persistedMessages[idx].deleteAt=deleteAt; persistedMessages[idx].expireAt=deleteAt; debouncedSave(); }
-    io.to(room).emit('message-opened',{msgId, deleteAt, expireSec: baseSec});
+    if(t){ t.opened=true; }
+    if(idx>=0){ persistedMessages[idx].opened=true; debouncedSave(); }
+    io.to(room).emit('message-opened',{msgId, deleteAt: existingDeleteAt, expireSec: baseSec, openedAt: Date.now()});
   });
 
   socket.on('disconnect', ()=>{
