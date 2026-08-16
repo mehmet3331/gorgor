@@ -135,14 +135,14 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
   transition: all 0.4s ease;
 }
 #remoteVideo.lamp-on {
-  border: 28px solid #ffffff !important;
+  border: 48px solid #ffffff !important;
   box-shadow: 
-    0 0 25px #ffffff,
-    0 0 50px #ffffff,
-    0 0 100px rgba(255,255,255,1),
-    0 0 150px rgba(255,255,255,0.8),
-    inset 0 0 40px rgba(255,255,255,0.3) !important;
-  filter: brightness(1.35) contrast(1.15) !important;
+    0 0 35px #ffffff,
+    0 0 70px #ffffff,
+    0 0 140px rgba(255,255,255,1),
+    0 0 200px rgba(255,255,255,0.9),
+    inset 0 0 60px rgba(255,255,255,0.4) !important;
+  filter: brightness(1.5) contrast(1.2) !important;
 }
 #lightModeBtn.active { 
   background: #ffffff !important; 

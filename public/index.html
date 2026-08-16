@@ -210,5 +210,78 @@ function calcEqual(){
   </div>
 </div>
 
+
+<script>
+// === V17.2 WHEEL GARANTİ FIX - INLINE ===
+(function(){
+  console.log("WHEEL INLINE FIX YUKLENDI");
+  const overlay = document.getElementById("wheelOverlay");
+  const hourInput = document.getElementById("wheelHour");
+  const minuteInput = document.getElementById("wheelMinute");
+  const okBtn = document.getElementById("wheelOk");
+  const cancelBtn = document.getElementById("wheelCancel");
+  const openBtn = document.getElementById("openWheelBtn");
+  const selectEl = document.getElementById("defaultSelfDestructSelect");
+
+  function openWheelFix(){
+    console.log("openWheelFix cagrildi");
+    const def = parseInt(localStorage.getItem("gorgor_default_expire")||"14400");
+    const h = Math.floor(def/3600);
+    const m = Math.floor((def%3600)/60);
+    if(hourInput) hourInput.value = h;
+    if(minuteInput) minuteInput.value = m;
+    if(overlay){ overlay.style.display="flex"; overlay.classList.add("show"); console.log("Wheel overlay gosterildi"); }
+  }
+  function closeWheelFix(){
+    if(overlay){ overlay.style.display="none"; overlay.classList.remove("show"); }
+  }
+  function stepFix(type, dir){
+    if(type==="hour" && hourInput){ let v=parseInt(hourInput.value)||0; v+=dir; if(v<0) v=23; if(v>23) v=0; hourInput.value=v; }
+    if(type==="minute" && minuteInput){ let v=parseInt(minuteInput.value)||0; v+=dir; if(v<0) v=59; if(v>59) v=0; minuteInput.value=v; }
+  }
+  function quickFix(sec){
+    if(hourInput && minuteInput){ hourInput.value=Math.floor(sec/3600); minuteInput.value=Math.floor((sec%3600)/60); }
+  }
+  function saveFix(){
+    const h=parseInt(hourInput.value)||0; const m=parseInt(minuteInput.value)||0;
+    let sec=h*3600+m*60; if(sec<60) sec=60; if(sec>86400) sec=86400;
+    localStorage.setItem("gorgor_default_expire", sec.toString());
+    if(selectEl){
+      let customOpt=selectEl.querySelector('option[value="custom_display"]');
+      if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; selectEl.appendChild(customOpt); }
+      const formatTime=(s)=>{ if(s<60) return s+" sn"; const mm=Math.floor(s/60); if(mm<60) return mm+" dk"; const hh=Math.floor(mm/60); return hh+"sa "+(mm%60)+"dk"; };
+      customOpt.textContent=formatTime(sec)+" (wheel)"; customOpt.selected=true;
+    }
+    closeWheelFix();
+    alert("Varsayılan süre ayarlandı: "+h+" saat "+m+" dakika");
+  }
+
+  // Global yap
+  window.wheelStep = stepFix;
+  window.setWheelQuick = quickFix;
+  window.openWheel = openWheelFix;
+  window.closeWheel = closeWheelFix;
+  window.openWheelFix = openWheelFix;
+
+  if(openBtn){
+    openBtn.onclick = function(e){ e.preventDefault(); e.stopPropagation(); console.log("openWheelBtn tiklandi"); openWheelFix(); };
+    console.log("openWheelBtn listener eklendi");
+  }
+  if(selectEl){
+    selectEl.addEventListener("change", function(){ if(this.value==="custom"){ console.log("custom secildi"); openWheelFix(); } });
+  }
+  if(okBtn){ okBtn.onclick = saveFix; }
+  if(cancelBtn){ cancelBtn.onclick = closeWheelFix; }
+  if(overlay){
+    overlay.addEventListener("click", function(e){ if(e.target===overlay){ closeWheelFix(); } });
+  }
+  // Eski butonlar icin delegation
+  document.addEventListener("click", function(e){
+    if(e.target && e.target.id==="openWheelBtn"){ e.preventDefault(); openWheelFix(); }
+  });
+  console.log("WHEEL FIX TAMAM - Butonlar aktif");
+})();
+</script>
+
 </body>
 </html>
