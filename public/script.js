@@ -671,7 +671,7 @@ const wheelOk=document.getElementById("wheelOk");
 const wheelCancel=document.getElementById("wheelCancel");
 const openWheelBtn=document.getElementById("openWheelBtn");
 
-function openWheel(){
+function openWheel(){ console.log('openWheel cagrildi'); 
   if(!wheelOverlay) return;
   const total=defaultExpire;
   const h=Math.floor(total/3600); const m=Math.floor((total%3600)/60);
@@ -752,3 +752,23 @@ if(remoteVideo){
   }, {passive:false});
   remoteVideo.addEventListener('touchend', ()=>{ if(currentScale<1.1){ remoteVideo.style.transform="scale(1)"; currentScale=1; } });
 }
+
+
+// === V17.1 WHEEL FIX - GLOBAL YAP ===
+window.wheelStep = wheelStep;
+window.setWheelQuick = setWheelQuick;
+window.openWheel = openWheel;
+window.closeWheel = closeWheel;
+
+document.addEventListener("DOMContentLoaded", ()=>{
+  const owb = document.getElementById("openWheelBtn");
+  const wo = document.getElementById("wheelOverlay");
+  const wh = document.getElementById("wheelHour");
+  const wm = document.getElementById("wheelMinute");
+  if(owb){ owb.addEventListener("click",(e)=>{ e.stopPropagation(); console.log("Wheel butonu tiklandi"); openWheel(); }); }
+  // Custom select tetik
+  const dsd = document.getElementById("defaultSelfDestructSelect");
+  if(dsd){ dsd.addEventListener("change", ()=>{ if(dsd.value==="custom"){ console.log("Custom secildi wheel aciliyor"); openWheel(); } }); }
+  console.log("Wheel fix yuklendi - butonlar aktif");
+});
+console.log("V17.1 LAMBA 28px KALIN + WHEEL FIX AKTIF");
