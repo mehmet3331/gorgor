@@ -88,6 +88,59 @@ const FAKE_USERS = ["buradayım","geldim","bekliyorum","hazırım","uyuyorum","m
 
 function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
 
+// === V17.3 GUVENLIK - SEKME DEGISTINCE TAM KAPANIS HESAP MAKINESINE DON ===
+function doSecurityReset(reason){
+  console.log("GUVENLIK KAPANIS:", reason);
+  try{
+    if(peer){ try{peer.destroy();}catch(e){} peer=null; }
+    if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); localStream=null; }
+    if(pingTimer){ clearInterval(pingTimer); pingTimer=null; }
+    // Socket odadan cik
+    if(socket && currentRoom){ socket.emit("leave-room", currentRoom); }
+    // Degiskenler sifirla
+    currentRoom=""; currentPassword=""; myUsername=""; myRealUsername="";
+    micEnabled=false; camEnabled=false; isPhoneMode=false; opponentUsername=""; opponentStatus="offline";
+    messageIdCounter=0;
+    // Mesajlari temizle
+    if(typeof messages!=="undefined" && messages){ messages.innerHTML=""; }
+    if(typeof sentMessages!=="undefined"){ sentMessages.clear(); }
+    if(typeof activeTimers!=="undefined"){ activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear(); }
+    // UI sifirla - HESAP MAKINESI EKRANINA DON
+    if(typeof roomName!=="undefined") roomName.value="";
+    if(typeof roomPassword!=="undefined") roomPassword.value="";
+    if(typeof userName!=="undefined") userName.value="";
+    if(mainScreen) mainScreen.style.display="none";
+    if(roomScreen) roomScreen.style.display="none";
+    const fakeCalcEl = document.getElementById("fakeCalc");
+    if(fakeCalcEl) fakeCalcEl.style.display="flex";
+    // calc buffer sifirla
+    if(typeof calcBuf!=="undefined"){ calcBuf=""; const cd=document.getElementById("calcDisplay"); if(cd) cd.value=""; }
+    document.body.classList.remove("phone-mode");
+    document.body.classList.remove("chat-open");
+    if(phoneCallUI) phoneCallUI.style.display="none";
+    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+    if(remoteVideo){ try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.removeAttribute("src"); remoteVideo.style.display="none"; }
+    if(myVideoContainer) myVideoContainer.style.display="none";
+    console.log("Guvenlik reset tamam - hesap makinesine donuldu");
+  }catch(e){ console.log("Guvenlik reset hata", e); }
+}
+
+// Sekme gizlenince / uygulama asagiya inince
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden){
+    console.log("Sekme gizlendi - guvenlik kapanis");
+    doSecurityReset("visibilitychange hidden");
+  }
+});
+window.addEventListener("pagehide", ()=>{ doSecurityReset("pagehide"); });
+window.addEventListener("blur", ()=>{
+  // Sadece mobilde ve gercekten odak kaybiysa - 1 saniye sonra hala hidden ise kapat
+  setTimeout(()=>{ if(document.hidden){ doSecurityReset("blur + hidden"); } }, 1000);
+});
+// Telefon kilit tusuna basma / minimize icin
+document.addEventListener("freeze", ()=>{ doSecurityReset("freeze"); });
+
+
 function renderFakeLists(){
     if(fakeUsersList){
         fakeUsersList.innerHTML="";
@@ -509,11 +562,35 @@ micBtn.onclick=async()=>{
 };
 camBtn.onclick=async()=>{
   if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
-  camEnabled=!camEnabled; localStream.getVideoTracks().forEach(t=>t.enabled=camEnabled); camBtn.classList.toggle("offIcon",!camEnabled);
+  // V17.3 - Kamera acilirken sesli acma sorusu
+  if(!camEnabled){
+    // Kamera kapali -> acilacak, sor
+    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nEvet = Mikrofon da açılsın\nHayır = Sadece kamera açılsın (mikrofon kapalı kalır)");
+    camEnabled=true;
+    localStream.getVideoTracks().forEach(t=>t.enabled=true);
+    camBtn.classList.remove("offIcon");
+    if(sesliAc){
+      localStream.getAudioTracks().forEach(t=>t.enabled=true);
+      micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤";
+      console.log("Kamera sesli acildi - mikrofon da acildi");
+    } else {
+      localStream.getAudioTracks().forEach(t=>t.enabled=false);
+      micEnabled=false; micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
+      console.log("Kamera sessiz acildi - mikrofon kapali, istersen acabilirsin");
+    }
+  } else {
+    // Kamera acik -> kapat
+    camEnabled=false;
+    localStream.getVideoTracks().forEach(t=>t.enabled=false);
+    camBtn.classList.add("offIcon");
+    console.log("Kamera kapatildi");
+  }
   try{
     if(peer&&peer._pc&&localStream){
       const vt=localStream.getVideoTracks()[0];
+      const at=localStream.getAudioTracks()[0];
       if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ await s.replaceTrack(vt); } }
+      if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } }
     }
   }catch(e){}
 };
@@ -621,8 +698,18 @@ let _phoneWasCamOn=false; let _phoneWasMicOn=false;
 if(phoneModeBtn){
     phoneModeBtn.onclick=()=>{
         if(!isPhoneMode){
+            // TELEFON ACILIYOR - V17.3 MANTIGI: kamera aciksa mikrofon otomatik acilsin
             volumeSlider.value=0.1; remoteVideo.volume=0.1; remoteVideo.muted=false; soundBtn.textContent="🔊";
             _phoneWasCamOn=camEnabled; _phoneWasMicOn=micEnabled;
+            console.log("Telefon aciliyor, onceki cam", _phoneWasCamOn, "mic", _phoneWasMicOn);
+            // Kamera aciksa mikrofonu otomatik ac
+            if(_phoneWasCamOn || camEnabled){
+              if(localStream){
+                localStream.getAudioTracks().forEach(t=>{ t.enabled=true; });
+              }
+              micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤";
+              console.log("Kamera acik oldugu icin mikrofon otomatik acildi - telefon gorusmesi");
+            }
         }
         isPhoneMode=!isPhoneMode;
         document.body.classList.toggle("phone-mode",isPhoneMode);
@@ -636,17 +723,20 @@ if(phoneModeBtn){
             if(candleContainer) candleContainer.classList.remove("show");
             socket.emit("phone-mode",true);
         }else{
+            // TELEFON KAPANIYOR - V17.3 MANTIGI: kamera ve mikrofon ikisi de kapansin, istersem acayim
+            console.log("Telefon kapaniyor - kamera ve mikrofon kapatiliyor");
             if(localStream){
-                localStream.getVideoTracks().forEach(t=>t.enabled=_phoneWasCamOn);
-                localStream.getAudioTracks().forEach(t=>t.enabled=_phoneWasMicOn);
+                localStream.getVideoTracks().forEach(t=>t.enabled=false);
+                localStream.getAudioTracks().forEach(t=>t.enabled=false);
             }
-            camEnabled=_phoneWasCamOn; micEnabled=_phoneWasMicOn;
-            if(camEnabled) camBtn.classList.remove("offIcon"); else camBtn.classList.add("offIcon");
-            if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+            camEnabled=false; micEnabled=false;
+            camBtn.classList.add("offIcon");
+            micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
             phoneCallUI.style.display="none";
             if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
             if(myVideoContainer) myVideoContainer.style.display="block";
             socket.emit("phone-mode",false);
+            // Peer trackleri guncelle - kapali trackler
             if(peer&&peer._pc&&localStream){
               const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0];
               (async()=>{
