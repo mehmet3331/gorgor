@@ -116,6 +116,19 @@ function renderFakeLists(){
 }
 renderFakeLists();
 
+roomName.addEventListener("input",()=>{
+    const v=normalize(roomName.value);
+    if(fakeRoomsHint) fakeRoomsHint.style.display = v.length>0? "block":"none";
+    if(v===REAL_ROOM || v.length>=2){ 
+        if(userName) userName.style.display="block"; 
+        if(userListBox) userListBox.style.display="block"; 
+    }
+    else{ 
+        if(userName) userName.style.display="none"; 
+        if(userListBox) userListBox.style.display="none"; 
+    }
+});
+
 // === FLOATING PILL - Karşı kişi gösterimi ===
 let opponentUsername = "";
 let opponentStatus = "offline"; // varım = online (yesil), yokum = offline (gri)
