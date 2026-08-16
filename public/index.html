@@ -23,6 +23,7 @@
   </div>
 </div>
 
+
 <div id="roomScreen" style="display:none;">
   <h2>🔒 GORGOR</h2>
   <input id="roomName" placeholder="Oda adı" autocomplete="off" />
@@ -37,30 +38,52 @@
   <button id="joinBtn">Giriş</button>
 </div>
 
+
+
 <div id="mainScreen" style="display:none;">
   <video id="remoteVideo" autoplay playsinline></video>
+  
+  <!-- FLOATING PILL - Dynamic Island style top bar -->
+  <div id="floatingPill">
+    <div id="floatingPillLeft">
+      <span id="opponentDot" class="onlineDot offline"></span>
+      <span id="opponentNameDisplay" class="opponentName">-</span>
+      <span id="opponentStatusText" class="opponentStatus">Bekleniyor</span>
+    </div>
+    <div id="floatingPillCenter">
+      <button id="soundBtn" title="Ses">🔊</button>
+      <input id="volumeSlider" type="range" min="0" max="1" step="0.05" value="0.1" />
+    </div>
+    <div id="floatingPillRight">
+      <button id="phoneModeBtn" title="Telefon Modu - Her zaman aktif">📞</button>
+      <button id="camBtn" title="Kamera Video">📹</button>
+    </div>
+  </div>
+
   <div id="myVideoContainer">
     <video id="myVideo" autoplay muted playsinline></video>
     <button id="switchCameraBtn" class="cameraOverlayBtn">🔄</button>
     <button id="fullscreenBtn" class="cameraOverlayBtn">⛶</button>
     <select id="qualitySelect" class="qualitySelect"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
   </div>
+
   <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯</p></div>
+  
   <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
+
+  <!-- Settings - remaining buttons, now as floating glass circles left side -->
   <div id="settingsContainer">
     <button id="settingsBtn">⚙</button>
     <button id="micBtn" title="Mikrofon"></button>
-    <button id="camBtn" title="Kamera"></button>
-    <button id="soundBtn" title="Ses">🔊</button>
-    <input id="volumeSlider" type="range" min="0" max="1" step="0.05" value="0.1" />
-    <button id="phoneModeBtn" title="Telefon Modu">📞</button>
     <button id="panicBtn" title="Panik">🚨</button>
     <button id="lightModeBtn" title="Işık">💡</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
     <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="3600">1 saat</option><option value="14400" selected>4 saat</option><option value="86400">24 saat</option></select></div>
   </div>
+
   <button id="chatToggle">💬</button>
+
   <div id="chatPanel">
     <div id="messages"></div>
     <div id="inputArea">
@@ -125,6 +148,7 @@ function calcEqual(){
   try{ let r=eval(calcBuf); document.getElementById("calcDisplay").value=r; calcBuf=r.toString(); }catch(e){ document.getElementById("calcDisplay").value="Hata"; calcBuf=""; }
 }
 </script>
+
 <script src="script.js"></script>
 </body>
 </html>

@@ -55,6 +55,9 @@ const fakeUsersList = document.getElementById("fakeUsersList");
 const fakeRoomsList = document.getElementById("fakeRoomsList");
 const fakeRoomsHint = document.getElementById("fakeRoomsHint");
 const currentUserBox = document.getElementById("currentUserBox");
+const opponentNameDisplay = document.getElementById("opponentNameDisplay");
+const opponentDot = document.getElementById("opponentDot");
+const opponentStatusText = document.getElementById("opponentStatusText");
 const drawBtn = document.getElementById("drawBtn");
 const drawOverlay = document.getElementById("drawOverlay");
 const drawCanvas = document.getElementById("drawCanvas");
@@ -110,6 +113,38 @@ function renderFakeLists(){
     }
 }
 renderFakeLists();
+
+// === FLOATING PILL - Karşı kişi gösterimi ===
+let opponentUsername = "";
+let opponentStatus = "offline"; // varım = online (yesil), yokum = offline (gri)
+
+function updateOpponentDisplay(name, status){
+  opponentUsername = name || opponentUsername;
+  opponentStatus = status || opponentStatus;
+  if(opponentNameDisplay){
+    opponentNameDisplay.textContent = opponentUsername || "-";
+  }
+  if(opponentDot){
+    opponentDot.className = "onlineDot " + (opponentStatus === "varım" || opponentStatus === "online" ? "online" : "offline");
+  }
+  if(opponentStatusText){
+    if(opponentStatus === "varım" || opponentStatus === "online"){
+      opponentStatusText.textContent = "içerde";
+      opponentStatusText.style.color = "#00ff88";
+    } else {
+      opponentStatusText.textContent = "dışarda";
+      opponentStatusText.style.color = "rgba(255,255,255,0.5)";
+    }
+  }
+  // Phone UI name de guncelle
+  const phoneNameDisplay = document.getElementById("phoneNameDisplay");
+  if(phoneNameDisplay && opponentUsername){
+    phoneNameDisplay.textContent = opponentUsername;
+  }
+  console.log("Karşı kişi:", opponentUsername, "Durum:", opponentStatus, opponentStatus === "varım" ? "YEŞİL" : "GRİ");
+}
+
+
 
 roomName.addEventListener("input",()=>{
     const v=normalize(roomName.value);
@@ -219,7 +254,13 @@ socket.on("joined-room", data=>{
     startPingMonitor();
     if(data.count===2) createPeer(true);
 });
-socket.on("user-connected",(d)=>{ if(!peer) createPeer(false); });
+socket.on("user-connected",(d)=>{
+  if(!peer) createPeer(false);
+  // Karşı kişi bağlandı - sol üstte göster, yeşil yap
+  const oppName = d.username || d.realUsername || "Bilinmeyen";
+  updateOpponentDisplay(oppName, "varım");
+  if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+});
 function createPeer(initiator){
     peer = new SimplePeer({ initiator, trickle:false, stream:localStream, config:{ iceServers:[{ urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"] }] } });
     peer.on("signal", signal=> socket.emit("signal",{ room:currentRoom, signal }));
@@ -235,10 +276,29 @@ function createPeer(initiator){
     });
 }
 socket.on("signal", signal=>{ if(!peer) createPeer(false); peer.signal(signal); });
+
+socket.on("user-status", (data)=>{
+  const {user, status, online} = data;
+  if(user === myRealUsername) return; // kendi durumum degil
+  // Karşı kişinin varım/yokum durumu
+  const isOnline = status === "varım" || online;
+  updateOpponentDisplay(user, isOnline ? "varım" : "yokum");
+  if(connectionQuality){
+    if(isOnline){
+      connectionQuality.textContent = `${user} içerde`;
+      connectionQuality.className = "good";
+    } else {
+      connectionQuality.textContent = `${user} dışarda`;
+      connectionQuality.className = "bad";
+    }
+  }
+});
+
+
 socket.on("user-disconnected",()=>{
     if(remoteVideo){
         remoteVideo.pause();
-        try{ remoteVideo.srcObject=null; }catch(e){}
+        try{remoteVideo.srcObject=null;}catch(e){}
         remoteVideo.removeAttribute("src");
         remoteVideo.load();
         remoteVideo.style.display="none";
@@ -247,6 +307,8 @@ socket.on("user-disconnected",()=>{
     if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
     if(connectionQuality){ connectionQuality.textContent="Karşı yok - Mum 🕯"; connectionQuality.className="bad"; }
     if(pingTimer){ clearInterval(pingTimer); pingTimer=null; }
+    // Karşı kişi ayrıldı - gri yap, ismi koru ama durumu offline yap
+    updateOpponentDisplay(opponentUsername || "Bilinmeyen", "yokum");
 });
 qualitySelect.onchange = async()=>{
     const wasCamOn = camEnabled;
