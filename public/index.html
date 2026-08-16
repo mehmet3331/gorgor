@@ -79,7 +79,7 @@
     <button id="lightModeBtn" title="Işık">💡</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
-    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="3600">1 saat</option><option value="14400" selected>4 saat</option><option value="86400">24 saat</option></select></div>
+    <div id="secretSettings"><label>Genel kaybolma süresi:</label><select id="defaultSelfDestructSelect"><option value="900">15 dk</option><option value="3600">1 saat</option><option value="14400" selected>4 saat</option><option value="86400">24 saat</option><option value="custom">Manuel (15dk - 24saat)</option></select><div id="customExpireWheel" style="display:none;margin-top:8px;"><label>Elle ayarla (dk):</label><input id="customExpireInput" type="range" min="15" max="1440" value="240" step="15" style="width:100%"><span id="customExpireValue">240 dk (4 saat)</span></div></div>
   </div>
 
   <button id="chatToggle">💬</button>
@@ -88,15 +88,10 @@
     <div id="messages"></div>
     <div id="inputArea">
       <div class="inputTopRow">
-        <select id="perMessageTimerSelect">
-          <option value="300">5 dakika</option>
-          <option value="3600">1 saat</option>
-          <option value="14400" selected>4 saat (varsayılan)</option>
-          <option value="86400">1 gün</option>
-        </select>
-        <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
         <button id="emojiBtn" title="Emoji">😊</button>
         <button id="nudgeBtn" title="Titreşim">👉</button>
+        <span style="flex:1"></span>
+        <span id="currentExpireDisplay" style="font-size:11px;color:rgba(255,255,255,0.4);">4 saat</span>
       </div>
       <div class="inputBottomRow">
         <div style="position:relative;">
@@ -112,10 +107,10 @@
         <button id="sendBtn">Gönder</button>
       </div>
     </div>
-    <div id="emojiPanel">
+        <div id="emojiPanel">
       <span class="flyEmoji" data-effect="heart">❤</span>
       <span class="flyEmoji" data-effect="kiss">💋</span>
-      <span class="flyEmoji" data-effect="big-kiss">💋</span>
+      <span class="flyEmoji" data-effect="skull">💀</span>
       <span class="flyEmoji" data-effect="kiss-rain">😘</span>
       <span class="flyEmoji" data-effect="kiss-rain">😍</span>
       <span class="flyEmoji" data-effect="water">💦</span>
@@ -123,6 +118,34 @@
       <span class="flyEmoji" data-effect="flower">🌸</span>
       <span class="flyEmoji" data-effect="thumbs">👍</span>
       <span class="flyEmoji" data-effect="wow">😮</span>
+      <span class="flyEmoji" data-effect="heart-burst">💖</span>
+      <span class="flyEmoji" data-effect="heart-rain">💕</span>
+      <span class="flyEmoji" data-effect="sparkle">✨</span>
+      <span class="flyEmoji" data-effect="sparkle-burst">🌟</span>
+      <span class="flyEmoji" data-effect="fire-rain">🔥</span>
+      <span class="flyEmoji" data-effect="laugh">😂</span>
+      <span class="flyEmoji" data-effect="laugh-rain">🤣</span>
+      <span class="flyEmoji" data-effect="angry">😡</span>
+      <span class="flyEmoji" data-effect="angry-rain">💢</span>
+      <span class="flyEmoji" data-effect="explode">💥</span>
+      <span class="flyEmoji" data-effect="party">🎉</span>
+      <span class="flyEmoji" data-effect="confetti">🎊</span>
+      <span class="flyEmoji" data-effect="money">💰</span>
+      <span class="flyEmoji" data-effect="money-rain">💸</span>
+      <span class="flyEmoji" data-effect="rocket">🚀</span>
+      <span class="flyEmoji" data-effect="rocket-fly">🚀</span>
+      <span class="flyEmoji" data-effect="punch">👊</span>
+      <span class="flyEmoji" data-effect="star-rain">🌟</span>
+      <span class="flyEmoji" data-effect="shake">😈</span>
+      <span class="flyEmoji" data-effect="bounce">😂</span>
+      <span class="flyEmoji" data-effect="spin">🤪</span>
+      <span class="flyEmoji" data-effect="fall">😭</span>
+      <span class="flyEmoji" data-effect="fly">🚀</span>
+      <span class="flyEmoji" data-effect="orbit">❤</span>
+      <span class="flyEmoji" data-effect="slap">👋</span>
+      <span class="flyEmoji" data-effect="wave">👋</span>
+      <span class="flyEmoji" data-effect="rainbow">🌈</span>
+      <span class="flyEmoji" data-effect="shock">😱</span>
       <span id="addCustomEmoji" class="flyEmoji">➕</span>
     </div>
     <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" />

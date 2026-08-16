@@ -630,3 +630,35 @@ body.phone-mode #settingsContainer #phoneModeBtn {
 ::-webkit-scrollbar { width: 1px; height: 1px; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
 ::-webkit-scrollbar-track { background: transparent; }
+
+
+/* Custom expire wheel - 15dk to 24saat */
+#customExpireWheel {
+  background: rgba(0,0,0,0.5);
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+#customExpireInput {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 1px;
+}
+#customExpireInput::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+}
+#currentExpireDisplay {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.06);
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}

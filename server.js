@@ -161,7 +161,8 @@ io.on('connection', socket=>{
   socket.on('fly-emoji', d=>{ if(socket.room) socket.to(socket.room).emit('fly-emoji', d); });
   socket.on('phone-mode', b=>{ if(socket.room) socket.to(socket.room).emit('phone-mode', b); });
   socket.on('paused', ()=>{ if(socket.room) socket.to(socket.room).emit('peer-paused'); });
-  socket.on('panic', async ()=>{
+    socket.on('quality-change', q=>{ if(socket.room){ socket.to(socket.room).emit('quality-change', q); console.log(`Kalite degisti oda ${socket.room} - ${q}p`); } });
+socket.on('panic', async ()=>{
     if(socket.room){
       const r=rooms[socket.room]; if(r) r.messages.clear();
       persistedMessages=persistedMessages.filter(m=>m.room!==socket.room);
