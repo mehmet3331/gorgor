@@ -593,11 +593,15 @@ camBtn.onclick=async()=>{
       console.log("Kamera sessiz acildi - mikrofon kapali, istersen acabilirsin");
     }
   } else {
-    // Kamera acik -> kapat
+    // Kamera acik -> kapat - V17.5 FIX: kamera kapaninca mikrofon da kapansin
     camEnabled=false;
     localStream.getVideoTracks().forEach(t=>t.enabled=false);
     camBtn.classList.add("offIcon");
-    console.log("Kamera kapatildi");
+    // Mikrofon da kapat
+    localStream.getAudioTracks().forEach(t=>t.enabled=false);
+    micEnabled=false;
+    micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
+    console.log("Kamera kapatildi - V17.5 mikrofon da kapatildi");
   }
   try{
     if(peer&&peer._pc&&localStream){
@@ -638,11 +642,11 @@ myVideoContainer.addEventListener("touchstart",(e)=>{ if(isPhoneMode) return; if
 myVideoContainer.addEventListener("touchmove",(e)=>{ if(isPhoneMode) return; if(e.touches.length===1&&isDragging){ e.preventDefault(); myVideoContainer.style.left=sl+(e.touches[0].clientX-sx)+"px"; myVideoContainer.style.top=st+(e.touches[0].clientY-sy)+"px"; myVideoContainer.style.right="auto"; } });
 myVideoContainer.addEventListener("touchend",()=>isDragging=false);
 if(attachMenuBtn){ attachMenuBtn.onclick=(e)=>{ e.stopPropagation(); attachMenu.classList.toggle("show"); }; }
-mediaBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); mediaInput.click(); };
+mediaBtn.onclick=(e)=>{ e.preventDefault(); isPickingFile=true; _photoPicking=true; console.log("Galeri aciliyor - guvenlik iptal aktif"); attachMenu.classList.remove("show"); setTimeout(()=>{ mediaInput.click(); }, 100); };
 drawBtn.onclick=()=>{ attachMenu.classList.remove("show"); drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
 locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt}); }); };
 
-if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); attachMenu.classList.remove("show"); cameraInput.click(); }; }
+if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); isPickingFile=true; _photoPicking=true; console.log("Kamera cekimi aciliyor - guvenlik iptal aktif"); attachMenu.classList.remove("show"); setTimeout(()=>{ cameraInput.click(); }, 100); }; }
 cameraInput.onchange=async()=>{
     isPickingFile=true; _photoPicking=true;
     try{
@@ -883,3 +887,21 @@ document.addEventListener("DOMContentLoaded", ()=>{
   console.log("Wheel fix yuklendi - butonlar aktif");
 });
 console.log("V17.1 LAMBA 28px KALIN + WHEEL FIX AKTIF");
+
+// V17.5 EXTRA SAFETY - Foto secme flaglerini 10sn sonra otomatik sifirla (kullanici iptal ederse)
+setInterval(()=>{
+  if(isPickingFile || _photoPicking){
+    // Eger 10 saniyeden fazla acik kaldiysa ve hala picking ise, sifirla (kullanici galeriyi kapatti)
+    if(window._pickingStart){
+      if(Date.now() - window._pickingStart > 10000){
+        console.log("Foto secme timeout - flagler sifirlaniyor");
+        isPickingFile=false; _photoPicking=false; window._pickingStart=null;
+      }
+    } else {
+      window._pickingStart = Date.now();
+    }
+  } else {
+    window._pickingStart = null;
+  }
+}, 2000);
+console.log("V17.5 FIX - foto cekme guvenlik iptal + kamera kapaninca mic kapanis");
