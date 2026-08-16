@@ -172,4 +172,3 @@ io.on('connection', socket=>{
 });
 
 server.listen(process.env.PORT||10000, ()=> console.log("GOR calisiyor port 10000 - BEYAZ LAMBA + FOTO FIX AKTIF"));
-
