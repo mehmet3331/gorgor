@@ -159,6 +159,7 @@ io.on('connection', socket=>{
   socket.on('signal', d=> socket.to(d.room).emit('signal', d.signal));
   socket.on('nudge', ()=>{ if(socket.room) socket.to(socket.room).emit('nudge'); });
   socket.on('fly-emoji', d=>{ if(socket.room) socket.to(socket.room).emit('fly-emoji', d); });
+  socket.on('quality-change', q=>{ if(socket.room){ console.log(`Kalite degisti ${socket.room}: ${q}p`); socket.to(socket.room).emit('quality-change', q); } });
   socket.on('phone-mode', b=>{ if(socket.room) socket.to(socket.room).emit('phone-mode', b); });
   socket.on('paused', ()=>{ if(socket.room) socket.to(socket.room).emit('peer-paused'); });
   socket.on('panic', async ()=>{
@@ -171,4 +172,4 @@ io.on('connection', socket=>{
   });
 });
 
-server.listen(process.env.PORT||10000, ()=> console.log("GOR calisiyor port 10000 - BEYAZ LAMBA + FOTO FIX AKTIF"));
+server.listen(process.env.PORT||10000, ()=> console.log("GOR V17 calisiyor port 10000 - LAMBA KALIN + 480-720-1080 + WHEEL + EMOJI FIX AKTIF"));

@@ -135,12 +135,13 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
   transition: all 0.4s ease;
 }
 #remoteVideo.lamp-on {
-  border-color: #ffffff !important;
+  border: 8px solid #ffffff !important;
   box-shadow: 
-    0 0 12px #ffffff,
-    0 0 25px #ffffff,
-    0 0 50px rgba(255,255,255,0.7) !important;
-  filter: none !important;
+    0 0 15px #ffffff,
+    0 0 30px #ffffff,
+    0 0 60px rgba(255,255,255,0.9),
+    inset 0 0 30px rgba(255,255,255,0.2) !important;
+  filter: brightness(1.15) !important;
 }
 #lightModeBtn.active { 
   background: #ffffff !important; 
@@ -441,7 +442,19 @@ body.phone-mode #floatingPillRight #camBtn {
   border-radius: 4px;
 }
 #myVideoContainer .qualitySelect {
-  display: none;
+  display: block !important;
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 54px;
+  height: 22px;
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 6px;
+  font-size: 10px;
+  z-index: 121;
+  cursor: pointer;
 }
 
 /* Settings - OLED PURE - hairline thin */
@@ -631,3 +644,54 @@ body.phone-mode #settingsContainer #phoneModeBtn {
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
 ::-webkit-scrollbar-track { background: transparent; }
 
+/* V17 - Azalt/Uzat kaldirildi */
+.reduceBtn, .extendBtn { display: none !important; }
+
+/* === V17 EMOJI ANIMASYONLARI - HER EMOJI AYRI === */
+@keyframes heartBurst { 0%{transform:translate(-50%,0) scale(0); opacity:0;} 20%{transform:translate(-50%,-30px) scale(1.5); opacity:1;} 50%{transform:translate(-50%,-120px) scale(1.2);} 100%{transform:translate(-50%,-300px) scale(0.5); opacity:0;} }
+@keyframes sparkleTwinkle { 0%{transform:translateY(0) scale(0) rotate(0); opacity:0;} 30%{opacity:1; transform:translateY(-40px) scale(1.3) rotate(180deg);} 100%{transform:translateY(-400px) scale(0.2) rotate(720deg); opacity:0;} }
+@keyframes fireRainFall { 0%{transform:translateY(-20px) scale(0.5); opacity:0;} 10%{opacity:1;} 100%{transform:translateY(500px) scale(1.2) rotate(20deg); opacity:0;} }
+@keyframes skullSpin { 0%{transform:translateY(0) rotate(0) scale(0.5); opacity:0;} 20%{opacity:1; transform:translateY(-50px) rotate(180deg) scale(1.2);} 100%{transform:translateY(-350px) rotate(720deg) scale(0.3); opacity:0;} }
+@keyframes moneyRain { 0%{transform:translateY(-30px) rotate(0) scale(0.8); opacity:0;} 15%{opacity:1;} 100%{transform:translateY(600px) rotate(360deg) scale(1); opacity:0;} }
+@keyframes rocketFly { 0%{transform:translate(-100px,100px) rotate(-30deg) scale(0.5); opacity:0;} 20%{opacity:1;} 100%{transform:translate(500px,-500px) rotate(20deg) scale(1.5); opacity:0;} }
+@keyframes starTwinkle { 0%{transform:scale(0) rotate(0); opacity:0;} 50%{transform:scale(1.5) rotate(180deg); opacity:1;} 100%{transform:scale(0) rotate(360deg) translateY(-300px); opacity:0;} }
+@keyframes angryShake { 0%,100%{transform:translate(0,0) rotate(0);} 10%{transform:translate(-5px,2px) rotate(-5deg);} 20%{transform:translate(5px,-2px) rotate(5deg);} 30%{transform:translate(-8px,0) rotate(-3deg);} 40%{transform:translate(8px,2px) rotate(3deg);} 50%{transform:translate(-5px,-2px) rotate(-2deg);} 60%{transform:translate(5px,0) rotate(2deg);} 70%{transform:translate(-3px,2px) rotate(-1deg);} 80%{transform:translate(3px,-2px) rotate(1deg);} 90%{transform:translate(-2px,0);} }
+@keyframes explodeBoom { 0%{transform:translate(-50%,0) scale(0); opacity:1;} 30%{transform:translate(-50%,-40px) scale(1.8); opacity:1; filter:brightness(2);} 100%{transform:translate(-50%,-100px) scale(3); opacity:0; filter:brightness(0.5);} }
+@keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0) translateX(0); opacity:1;} 100%{transform:translateY(600px) rotate(720deg) translateX(100px); opacity:0;} }
+@keyframes bounceJump { 0%{transform:translateY(0) scale(1);} 20%{transform:translateY(-80px) scale(1.2,0.8);} 40%{transform:translateY(0) scale(0.9,1.1);} 60%{transform:translateY(-40px) scale(1.1);} 80%{transform:translateY(0);} 100%{transform:translateY(-20px); opacity:0;} }
+@keyframes spinAround { 0%{transform:rotate(0) scale(0.5); opacity:0;} 20%{opacity:1;} 100%{transform:rotate(1080deg) scale(1.2) translateY(-300px); opacity:0;} }
+@keyframes fallDown { 0%{transform:translateY(-50px) scale(1); opacity:1;} 100%{transform:translateY(500px) scale(0.8); opacity:0;} }
+@keyframes flyAcross { 0%{transform:translateX(-100px) translateY(0) scale(0.8); opacity:0;} 20%{opacity:1;} 100%{transform:translateX(600px) translateY(-200px) scale(1.2); opacity:0;} }
+@keyframes orbitCircle { 0%{transform:rotate(0deg) translateX(0) rotate(0deg) scale(0);} 20%{opacity:1;} 100%{transform:rotate(360deg) translateX(120px) rotate(-360deg) translateY(-250px) scale(1); opacity:0;} }
+@keyframes spiralIn { 0%{transform:rotate(0) scale(0) translate(0,0); opacity:0;} 30%{opacity:1;} 100%{transform:rotate(720deg) scale(1.5) translate(80px,-300px); opacity:0;} }
+@keyframes waveSide { 0%{transform:translateX(0) translateY(0); opacity:0;} 15%{opacity:1;} 50%{transform:translateX(100px) translateY(-150px);} 100%{transform:translateX(-50px) translateY(-350px); opacity:0;} }
+@keyframes rainbowArc { 0%{transform:translateY(0) scale(0.5) rotate(0); opacity:0;} 20%{opacity:1; transform:translateY(-50px) scale(1.2) rotate(10deg);} 100%{transform:translateY(-400px) scale(1) rotate(-10deg) translateX(60px); opacity:0;} }
+
+.flying-emoji.skull{ animation:skullSpin 2.5s ease-out forwards; }
+.flying-emoji.heart-burst{ animation:heartBurst 1.8s cubic-bezier(.17,.67,.83,.67) forwards; font-size:80px!important; }
+.flying-emoji.heart-rain{ animation:heartRain 2.8s linear forwards; }
+.flying-emoji.sparkle{ animation:sparkleTwinkle 2s ease-in-out forwards; }
+.flying-emoji.sparkle-burst{ animation:sparkleTwinkle 1.2s ease-out forwards; font-size:90px!important; }
+.flying-emoji.fire-rain{ animation:fireRainFall 2s linear forwards; }
+.flying-emoji.laugh-rain{ animation:laughBounce 2.5s ease-out forwards; }
+.flying-emoji.angry{ animation:angryShake 0.8s ease-in-out 3 forwards; }
+.flying-emoji.angry-rain{ animation:fireRainFall 2.2s linear forwards; }
+.flying-emoji.explode{ animation:explodeBoom 1s ease-out forwards; font-size:100px!important; }
+.flying-emoji.party, .flying-emoji.confetti{ animation:confettiFall 3s ease-in forwards; }
+.flying-emoji.money{ animation:bounceJump 2s ease-out forwards; }
+.flying-emoji.money-rain{ animation:moneyRain 3s linear forwards; }
+.flying-emoji.rocket, .flying-emoji.rocket-fly{ animation:rocketFly 2s cubic-bezier(.25,.46,.45,.94) forwards; font-size:70px!important; }
+.flying-emoji.star{ animation:starTwinkle 2s ease-out forwards; }
+.flying-emoji.star-rain{ animation:sparkleTwinkle 2.5s linear forwards; }
+.flying-emoji.shake{ animation:megaShake 0.7s ease-out forwards; }
+.flying-emoji.bounce{ animation:bounceJump 1.8s ease-out forwards; }
+.flying-emoji.spin{ animation:spinAround 2s ease-out forwards; }
+.flying-emoji.fall{ animation:fallDown 2s ease-in forwards; }
+.flying-emoji.fly{ animation:flyAcross 2s ease-out forwards; }
+.flying-emoji.orbit{ animation:orbitCircle 3s linear forwards; }
+.flying-emoji.spiral{ animation:spiralIn 2.5s ease-out forwards; }
+.flying-emoji.wave{ animation:waveSide 2.8s ease-in-out forwards; }
+.flying-emoji.rainbow{ animation:rainbowArc 3s ease-out forwards; }
+.flying-emoji.emoji-rain{ animation:fallDown 3s linear forwards; }
+.flying-emoji.laugh{ animation:laughBounce 2s ease-out forwards; }
+.flying-emoji.kiss-rain{ animation:heartRain 2.5s linear forwards; }
