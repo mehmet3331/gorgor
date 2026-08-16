@@ -37,13 +37,13 @@ async function saveDisk(){
   }catch(e){ console.error("saveDisk hata", e.message); }
 }
 
-// SADECE açılmış ve süresi dolmuş mesajları sil
+// SADECE açılmış ve süresi dolmuş mesajları sil - sayaç hemen başlıyor artık
 setInterval(async()=>{
   const now = Date.now();
   const before = persistedMessages.length;
   persistedMessages = persistedMessages.filter(m => {
-    if(!m.opened) return true;
-    return (m.deleteAt || 0) > now;
+    // Timer hemen başlıyor, opened kontrolü yok artık - direkt expireAt kontrol
+    return (m.deleteAt || m.expireAt || 0) > now;
   });
   if(before!== persistedMessages.length) await saveDisk();
 }, 60000);
@@ -81,11 +81,11 @@ io.on('connection', socket=>{
     const room = data.room;
     const requestedUsername = data.username;
     
-    // MAX 2 KİŞİ KONTROLÜ - 3. kişi engellensin
+    // MAX 2 KİŞİ KONTROLÜ
     if(!rooms[room]) rooms[room] = { users: {}, messages: new Map() };
     const currentCount = Object.keys(rooms[room].users).length;
     if(currentCount >= 2){
-      console.log(`ODA DOLU: ${room} - ${requestedUsername} giremedi, zaten ${currentCount} kişi var`);
+      console.log(`ODA DOLU: ${room} - ${requestedUsername} giremedi`);
       socket.emit('room-error', 'Oda dolu - sadece 2 kişi girebilir');
       return;
     }
@@ -93,52 +93,48 @@ io.on('connection', socket=>{
     socket.room = room;
     socket.username = requestedUsername;
     socket.realUsername = data.realUsername || requestedUsername;
-
     rooms[room].users[socket.id] = socket.username;
-
     socket.join(room);
-
     const count = Object.keys(rooms[room].users).length;
     socket.emit('joined-room', {username: data.username, count});
     socket.to(room).emit('user-connected', {username: data.username, realUsername: socket.realUsername});
-    
     const otherUsers = Object.values(rooms[room].users).filter(u => u !== data.username);
-    if(otherUsers.length > 0){
-      socket.emit('existing-users', otherUsers);
-    }
-
+    if(otherUsers.length > 0) socket.emit('existing-users', otherUsers);
     const pending = persistedMessages.filter(m=>m.room===room);
-    if(pending.length){
-      socket.emit('pending-messages', pending);
-    }
-    
-    console.log(`ODA: ${room} - ${data.username} girdi, toplam ${count} kişi`);
+    if(pending.length) socket.emit('pending-messages', pending);
+    console.log(`ODA: ${room} - ${data.username} girdi, toplam ${count}`);
   });
 
   socket.on('chat-message', async data=>{
     const room=socket.room; if(!room||!rooms[room]) return;
     const now = Date.now();
-    const msg={msgId:data.msgId, enc:data.enc, expireSec:data.expireSec, type:'text', username:socket.username, realUsername:socket.realUsername, opened:false, room, expireAt: now+data.expireSec*1000, deleteAt: now+data.expireSec*1000};
+    // FIX: Sayaç hemen başlıyor - sentAt'den itibaren
+    const sentAt = data.sentAt || now;
+    const deleteAt = sentAt + data.expireSec*1000;
+    const msg={msgId:data.msgId, enc:data.enc, expireSec:data.expireSec, type:'text', username:socket.username, realUsername:socket.realUsername, opened:false, room, sentAt, expireAt: deleteAt, deleteAt, createdAt: now};
     rooms[room].messages.set(data.msgId, msg);
     persistedMessages.push(msg);
     debouncedSave();
-    socket.to(room).emit('chat-message',{...data, username:socket.username, realUsername:socket.realUsername});
+    socket.to(room).emit('chat-message',{...data, username:socket.username, realUsername:socket.realUsername, sentAt});
   });
 
   socket.on('chat-media', async data=>{
     const room=socket.room; if(!room||!rooms[room]) return;
     const now = Date.now();
-    const msg={msgId:data.msgId, enc:data.enc, expireSec:data.expireSec, type:data.mediaType, username:socket.username, realUsername:socket.realUsername, opened:false, room, expireAt: now+data.expireSec*1000, deleteAt: now+data.expireSec*1000};
+    const sentAt = data.sentAt || now;
+    const deleteAt = sentAt + data.expireSec*1000;
+    const msg={msgId:data.msgId, enc:data.enc, expireSec:data.expireSec, type:data.mediaType, username:socket.username, realUsername:socket.realUsername, opened:false, room, sentAt, expireAt: deleteAt, deleteAt, createdAt: now};
     rooms[room].messages.set(data.msgId, msg);
     persistedMessages.push(msg);
     debouncedSave();
-    socket.to(room).emit('chat-media',{...data, username:socket.username, realUsername:socket.realUsername});
+    socket.to(room).emit('chat-media',{...data, username:socket.username, realUsername:socket.realUsername, sentAt});
   });
 
   socket.on('message-opened', async ({msgId})=>{
     const room=socket.room; if(!room) return;
     const t=rooms[room]?.messages.get(msgId);
     let idx=persistedMessages.findIndex(m=>m.msgId===msgId && m.room===room);
+    // FIX: Timer sıfırlanmıyor - mevcut deleteAt kullanılıyor
     const existingDeleteAt = t?.deleteAt || (idx>=0 ? persistedMessages[idx].deleteAt : null) || (t?.expireAt || Date.now()+14400*1000);
     const baseSec = t?.expireSec || (idx>=0? persistedMessages[idx].expireSec : 14400);
     if(t){ t.opened=true; }
@@ -160,9 +156,14 @@ io.on('connection', socket=>{
   socket.on('nudge', ()=>{ if(socket.room) socket.to(socket.room).emit('nudge'); });
   socket.on('fly-emoji', d=>{ if(socket.room) socket.to(socket.room).emit('fly-emoji', d); });
   socket.on('phone-mode', b=>{ if(socket.room) socket.to(socket.room).emit('phone-mode', b); });
+  socket.on('quality-change', q=>{ 
+    if(socket.room){ 
+      socket.to(socket.room).emit('quality-change', q); 
+      console.log(`Kalite degisti oda ${socket.room} - ${q}p - her iki taraf ayni`);
+    } 
+  });
   socket.on('paused', ()=>{ if(socket.room) socket.to(socket.room).emit('peer-paused'); });
-    socket.on('quality-change', q=>{ if(socket.room){ socket.to(socket.room).emit('quality-change', q); console.log(`Kalite degisti oda ${socket.room} - ${q}p`); } });
-socket.on('panic', async ()=>{
+  socket.on('panic', async ()=>{
     if(socket.room){
       const r=rooms[socket.room]; if(r) r.messages.clear();
       persistedMessages=persistedMessages.filter(m=>m.room!==socket.room);
@@ -172,4 +173,4 @@ socket.on('panic', async ()=>{
   });
 });
 
-server.listen(process.env.PORT||10000, ()=> console.log("GOR calisiyor port 10000 - BEYAZ LAMBA + FOTO FIX AKTIF"));
+server.listen(process.env.PORT||10000, ()=> console.log("GOR calisiyor port 10000 - TUM FIXLER AKTIF"));
