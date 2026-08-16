@@ -167,149 +167,467 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
 .onlineDot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px;border:2px solid #000;} .onlineDot.online{background:#00ff00;box-shadow:0 0 6px #00ff00;} .onlineDot.offline{background:#777;} .ticks{font-size:12px;margin-left:4px;} .ticks.single{color:#999;} .ticks.double{color:#999;} .ticks.double.read{color:#00ff88;} #onlineToast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#00c853;color:white;padding:12px 22px;border-radius:24px;z-index:99999;font-weight:bold;}
 #wheelOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:10002;display:none;justify-content:center;align-items:center;flex-direction:column;gap:16px;} #wheelOverlay.show{display:flex;} .wheelTitle{font-size:18px;color:#ffcc00;font-weight:bold;} .wheelContainer{display:flex;gap:10px;background:#111;padding:16px;border-radius:16px;border:2px solid #333;} .wheelCol{display:flex;flex-direction:column;align-items:center;gap:6px;} .wheelLabel{font-size:11px;color:#888;} .wheelBox{width:70px;height:120px;background:#000;border:2px solid #fff;border-radius:8px;display:flex;align-items:center;justify-content:center;} .wheelBox input{width:100%;height:60px;background:#000;color:#fff;border:none;text-align:center;font-size:42px;font-family:monospace;font-weight:bold;outline:none;} .wheelBtn{width:70px;height:28px;background:#222;border:1px solid #444;color:#fff;border-radius:6px;cursor:pointer;} .wheelActions{display:flex;gap:12px;} .wheelActions button{padding:10px 28px;border:none;border-radius:10px;font-weight:bold;cursor:pointer;} #wheelOk{background:#00c853;color:white;} #wheelCancel{background:#333;color:white;}
 
-/* === OLED PURE - Saf Siyah + Hairline + FIXES === */
+/* === OLED PURE - Saf Siyah + Hairline - Telifsiz Orijinal === */
+/* Pure black, 1px hairline, no blur, ultra thin */
 
-* { -webkit-font-smoothing: antialiased; }
-body { background: #000000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; }
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-#mainScreen { background: #000000; }
-#remoteVideo { background: #000000; object-fit: contain; }
+body {
+  background: #000000;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+}
 
-/* TOP BAR - OLED PURE */
+#mainScreen {
+  background: #000000;
+}
+
+/* Remote video - pure black background */
+#remoteVideo {
+  background: #000000;
+  object-fit: contain;
+}
+
+/* === TOP BAR - OLED PURE - Hairline === */
 #floatingPill {
-  position: fixed; top: 0; left: 0; right: 0; height: 44px;
-  background: #000000; border-bottom: 1px solid rgba(255,255,255,0.08);
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 12px; z-index: 1000; gap: 12px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  transform: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  background: #000000;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0;
+  padding: 0 12px;
+  z-index: 1000;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  min-width: auto;
+  max-width: none;
+  gap: 12px;
 }
-#floatingPillLeft { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-#opponentDot { width: 6px; height: 6px; border-radius: 50%; }
-#opponentDot.online { background: #00ff88; }
-#opponentDot.offline { background: transparent; border: 1px solid rgba(255,255,255,0.3); }
-.opponentName { font-size: 13px; font-weight: 500; color: #fff; max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.opponentName.offline { color: rgba(255,255,255,0.4); }
-.opponentStatus { font-size: 11px; color: rgba(255,255,255,0.35); }
-.opponentStatus.online { color: #00ff88; }
 
-#floatingPillCenter { display: flex; align-items: center; gap: 8px; }
-#floatingPillCenter #soundBtn { width: 28px; height: 28px; border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; background: transparent; color: rgba(255,255,255,0.6); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-#floatingPillCenter #volumeSlider { width: 64px; height: 1px; appearance: none;
-  -webkit-appearance: none; background: rgba(255,255,255,0.12); }
-#floatingPillCenter #volumeSlider::-webkit-slider-thumb { appearance: none;
-  -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 1px solid #000; }
+#floatingPillLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border-right: none;
+  min-width: 0;
+  flex: 1;
+}
 
-#floatingPillRight { display: flex; gap: 8px; }
-#floatingPillRight #phoneModeBtn, #floatingPillRight #camBtn { width: 32px; height: 32px; border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; background: transparent; color: rgba(255,255,255,0.7); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-#floatingPillRight #phoneModeBtn.active { background: #ffffff; color: #000; border-color: #fff; }
-#floatingPillRight #camBtn.offIcon { color: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.08); }
+#opponentDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+#opponentDot.online {
+  background: #00ff88;
+  box-shadow: none;
+  animation: none;
+}
+#opponentDot.offline {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.3);
+  box-shadow: none;
+}
 
-body.phone-mode #floatingPill { border-bottom-color: #00ff88; }
-body.phone-mode #floatingPillCenter { opacity: 0.2; pointer-events: none; }
-body.phone-mode #floatingPillRight #camBtn { opacity: 0.2; pointer-events: none; }
+.opponentName {
+  font-size: 13px;
+  font-weight: 500;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+  letter-spacing: -0.3px;
+}
+.opponentName.online {
+  color: #ffffff;
+}
+.opponentName.offline {
+  color: rgba(255,255,255,0.4);
+}
 
-/* My video - FIXED with qualitySelect VISIBLE */
+.opponentStatus {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.35);
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+.opponentStatus.online {
+  color: #00ff88;
+}
+.opponentStatus.offline {
+  color: rgba(255,255,255,0.35);
+}
+
+#floatingPillCenter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border-right: none;
+  flex: 0 0 auto;
+}
+
+#floatingPillCenter #soundBtn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+#floatingPillCenter #soundBtn:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.9);
+  background: transparent;
+}
+
+#floatingPillCenter #volumeSlider {
+  width: 64px;
+  height: 1px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255,255,255,0.12);
+  border-radius: 0;
+  outline: none;
+  cursor: pointer;
+}
+#floatingPillCenter #volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #000000;
+  box-shadow: none;
+  cursor: pointer;
+}
+#floatingPillCenter #volumeSlider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #000000;
+}
+
+#floatingPillRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 0;
+  flex: 0 0 auto;
+}
+
+#floatingPillRight #phoneModeBtn,
+#floatingPillRight #camBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  transition: all 0.15s ease;
+  box-shadow: none;
+}
+
+#floatingPillRight #phoneModeBtn:hover,
+#floatingPillRight #camBtn:hover {
+  border-color: rgba(255,255,255,0.24);
+  color: #ffffff;
+  transform: none;
+  background: transparent;
+}
+
+#floatingPillRight #phoneModeBtn.active {
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+  box-shadow: none;
+  animation: none;
+}
+
+#floatingPillRight #camBtn.offIcon {
+  background: transparent;
+  color: rgba(255,255,255,0.25);
+  border-color: rgba(255,255,255,0.08);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255,255,255,0.3);
+}
+
+/* Phone mode - hairline style */
+body.phone-mode #floatingPill {
+  background: #000000;
+  border-bottom-color: #00ff88;
+  transform: none;
+  box-shadow: none;
+}
+body.phone-mode #floatingPillLeft .opponentName {
+  color: #00ff88;
+}
+body.phone-mode #floatingPillCenter {
+  opacity: 0.2;
+  pointer-events: none;
+}
+body.phone-mode #floatingPillRight #camBtn {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+/* My video - OLED PURE - small sharp with hairline border */
 #myVideoContainer {
-  position: fixed; top: 56px; right: 12px; width: 96px; height: 128px;
-  border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: #000; z-index: 100; overflow: hidden; touch-action: none; cursor: move;
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  bottom: auto;
+  left: auto;
+  width: 96px;
+  height: 128px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #000000;
+  z-index: 100;
+  touch-action: none;
+  cursor: move;
+  overflow: hidden;
+  box-shadow: none;
+  transition: border-color 0.15s ease;
 }
-#myVideo { width: 100%; height: 100%; border-radius: 7px; object-fit: cover; transform: scaleX(-1); }
-#myVideoContainer .cameraOverlayBtn { width: 20px; height: 20px; font-size: 10px; background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; position: absolute; }
-#switchCameraBtn { bottom: 30px; left: 4px; }
-#fullscreenBtn { top: 4px; right: 4px; }
+#myVideoContainer:hover {
+  border-color: rgba(255,255,255,0.2);
+  transform: none;
+  box-shadow: none;
+}
+#myVideo {
+  width: 100%;
+  height: 100%;
+  border-radius: 7px;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+#myVideoContainer .cameraOverlayBtn {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+  background: rgba(0,0,0,0.8);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: none;
+  border-radius: 4px;
+}
 #myVideoContainer .qualitySelect {
-  position: absolute; bottom: 4px; right: 4px; width: 56px; height: 20px;
-  border: 1px solid rgba(255,255,255,0.15); border-radius: 4px;
-  background: rgba(0,0,0,0.9); color: rgba(255,255,255,0.9);
-  font-size: 10px; font-weight: 600; display: block !important; cursor: pointer; z-index: 130;
+  display: none;
 }
 
-/* Settings - OLED PURE */
-#settingsContainer { position: fixed; top: 56px; left: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; max-height: calc(100vh - 120px); overflow-y: auto; }
-#settingsBtn { width: 32px; height: 32px; border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; background: #000; color: rgba(255,255,255,0.7); font-size: 14px; cursor: pointer; }
-#settingsContainer > button:not(#settingsBtn):not(#phoneModeBtn):not(#camBtn):not(#soundBtn) { width: 32px; height: 32px; border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; background: #000; color: rgba(255,255,255,0.6); font-size: 14px; cursor: pointer; display: none; }
-#settingsContainer.menu-open > button:not(#settingsBtn):not(#phoneModeBtn):not(#camBtn):not(#soundBtn) { display: flex; align-items: center; justify-content: center; }
-#settingsContainer #micBtn.offIcon { color: rgba(255,255,255,0.2) !important; border-color: rgba(255,255,255,0.06) !important; }
+/* Settings - OLED PURE - hairline thin */
+#settingsContainer {
+  position: fixed;
+  top: 56px;
+  left: 12px;
+  transform: none;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
 
-#settingsContainer > #statusBar, #settingsContainer > #secretSettings { display: none; border: 1px solid rgba(255,255,255,0.08); background: #000; border-radius: 8px; }
-#settingsContainer.menu-open > #statusBar { display: block; width: auto; height: auto; padding: 8px; }
-#settingsContainer.menu-open > #secretSettings { display: flex; width: 200px; height: auto; flex-direction: column; padding: 10px; font-size: 11px; background: #000; border-radius: 8px; }
+#settingsBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  background: #000000;
+  color: rgba(255,255,255,0.7);
+  box-shadow: none;
+  backdrop-filter: none;
+  transition: all 0.15s ease;
+}
+#settingsBtn:hover {
+  border-color: rgba(255,255,255,0.24);
+  color: #ffffff;
+}
 
-body.phone-mode #settingsContainer > button:not(#phoneModeBtn) { opacity: 0.15; pointer-events: none; }
-body.phone-mode #settingsContainer #phoneModeBtn { opacity: 1 !important; pointer-events: auto !important; background: #fff !important; color: #000 !important; border-color: #fff !important; }
+#settingsContainer > button:not(#settingsBtn):not(#phoneModeBtn):not(#camBtn):not(#soundBtn) {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  background: #000000;
+  color: rgba(255,255,255,0.6);
+  box-shadow: none;
+  backdrop-filter: none;
+  display: none;
+  transition: all 0.15s ease;
+}
+#settingsContainer.menu-open > button:not(#settingsBtn):not(#phoneModeBtn):not(#camBtn):not(#soundBtn) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#settingsContainer > button:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: #ffffff;
+  transform: none;
+  background: #000000;
+}
 
-/* Light mode - lamba tuşu özelliği geri getirildi */
-#remoteVideo.light-mode { filter: brightness(1.3) contrast(1.1); }
-#lightModeBtn.active { background: #ffcc00 !important; color: #000 !important; border-color: #ffcc00 !important; }
+#settingsContainer #micBtn.offIcon {
+  color: rgba(255,255,255,0.2) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+  background: #000000 !important;
+}
 
-/* Chat */
-#chatToggle { position: fixed; bottom: 16px; right: 16px; width: 44px; height: 44px; border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; background: #000; color: rgba(255,255,255,0.7); font-size: 18px; cursor: pointer; z-index: 1000; }
-#chatPanel { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; height: 50%; background: #000; border-top: 1px solid rgba(255,255,255,0.08); display: none; flex-direction: column; z-index: 900; }
+#settingsContainer > #statusBar,
+#settingsContainer > #secretSettings {
+  display: none;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #000000;
+  border-radius: 8px;
+}
+#settingsContainer.menu-open > #statusBar {
+  display: block;
+  width: auto;
+  height: auto;
+  background: #000000;
+  backdrop-filter: none;
+  border-radius: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+#settingsContainer.menu-open > #secretSettings {
+  display: flex;
+  width: 160px;
+  height: auto;
+  flex-direction: column;
+  padding: 8px;
+  font-size: 11px;
+  background: #000000;
+  backdrop-filter: none;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Phone mode - other buttons passive - hairline */
+body.phone-mode #settingsContainer > button:not(#phoneModeBtn) {
+  opacity: 0.15;
+  pointer-events: none;
+  transform: none;
+}
+body.phone-mode #settingsContainer #phoneModeBtn {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+/* Chat toggle - OLED PURE hairline */
+#chatToggle {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 50%;
+  background: #000000;
+  color: rgba(255,255,255,0.7);
+  font-size: 18px;
+  font-weight: 400;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: none;
+  backdrop-filter: none;
+  transition: all 0.15s ease;
+}
+#chatToggle:hover {
+  border-color: rgba(255,255,255,0.24);
+  color: #ffffff;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Chat panel - OLED PURE - pure black hairline */
+#chatPanel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 50%;
+  background: #000000;
+  backdrop-filter: none;
+  display: none;
+  flex-direction: column;
+  z-index: 900;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
 .chat-open #chatPanel { display: flex; }
-#messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 1px; }
-.myMessage, .otherMessage { font-size: 13px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); word-break: break-word; }
-.myMessage { color: #fff; text-align: right; }
-.otherMessage { color: rgba(255,255,255,0.7); text-align: left; }
-.mediaMessage { max-width: 200px; border-radius: 8px; margin-top: 6px; cursor: pointer; }
+.chat-open #remoteVideo { height: 50%; filter: none; }
+.chat-open #chatToggle { bottom: calc(50% + 12px); }
 
-#inputArea { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #000; border-top: 1px solid rgba(255,255,255,0.08); }
+#messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; min-height: 0; gap: 1px; }
+.myMessage { color: #ffffff; text-align: right; margin: 0; font-weight: 400; font-size: 13px; word-break: break-word; position: relative; background: transparent; padding: 8px 0; border-radius: 0; border: none; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.otherMessage { color: rgba(255,255,255,0.7); text-align: left; margin: 0; font-weight: 400; font-size: 13px; word-break: break-word; background: transparent; padding: 8px 0; border-radius: 0; border: none; border-bottom: 1px solid rgba(255,255,255,0.04); }
+
+#inputArea { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #000000; flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.08); }
 .inputTopRow { display: flex; gap: 6px; align-items: center; }
-.inputTopRow #emojiBtn, .inputTopRow #nudgeBtn { width: 56px; min-width: 56px; height: 32px; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: #000; color: rgba(255,255,255,0.6); font-size: 11px; cursor: pointer; }
+.inputTopRow select { flex: 1; height: 32px; border-radius: 6px; background: #000000; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.12); font-size: 11px; padding-left: 8px; }
+.inputTopRow #emojiBtn,.inputTopRow #nudgeBtn { width: 56px; min-width: 56px; height: 32px; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: #000000; color: rgba(255,255,255,0.6); font-size: 11px; }
 .inputBottomRow { display: flex; gap: 8px; align-items: center; }
-#attachMenuBtn { width: 36px; height: 36px; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: #000; color: rgba(255,255,255,0.5); font-size: 16px; cursor: pointer; }
-#messageInput { flex: 1; height: 36px; padding: 8px 12px; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: #000; color: white; font-size: 13px; }
-#sendBtn { width: 64px; height: 36px; border: 1px solid #fff; border-radius: 6px; background: #fff; color: #000; font-weight: 500; font-size: 12px; cursor: pointer; }
+#attachMenuBtn { width: 36px; height: 36px; min-width: 36px; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: #000000; color: rgba(255,255,255,0.5); font-size: 16px; }
+#messageInput { flex: 1; height: 36px; padding: 8px 12px; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; font-size: 13px; background: #000000; color: white; }
+#messageInput:focus { outline: none; border-color: rgba(255,255,255,0.24); background: #000000; }
+#sendBtn { width: 64px; height: 36px; min-width: 64px; border: 1px solid #ffffff; border-radius: 6px; background: #ffffff; color: #000000; font-weight: 500; font-size: 12px; }
+#sendBtn:hover { background: rgba(255,255,255,0.9); }
 
-#attachMenu { display: none; position: absolute; bottom: 48px; left: 0; background: #111; border: 1px solid #333; border-radius: 12px; padding: 6px; width: 200px; flex-direction: column; gap: 4px; z-index: 200; }
-#attachMenu.show { display: flex; }
-#attachMenu button { width: 100%; height: 40px; border: none; border-radius: 8px; background: #222; color: white; text-align: left; padding-left: 12px; font-size: 13px; cursor: pointer; }
-
-#emojiPanel { position: absolute; bottom: 60px; left: 0; right: 0; background: #000; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 8px; display: none; flex-wrap: wrap; gap: 4px; max-height: 200px; overflow-y: auto; z-index: 300; }
-#emojiPanel.show { display: flex; }
-.flyEmoji { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
-.flyEmoji:hover { background: rgba(255,255,255,0.1); transform: scale(1.1); }
-
-/* === TÜM ANIMASYONLAR HAREKETLİ === */
-.flying-emoji { position: fixed; pointer-events: none; z-index: 9999; animation: flyUp 3.5s forwards ease-out; }
-@keyframes flyUp {
-  0% { transform: translateY(0) scale(0.5) rotate(0deg); opacity: 1; }
-  15% { transform: translateY(-50px) scale(1.2) rotate(10deg); opacity: 1; }
-  50% { transform: translateY(-200px) scale(1) rotate(-10deg); opacity: 0.9; }
-  100% { transform: translateY(-400px) scale(0.8) rotate(20deg); opacity: 0; }
+/* Candle - pure black */
+#candleContainer {
+  background: #000000;
 }
-@keyframes kissRain { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-350px) scale(1.3); opacity: 0; } }
-@keyframes heartBurst { 0% { transform: scale(0.3); opacity: 0; } 20% { transform: scale(1.5); opacity: 1; } 100% { transform: scale(2.5) translateY(-200px); opacity: 0; } }
-@keyframes sparkleBurst { 0% { transform: scale(0) rotate(0deg); opacity: 0; } 50% { transform: scale(1.5) rotate(180deg); opacity: 1; } 100% { transform: scale(0) rotate(360deg) translateY(-150px); opacity: 0; } }
-@keyframes explodeAnim { 0% { transform: scale(0.5); opacity: 1; } 30% { transform: scale(1.8); opacity: 1; } 100% { transform: scale(3) translateY(-100px); opacity: 0; } }
-@keyframes shakeAnim { 0%,100% { transform: translateX(0) rotate(0deg); } 10%,30%,50%,70%,90% { transform: translateX(-5px) rotate(-5deg); } 20%,40%,60%,80% { transform: translateX(5px) rotate(5deg); } }
-@keyframes bounceAnim { 0%,100% { transform: translateY(0) scale(1); } 25% { transform: translateY(-30px) scale(1.2); } 50% { transform: translateY(0) scale(0.9); } 75% { transform: translateY(-15px) scale(1.1); } }
-@keyframes spinAnim { 0% { transform: rotate(0deg) scale(1); } 100% { transform: rotate(720deg) scale(0.5); opacity: 0; } }
-@keyframes fallAnim { 0% { transform: translateY(-100px) rotate(0deg); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(400px) rotate(360deg); opacity: 0; } }
-@keyframes flyAnim { 0% { transform: translateX(-100px) translateY(0) rotate(0deg); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateX(calc(100vw + 100px)) translateY(-200px) rotate(20deg); opacity: 0; } }
-@keyframes orbitAnim { 0% { transform: rotate(0deg) translateX(0) scale(1); } 100% { transform: rotate(360deg) translateX(100px) scale(0.5); opacity: 0; } }
-@keyframes spiralAnim { 0% { transform: rotate(0deg) scale(1); } 100% { transform: rotate(1080deg) scale(0.2) translateY(-300px); opacity: 0; } }
-@keyframes waveAnim { 0%,100% { transform: translateX(0) translateY(0) rotate(0deg); } 25% { transform: translateX(20px) translateY(-20px) rotate(10deg); } 50% { transform: translateX(-20px) translateY(-40px) rotate(-10deg); } 75% { transform: translateX(10px) translateY(-60px) rotate(5deg); } }
-@keyframes rainbowAnim { 0% { transform: translateY(0) scale(1); filter: hue-rotate(0deg); } 50% { transform: translateY(-200px) scale(1.5); filter: hue-rotate(180deg); } 100% { transform: translateY(-400px) scale(0.8); filter: hue-rotate(360deg); opacity: 0; } }
-@keyframes emojiRainAnim { 0% { transform: translateY(-50px) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
 
-.big-kiss-mark { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 120px; z-index: 10000; animation: heartBurst 2.5s forwards; pointer-events: none; }
-.water-drop { position: fixed; top: 50%; left: 50%; width: 100px; height: 100px; background: radial-gradient(circle, rgba(0,150,255,0.6), transparent); border-radius: 50%; transform: translate(-50%,-50%); animation: explodeAnim 1.2s forwards; z-index: 10000; pointer-events: none; }
+/* Phone call UI - pure black */
+#phoneCallUI {
+  background: #000000;
+}
 
-.screen-shake { animation: shakeAnim 0.7s ease-in-out; }
-.mega-shake { animation: shakeAnim 0.7s ease-in-out; }
-.shake { animation: shakeAnim 0.6s ease-in-out; }
-
-/* Custom expire wheel - su sayacı gibi */
-#customExpireWheel input[type="range"] { appearance: none;
-  -webkit-appearance: none; height: 4px; background: rgba(255,255,255,0.12); border-radius: 2px; }
-#customExpireWheel input[type="range"]::-webkit-slider-thumb { appearance: none;
-  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #00ff88; cursor: pointer; border: 2px solid #000; }
-#waterCounter div { font-size: 11px; padding: 4px 6px; border-radius: 4px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; color: rgba(255,255,255,0.6); }
-#waterCounter div:hover { background: rgba(0,255,136,0.1); color: #00ff88; border-color: rgba(0,255,136,0.2); }
-#waterCounter div.selected { background: rgba(0,255,136,0.2); color: #00ff88; border-color: #00ff88; }
-
-#candleContainer { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; z-index: 2; }
-#phoneCallUI { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 24px; z-index: 999; }
-#mediaPreview { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 10000; }
-#drawOverlay { position: fixed; inset: 0; background: #000; z-index: 10000; display: none; flex-direction: column; }
-::-webkit-scrollbar { width: 1px; }
+/* Scrollbar thin */
+::-webkit-scrollbar { width: 1px; height: 1px; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+::-webkit-scrollbar-track { background: transparent; }
+
