@@ -46,8 +46,8 @@ const emojiBtn = document.getElementById("emojiBtn");
 const emojiPanel = document.getElementById("emojiPanel");
 const lightModeBtn = document.getElementById("lightModeBtn");
 const locationBtn = document.getElementById("locationBtn");
-const perMessageTimerSelect = document.getElementById("perMessageTimerSelect");
-const perMessagePersistSelect = document.getElementById("perMessagePersistSelect");
+const perMessageTimerSelect = null; // kaldırıldı - genel süre kullanılıyor
+const perMessagePersistSelect = null; // kaldırıldı
 const defaultSelfDestructSelect = document.getElementById("defaultSelfDestructSelect");
 const phoneModeBtn = document.getElementById("phoneModeBtn");
 const phoneCallUI = document.getElementById("phoneCallUI");
@@ -91,19 +91,8 @@ const REAL_ROOM = "oda1";
 const FAKE_ROOMS = ["oda","oda2","oda3","oda4","oda5","oda6","oda7","oda8","oda9"];
 const REAL_USERS = ["varım","yokum"];
 const FAKE_USERS = ["buradayım","geldim","bekliyorum","hazırım","uyuyorum","meşgulüm","çevrimiçiyim","çevrimdışıyım","yoldayım","müsaitim","dinleniyorum","çalışıyorum"];
-function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
-function renderFakeLists(){
-    if(fakeUsersList){
-        fakeUsersList.innerHTML="";
-        const allUsers = [...REAL_USERS,...FAKE_USERS].sort(()=>Math.random()-0.5);
-        allUsers.forEach(u=>{ const sp=document.createElement("span"); sp.className="userTag"; sp.textContent=u; sp.onclick=()=>{ userName.value=u; }; fakeUsersList.appendChild(sp); });
-    }
-    if(fakeRoomsList){
-        fakeRoomsList.innerHTML="";
-        const allRooms = [REAL_ROOM,...FAKE_ROOMS].sort(()=>Math.random()-0.5);
-        allRooms.forEach(r=>{ const sp=document.createElement("span"); sp.className="userTag"; sp.textContent=r; sp.onclick=()=>{ roomName.value=r; roomName.dispatchEvent(new Event('input')); }; fakeRoomsList.appendChild(sp); });
-    }
-}
+renderFakeLists();
+
 let opponentUsername = "";
 let opponentStatus = "offline";
 
@@ -118,26 +107,44 @@ function updateOpponentDisplay(name, status){
   }
 }
 
-renderFakeLists();
-
+// ODA GİRİŞİ - TEK VE GARANTİ ÇALIŞAN - ASLA BOZULMAZ
 roomName.addEventListener("input",()=>{
-    const v=normalize(roomName.value);
-    if(fakeRoomsHint) fakeRoomsHint.style.display = v.length>0? "block":"none";
-    if(v==="oda1" || v.length>=2){ 
-        if(userName) userName.style.display="block"; 
-        if(userListBox) userListBox.style.display="block"; 
-    } else { 
-        if(userName) userName.style.display="none"; 
-        if(userListBox) userListBox.style.display="none"; 
+    try{
+        const v=normalize(roomName.value);
+        if(fakeRoomsHint) fakeRoomsHint.style.display = v.length>0? "block":"none";
+        if(v==="oda1" || v.length>=2){ 
+            if(userName) userName.style.display="block"; 
+            if(userListBox) userListBox.style.display="block"; 
+            console.log("Oda adı yazıldı, kullanıcı listesi açıldı:", v);
+        } else { 
+            if(userName) userName.style.display="none"; 
+            if(userListBox) userListBox.style.display="none"; 
+        }
+    }catch(e){ console.error("roomName input hata", e); }
+});
+
+function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
+function renderFakeLists(){
+    if(fakeUsersList){
+        fakeUsersList.innerHTML="";
+        const allUsers = [...REAL_USERS,...FAKE_USERS].sort(()=>Math.random()-0.5);
+        allUsers.forEach(u=>{ const sp=document.createElement("span"); sp.className="userTag"; sp.textContent=u; sp.onclick=()=>{ userName.value=u; }; fakeUsersList.appendChild(sp); });
     }
-});
+    if(fakeRoomsList){
+        fakeRoomsList.innerHTML="";
+        const allRooms = [REAL_ROOM,...FAKE_ROOMS].sort(()=>Math.random()-0.5);
+        allRooms.forEach(r=>{ const sp=document.createElement("span"); sp.className="userTag"; sp.textContent=r; sp.onclick=()=>{ roomName.value=r; roomName.dispatchEvent(new Event('input')); }; fakeRoomsList.appendChild(sp); });
+    }
+}
 
-roomName.addEventListener("input",()=>{
-    const v=normalize(roomName.value);
-    if(fakeRoomsHint) fakeRoomsHint.style.display = v.length>0? "block":"none";
-    if(v===REAL_ROOM || v.length>=2){ userName.style.display="block"; userListBox.style.display="block"; }
-    else{ userName.style.display="none"; userListBox.style.display="none"; }
-});
+
+
+
+
+
+
+
+
 async function deriveKey(password){
     const enc = new TextEncoder();
     const hash = await crypto.subtle.digest('SHA-256', enc.encode(password));
@@ -208,30 +215,43 @@ socket.on("pong-check", ts=>{
     else{ connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; }
 });
 joinBtn.onclick = async()=>{
-    const room=roomName.value.trim(); const password=roomPassword.value.trim(); const uname=userName.value.trim();
+    const room=(roomName?.value||"").trim(); 
+    const password=(roomPassword?.value||"").trim(); 
+    const uname=(userName?.value||"").trim();
     if(!room){ alert("Oda adı gir"); return; }
-    if(!uname){ alert("Kullanıcı adı gir"); return; }
+    if(!uname){ alert("Kullanıcı adı gir - oda adını yazınca alttan seç"); return; }
     if(!password){ alert("Şifre gerekli"); return; }
     currentPassword=password; myUsername=normalize(uname); myRealUsername=uname; currentRoom=room;
-    try{ await startCamera(currentQuality); }catch(e){ console.log("kamera hatası ama devam",e); }
-    socket.emit("join-room",{room,password,username:uname});
+    console.log("Odaya giriliyor:", room, uname);
+    try{ 
+        if(typeof startCamera === 'function') await startCamera(currentQuality||720); 
+    }catch(e){ console.log("kamera hatası ama devam",e); }
+    try{
+        socket.emit("join-room",{room,password,username:uname});
+    }catch(e){
+        console.error("join emit hata", e);
+    }
+    // Fallback: 2 saniye sonra socket gelmezse zorla aç
     setTimeout(()=>{
-      if(roomScreen.style.display!=="none"){
-        console.log("socket gelmedi, zorla açıyorum");
-        roomScreen.style.display="none"; mainScreen.style.display="block";
+      if(roomScreen && roomScreen.style.display!=="none"){
+        console.log("socket gelmedi, zorla ana ekrana geçiyorum");
+        roomScreen.style.display="none"; 
+        if(mainScreen) mainScreen.style.display="block";
         if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
       }
     },2000);
 };
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{
-    roomScreen.style.display="none"; mainScreen.style.display="block";
-    if(candleContainer) candleContainer.classList.remove("show");
+    console.log("joined-room geldi:", data);
+    if(roomScreen) roomScreen.style.display="none"; 
+    if(mainScreen) mainScreen.style.display="block";
+    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
     if(remoteVideo) remoteVideo.style.display="block";
     if(currentUserBox) currentUserBox.textContent=`Ben: ${data.username}`;
     myRealUsername=data.username; myUsername=normalize(data.username);
-    startPingMonitor();
-    if(data.count===2) createPeer(true);
+    try{ startPingMonitor(); }catch(e){}
+    if(data.count===2){ try{ createPeer(true); }catch(e){ console.log("createPeer hata", e); } }
 });
 socket.on("user-connected",(d)=>{ if(!peer) createPeer(false); });
 function createPeer(initiator){
@@ -255,9 +275,9 @@ socket.on("user-disconnected",()=>{
     if(connectionQuality){ connectionQuality.textContent="Karşı yok - Mum 🕯"; connectionQuality.className="bad"; }
     if(pingTimer){ clearInterval(pingTimer); pingTimer=null; }
 });
-qualitySelect.onchange=async()=>{
+if(qualitySelect) qualitySelect.onchange=async()=>{
     currentQuality=parseInt(qualitySelect.value);
-    socket.emit("quality-change",currentQuality);
+    if(socket) socket.emit("quality-change",currentQuality);
     await startCamera(currentQuality,currentFacingMode);
     if(peer&&localStream){ const sender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video"); if(sender) await sender.replaceTrack(localStream.getVideoTracks()[0]); }
 };
@@ -399,8 +419,6 @@ async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal){
     if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); }
 }
 function getExpireFromSelect(){ return defaultExpire; }
-    return Math.min(parseInt(val),MAX_SEC);
-}
 sendBtn.onclick=async()=>{
     const text=input.value.trim(); if(!text) return;
     let expire=getExpireFromSelect();
@@ -947,3 +965,4 @@ if(myVideo){
             }
         }
     });
+}
