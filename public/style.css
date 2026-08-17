@@ -291,14 +291,7 @@ body {
   color: rgba(255,255,255,0.35);
 }
 
-#floatingPillCenter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  border-right: none;
-  flex: 0 0 auto;
-}
+
 
 #floatingPillCenter #soundBtn {
   width: 28px;
@@ -714,25 +707,7 @@ body.phone-mode #settingsContainer #phoneModeBtn {
 #privacyModeSelect { cursor: pointer; font-weight: bold; }
 #floatingPillLeft { display: flex; align-items: center; gap: 6px; }
 
-/* V18.2 ses cubugu asagi alindi - Genel/Ozel ile ust uste gelmesin */
-#floatingPill { height: 48px; overflow: visible; }
-#floatingPillCenter {
-  position: absolute;
-  top: 52px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0,0,0,0.9);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 20px;
-  padding: 6px 12px;
-  backdrop-filter: blur(10px);
-  z-index: 999;
-}
-#floatingPillCenter #volumeSlider {
-  width: 120px;
-  height: 4px;
-  background: rgba(255,255,255,0.2);
-}
+
 #privacyModeSelect {
   font-size: 10px !important;
   height: 20px !important;
@@ -745,3 +720,54 @@ body.phone-mode #settingsContainer #phoneModeBtn {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+/* V18.3 - Ses kaydırma sadece ortada, kapatma butonu mikrofon altında */
+#floatingPill { height: 48px; overflow: visible; display:flex; justify-content:space-between; align-items:center; }
+#floatingPillLeft { display:flex; align-items:center; gap:6px; flex:1; min-width:0; }
+#floatingPillCenter {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.92);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 24px;
+  padding: 8px 16px;
+  backdrop-filter: blur(12px);
+  z-index: 999;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+#floatingPillCenter #volumeSlider {
+  width: 140px;
+  height: 4px;
+  -webkit-appearance:none;
+  appearance:none;
+  background: rgba(255,255,255,0.25);
+  border-radius:2px;
+  outline:none;
+  cursor:pointer;
+}
+#floatingPillCenter #volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance:none;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:#ffffff;
+  border:2px solid #000;
+  cursor:pointer;
+  box-shadow:0 0 8px rgba(255,255,255,0.5);
+}
+#floatingPillCenter #volumeSlider::-moz-range-thumb {
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:#ffffff;
+  border:2px solid #000;
+}
+#privacyModeSelect { font-size:10px !important; height:20px !important; max-width:90px; background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; padding:2px 6px; }
+#floatingPillLeft .opponentName, #floatingPillLeft .opponentStatus { font-size:12px; max-width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#settingsContainer > #soundBtn { display:block !important; width:46px; height:46px; border:none; border-radius:50%; font-size:20px; background:rgba(0,0,0,0.7) !important; color:white; }
+#settingsContainer.menu-open > #soundBtn { display:block; }

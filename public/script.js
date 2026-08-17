@@ -713,11 +713,9 @@ micBtn.onclick=async()=>{
   }catch(e){}
 };
 camBtn.onclick=async()=>{
-  if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
-  // V17.3 - Kamera acilirken sesli acma sorusu
+  if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ console.error("Kamera acilamadi", e); return; } }
   if(!camEnabled){
-    // Kamera kapali -> acilacak, sor
-    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nEvet = Mikrofon da açılsın\nHayır = Sadece kamera açılsın (mikrofon kapalı kalır)");
+    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nTamam = Mikrofon da açılsın\nİptal = Sadece kamera açılsın (mikrofon kapalı kalır)");
     camEnabled=true;
     localStream.getVideoTracks().forEach(t=>t.enabled=true);
     camBtn.classList.remove("offIcon");
@@ -728,27 +726,33 @@ camBtn.onclick=async()=>{
     } else {
       localStream.getAudioTracks().forEach(t=>t.enabled=false);
       micEnabled=false; micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
-      console.log("Kamera sessiz acildi - mikrofon kapali, istersen acabilirsin");
+      console.log("Kamera sessiz acildi - mikrofon kapali");
+    }
+    if(peer&&localStream){
+      const vTrack=localStream.getVideoTracks()[0]; const aTrack=localStream.getAudioTracks()[0];
+      try{
+        const vSender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video");
+        if(vSender&&vTrack) await vSender.replaceTrack(vTrack);
+        const aSender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="audio");
+        if(aSender&&aTrack) await aSender.replaceTrack(aTrack);
+      }catch(e){ console.log("replaceTrack hatasi", e); }
+    }
+    // V18.3 - Karşı tarafa görüntülü arama isteği gönder - DÜZELTİLDİ
+    if(socket.connected && currentRoom){
+      console.log("📹 Görüntülü arama isteği gönderiliyor karşı tarafa - FIXED");
+      socket.emit("video-call-request", {from: myRealUsername, room: currentRoom, timestamp: Date.now()});
+    } else {
+      console.log("Socket bağlı değil, video isteği gönderilemedi");
     }
   } else {
-    // Kamera acik -> kapat - V17.5 FIX: kamera kapaninca mikrofon da kapansin
     camEnabled=false;
     localStream.getVideoTracks().forEach(t=>t.enabled=false);
     camBtn.classList.add("offIcon");
-    // Mikrofon da kapat
     localStream.getAudioTracks().forEach(t=>t.enabled=false);
     micEnabled=false;
     micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
     console.log("Kamera kapatildi - V17.5 mikrofon da kapatildi");
   }
-  try{
-    if(peer&&peer._pc&&localStream){
-      const vt=localStream.getVideoTracks()[0];
-      const at=localStream.getAudioTracks()[0];
-      if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ await s.replaceTrack(vt); } }
-      if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } }
-    }
-  }catch(e){}
 };
 if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{
   try{
@@ -853,152 +857,48 @@ if(lightModeBtn){
 let _phoneWasCamOn=false; let _phoneWasMicOn=false;
 if(phoneModeBtn){
     phoneModeBtn.onclick=()=>{
-        if(!isPhoneMode){
-            // TELEFON ACILIYOR - V17.3 MANTIGI: kamera aciksa mikrofon otomatik acilsin
-            volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false; soundBtn.textContent="🔊";
-            // V17.4 - Hoparlor aciksa bile en dusuk %15
-            if(parseFloat(volumeSlider.value) < 0.15){ volumeSlider.value=0.15; remoteVideo.volume=0.15; }
-            _phoneWasCamOn=camEnabled; _phoneWasMicOn=micEnabled;
-            console.log("Telefon aciliyor, onceki cam", _phoneWasCamOn, "mic", _phoneWasMicOn);
-            // V17.4 - Kamera aciksa VEYA kapaliysa bile telefon acilinca mikrofon OTOMATIK %15 acilsin
-            // Hoparlor aciksa bile en dusuk %15
-            if(localStream){
-              localStream.getAudioTracks().forEach(t=>{ t.enabled=true; });
-            }
-            micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤";
-            // Ses seviyesi en az %15
-            if(volumeSlider){ 
-              if(parseFloat(volumeSlider.value) < 0.15){ volumeSlider.value=0.15; }
-              remoteVideo.volume = Math.max(0.15, parseFloat(volumeSlider.value)||0.15);
-              remoteVideo.muted=false;
-            }
-            console.log("V17.4 Telefon acildi - mikrofon otomatik %15 acildi, hoparlor de en az %15");
-        }
-        isPhoneMode=!isPhoneMode;
-        document.body.classList.toggle("phone-mode",isPhoneMode);
-        phoneModeBtn.classList.toggle("active",isPhoneMode);
-        if(isPhoneMode){
-            if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
-            camEnabled=false; camBtn.classList.add("offIcon");
-            phoneCallUI.style.display="flex";
-            if(remoteVideo) remoteVideo.style.display="none";
-            if(myVideoContainer) myVideoContainer.style.display="none";
-            if(candleContainer) candleContainer.classList.remove("show");
-            socket.emit("phone-mode",true);
-        }else{
-            // TELEFON KAPANIYOR - V17.4 MANTIGI: kamera ve mikrofon ikisi de kapansin, ben istersem acayim (duzeltildi)
-            console.log("Telefon kapaniyor - V17.4 kamera ve mikrofon KAPANIYOR, istersem acacagim");
-            if(localStream){
-                localStream.getVideoTracks().forEach(t=>t.enabled=false);
-                localStream.getAudioTracks().forEach(t=>t.enabled=false);
-            }
-            camEnabled=false; micEnabled=false;
-            camBtn.classList.add("offIcon");
-            micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
-            phoneCallUI.style.display="none";
-            if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
-            if(myVideoContainer) myVideoContainer.style.display="block";
-            socket.emit("phone-mode",false);
-            // Peer trackleri guncelle - kapali trackler
-            if(peer&&peer._pc&&localStream){
-              const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0];
-              (async()=>{
-                if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} } }
-                if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} } }
-              })();
-            }
-        }
-    };
-}
-socket.on("phone-mode",(enabled)=>{
-    isPhoneMode=enabled; document.body.classList.toggle("phone-mode",enabled); phoneModeBtn.classList.toggle("active",enabled);
-    if(enabled){ phoneCallUI.style.display="flex"; if(remoteVideo) remoteVideo.style.display="none"; if(candleContainer) candleContainer.classList.remove("show"); volumeSlider.value=0.15; remoteVideo.volume=0.15; if(parseFloat(volumeSlider.value) < 0.15){ volumeSlider.value=0.15; remoteVideo.volume=0.15; } }
-    else{ phoneCallUI.style.display="none"; if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block"; if(myVideoContainer) myVideoContainer.style.display="block"; }
-});
-
-// === V17 WHEEL PICKER ===
-const wheelOverlay=document.getElementById("wheelOverlay");
-const wheelHour=document.getElementById("wheelHour");
-const wheelMinute=document.getElementById("wheelMinute");
-const wheelOk=document.getElementById("wheelOk");
-const wheelCancel=document.getElementById("wheelCancel");
-const openWheelBtn=document.getElementById("openWheelBtn");
-
-function openWheel(){ console.log('openWheel cagrildi'); 
-  if(!wheelOverlay) return;
-  const total=defaultExpire;
-  const h=Math.floor(total/3600); const m=Math.floor((total%3600)/60);
-  if(wheelHour) wheelHour.value=h; if(wheelMinute) wheelMinute.value=m;
-  wheelOverlay.classList.add("show");
-}
-function closeWheel(){ if(wheelOverlay) wheelOverlay.classList.remove("show"); }
-function wheelStep(type,dir){
-  if(type==='hour'&&wheelHour){ let v=parseInt(wheelHour.value)||0; v+=dir; if(v<0) v=23; if(v>23) v=0; wheelHour.value=v; }
-  if(type==='minute'&&wheelMinute){ let v=parseInt(wheelMinute.value)||0; v+=dir; if(v<0) v=59; if(v>59) v=0; wheelMinute.value=v; }
-}
-function setWheelQuick(sec){ if(wheelHour&&wheelMinute){ wheelHour.value=Math.floor(sec/3600); wheelMinute.value=Math.floor((sec%3600)/60); } }
-
-if(openWheelBtn){ openWheelBtn.onclick=()=>{ openWheel(); }; }
-if(defaultSelfDestructSelect){
-    defaultSelfDestructSelect.onchange=()=>{
-        if(defaultSelfDestructSelect.value==="custom"){ openWheel(); return; }
-        let val=parseInt(defaultSelfDestructSelect.value); if(val>MAX_SEC) val=MAX_SEC; defaultExpire=val; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); console.log("Varsayilan süre:", formatTime(defaultExpire), "- sabit 4 saat mantigi aktif");
-    };
-}
-if(wheelOk){
-  wheelOk.onclick=()=>{
-    const h=parseInt(wheelHour.value)||0; const m=parseInt(wheelMinute.value)||0;
-    let sec=h*3600+m*60; if(sec<300) sec=300; if(sec>86400) sec=86400;
-    defaultExpire=sec; localStorage.setItem("gorgor_default_expire",defaultExpire.toString());
-    if(defaultSelfDestructSelect){
-        let customOpt=defaultSelfDestructSelect.querySelector('option[value="custom_display"]');
-        if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; defaultSelfDestructSelect.appendChild(customOpt); }
-        customOpt.textContent=formatTime(defaultExpire)+" (wheel)"; customOpt.selected=true;
+  const willOpen = !isPhoneMode;
+  if(willOpen){
+    const onay = confirm("📞 Sesli arama başlatmak istiyor musun? Karşı tarafa istek gidecek");
+    if(!onay) return;
+    // V18.3 - Karşı tarafa sesli arama isteği gönder - DÜZELTİLDİ
+    if(socket.connected && currentRoom){
+      console.log("📞 Sesli arama isteği gönderiliyor - FIXED");
+      socket.emit("phone-call-request", {from: myRealUsername, room: currentRoom, timestamp: Date.now()});
     }
-    closeWheel();
-    console.log("Wheel ile ayarlandi:", formatTime(sec));
-  };
-}
-if(wheelCancel){ wheelCancel.onclick=()=>closeWheel(); }
-if(wheelOverlay){ wheelOverlay.addEventListener("click",(e)=>{ if(e.target===wheelOverlay) closeWheel(); }); }
-
-function doPanic(){
-    if(!confirm("🚨 PANİK: Tüm mesajlar silinsin mi?")) return;
-    messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
-    socket.emit("panic");
-    window.open("https://www.google.com","_blank");
-    document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Geçmiş silindi</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>';
-}
-if(panicBtn) panicBtn.onclick=doPanic;
-socket.on("panic",()=>{
-    console.log("🚨 PANİK ALINDI - Karşı taraf panik attı, program kapanıyor");
-    messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
-    // V18 - Karşı tarafın da programı kapansın
-    const div=document.createElement("div"); div.className="selfDestructed"; div.textContent="🚨 Karşı taraf panik attı - her iki taraf kapanıyor"; messages.appendChild(div);
-    setTimeout(()=>{
-        doSecurityReset("panic from opponent");
-        document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Karşı taraf panik attı - program kapandı</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>';
-    }, 800);
-});
-
-let drawing=false;
-drawCanvas.addEventListener("mousedown", e=>{ drawing=true; const ctx=window._drawCtx; if(!ctx) return; ctx.beginPath(); ctx.moveTo(e.clientX,e.clientY); });
-drawCanvas.addEventListener("touchstart", e=>{ drawing=true; const ctx=window._drawCtx; if(!ctx) return; const t=e.touches[0]; ctx.beginPath(); ctx.moveTo(t.clientX,t.clientY); });
-drawCanvas.addEventListener("mousemove", e=>{ if(!drawing) return; const ctx=window._drawCtx; if(!ctx) return; ctx.lineTo(e.clientX,e.clientY); ctx.stroke(); });
-drawCanvas.addEventListener("touchmove", e=>{ if(!drawing) return; e.preventDefault(); const ctx=window._drawCtx; if(!ctx) return; const t=e.touches[0]; ctx.lineTo(t.clientX,t.clientY); ctx.stroke(); }, {passive:false});
-drawCanvas.addEventListener("mouseup", ()=>drawing=false);
-drawCanvas.addEventListener("touchend", ()=>drawing=false);
-drawClear.onclick=()=>{ const ctx=window._drawCtx; if(ctx){ ctx.fillStyle="#000"; ctx.fillRect(0,0,window.innerWidth,window.innerHeight); } };
-drawClose.onclick=()=>{ drawOverlay.style.display="none"; };
-drawSend.onclick=async()=>{
-    const dataUrl=drawCanvas.toDataURL("image/jpeg",0.7);
-    let expire=getExpireFromSelect();
-    const enc=await encryptText(dataUrl,currentPassword);
-    const msgId=await addMyMediaMessage(dataUrl,"image",expire,"cizim.jpg");
-    const mediaData={msgId,enc,expireSec:expire,mediaType:"image"};
-        if(!socket.connected){ pendingQueue.push({type:"media", data:mediaData}); console.log("Medya kuyruga alindi", msgId); }
-        else { socket.emit("chat-media",mediaData); console.log("Medya gonderildi", msgId); const tout=setTimeout(()=>{ const d=document.getElementById(msgId); if(d){ const t=d.querySelector(".ticks"); if(t && !t.textContent.includes("✓✓")){ t.textContent=" ❗"; t.style.color="#ff4444"; t.onclick=()=>{ socket.emit("chat-media",mediaData); t.textContent=" ⏳"; }; } } }, 3000); ackTimeouts.set(msgId, tout); }
-    drawOverlay.style.display="none";
+  }
+  isPhoneMode=!isPhoneMode;
+  document.body.classList.toggle("phone-mode",isPhoneMode);
+  phoneModeBtn.classList.toggle("active",isPhoneMode);
+  if(isPhoneMode){
+    phoneCallUI.style.display="flex";
+    if(remoteVideo) remoteVideo.style.display="none";
+    if(candleContainer) candleContainer.classList.remove("show");
+    volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false; soundBtn.textContent="🔊";
+    if(parseFloat(volumeSlider.value) < 0.15){ volumeSlider.value=0.15; remoteVideo.volume=0.15; }
+    if(localStream){
+      localStream.getAudioTracks().forEach(t=>{ t.enabled=true; });
+    }
+    micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤";
+    if(volumeSlider){
+      if(parseFloat(volumeSlider.value) < 0.15){ volumeSlider.value=0.15; }
+      remoteVideo.volume = Math.max(0.15, parseFloat(volumeSlider.value)||0.15);
+      remoteVideo.muted=false;
+    }
+    console.log("V18 Telefon acildi - mikrofon otomatik %15 acildi");
+  } else {
+    phoneCallUI.style.display="none";
+    if(remoteVideo) remoteVideo.style.display="block";
+    console.log("Telefon kapaniyor - V17.4 kamera ve mikrofon KAPANIYOR");
+    if(localStream){
+      localStream.getVideoTracks().forEach(t=>{ t.enabled=false; });
+      localStream.getAudioTracks().forEach(t=>{ t.enabled=false; });
+    }
+    camEnabled=false; micEnabled=false;
+    camBtn.classList.add("offIcon");
+    micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
+  }
+  if(socket.connected) socket.emit("phone-mode", isPhoneMode);
 };
 window.addEventListener("beforeunload",()=>{ if(peer) peer.destroy(); if(localStream) localStream.getTracks().forEach(t=>t.stop()); });
 let lastScale=1, currentScale=1;
@@ -1125,7 +1025,7 @@ socket.on("quality-change", async(q)=>{
 // V18.2 - Görüntülü ve sesli arama istekleri - karşı taraf onayı
 socket.on("video-call-request", async(data)=>{
   console.log("📹 Görüntülü arama isteği geldi:", data);
-  const kabul = confirm(`📹 ${data.from || "Karşı taraf"} görüntülü arama yapmak istiyor. Kabul ediyor musun?\n\nEvet = Kameran açılacak (mikrofon sorusu gelecek)\nHayır = Reddet`);
+  const kabul = confirm(`📹 ${data.from || "Karşı taraf"} görüntülü arama yapmak istiyor. Kabul ediyor musun?\n\nTamam = Kameran açılacak (mikrofon sorusu gelecek)\nİptal = Reddet`);
   if(kabul){
     if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ socket.emit("video-call-response",{accepted:false, from:myRealUsername}); return; } }
     const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nEvet = Mikrofon da açılsın\nHayır = Sadece kamera");
