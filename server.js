@@ -123,6 +123,8 @@ io.on('connection', socket=>{
     persistedMessages.push(msg);
     debouncedSave();
     socket.to(room).emit('chat-message',{...data, username:socket.username, realUsername:socket.realUsername});
+    socket.emit('message-ack',{msgId:data.msgId, status:'sent'});
+    console.log(`Mesaj ACK gonderildi ${data.msgId} oda ${room}`);
   });
 
   socket.on('chat-media', async data=>{
@@ -133,6 +135,8 @@ io.on('connection', socket=>{
     persistedMessages.push(msg);
     debouncedSave();
     socket.to(room).emit('chat-media',{...data, username:socket.username, realUsername:socket.realUsername});
+    socket.emit('message-ack',{msgId:data.msgId, status:'sent'});
+    console.log(`Medya ACK gonderildi ${data.msgId} oda ${room}`);
   });
 
   socket.on('message-opened', async ({msgId})=>{
@@ -144,6 +148,12 @@ io.on('connection', socket=>{
     if(t){ t.opened=true; }
     if(idx>=0){ persistedMessages[idx].opened=true; debouncedSave(); }
     io.to(room).emit('message-opened',{msgId, deleteAt: existingDeleteAt, expireSec: baseSec, openedAt: Date.now()});
+  });
+
+  socket.on('leave-room', (roomName)=>{
+    const room=roomName||socket.room;
+    if(room&&rooms[room]){ delete rooms[room].users[socket.id]; socket.to(room).emit('user-disconnected'); socket.leave(room); console.log(`Guvenlik cikis ${room}`); }
+    socket.room=null;
   });
 
   socket.on('disconnect', ()=>{
@@ -161,6 +171,10 @@ io.on('connection', socket=>{
   socket.on('fly-emoji', d=>{ if(socket.room) socket.to(socket.room).emit('fly-emoji', d); });
   socket.on('quality-change', q=>{ if(socket.room){ console.log(`Kalite degisti ${socket.room}: ${q}p`); socket.to(socket.room).emit('quality-change', q); } });
   socket.on('phone-mode', b=>{ if(socket.room) socket.to(socket.room).emit('phone-mode', b); });
+  socket.on('video-call-request', (data)=>{ if(socket.room){ console.log(`Video call request ${socket.room} from ${data.from}`); socket.to(socket.room).emit('video-call-request', data); } });
+  socket.on('video-call-response', (data)=>{ if(socket.room){ socket.to(socket.room).emit('video-call-response', data); } });
+  socket.on('phone-call-request', (data)=>{ if(socket.room){ console.log(`Phone call request ${socket.room} from ${data.from}`); socket.to(socket.room).emit('phone-call-request', data); } });
+  socket.on('phone-call-response', (data)=>{ if(socket.room){ socket.to(socket.room).emit('phone-call-response', data); } });
   socket.on('paused', ()=>{ if(socket.room) socket.to(socket.room).emit('peer-paused'); });
   socket.on('panic', async ()=>{
     if(socket.room){
@@ -172,4 +186,4 @@ io.on('connection', socket=>{
   });
 });
 
-server.listen(process.env.PORT||10000, ()=> console.log("GOR V17 calisiyor port 10000 - LAMBA KALIN + 480-720-1080 + WHEEL + EMOJI FIX AKTIF"));
+server.listen(process.env.PORT||10000, ()=> console.log("GOR V18.1 calisiyor - MESAJ ACK + RECONNECT FIX AKTIF"));

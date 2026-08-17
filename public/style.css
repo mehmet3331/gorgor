@@ -407,14 +407,10 @@ body.phone-mode #floatingPill {
 body.phone-mode #floatingPillLeft .opponentName {
   color: #00ff88;
 }
-body.phone-mode #floatingPillCenter {
-  opacity: 0.2;
-  pointer-events: none;
-}
-body.phone-mode #floatingPillRight #camBtn {
-  opacity: 0.2;
-  pointer-events: none;
-}
+body.phone-mode /* V18.2 - ses kontrolu aktif */
+#floatingPillCenter { opacity: 1; pointer-events: auto; }
+body.phone-mode /* V18.2 - kamera butonu aktif */
+#floatingPillRight #camBtn { opacity: 1; pointer-events: auto; }
 
 /* My video - OLED PURE - small sharp with hairline border */
 #myVideoContainer {
@@ -717,3 +713,35 @@ body.phone-mode #settingsContainer #phoneModeBtn {
 /* Floating pill privacy select */
 #privacyModeSelect { cursor: pointer; font-weight: bold; }
 #floatingPillLeft { display: flex; align-items: center; gap: 6px; }
+
+/* V18.2 ses cubugu asagi alindi - Genel/Ozel ile ust uste gelmesin */
+#floatingPill { height: 48px; overflow: visible; }
+#floatingPillCenter {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.9);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 6px 12px;
+  backdrop-filter: blur(10px);
+  z-index: 999;
+}
+#floatingPillCenter #volumeSlider {
+  width: 120px;
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+}
+#privacyModeSelect {
+  font-size: 10px !important;
+  height: 20px !important;
+  max-width: 90px;
+}
+#floatingPillLeft .opponentName, #floatingPillLeft .opponentStatus {
+  font-size: 12px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,7 +1,77 @@
 console.log("V17 - LAMBA KALIN + 480-720-1080 + WHEEL + EMOJI FULL");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
-const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
+const socket = io({ 
+  timeout: 20000, 
+  reconnection: true, 
+  reconnectionDelay: 500, 
+  reconnectionDelayMax: 5000,
+  reconnectionAttempts: Infinity,
+  randomizationFactor: 0.5,
+  transports: ['websocket','polling']
+});
+let pendingQueue = [];
+let ackTimeouts = new Map();
+
+socket.on("connect", ()=>{
+  console.log("✅ Socket baglandi:", socket.id, "connected:", socket.connected);
+  if(pingValue) pingValue.textContent = "Bağlandı";
+  if(connectionQuality){ connectionQuality.textContent = "Bağlı"; connectionQuality.className = "good"; }
+  // Odaya tekrar katıl - bağlantı koptuysa
+  if(currentRoom && currentPassword && myRealUsername){
+    console.log("Odaya tekrar katiliyor:", currentRoom);
+    socket.emit("join-room",{room:currentRoom,password:currentPassword,username:myRealUsername});
+    // Bekleyen mesajları gönder
+    setTimeout(()=>{ flushPendingQueue(); }, 1000);
+  }
+});
+
+socket.on("disconnect", (reason)=>{
+  console.log("❌ Socket koptu:", reason);
+  if(pingValue) pingValue.textContent = "Koptu: "+reason;
+  if(connectionQuality){ connectionQuality.textContent = "Bağlantı koptu - yeniden bağlanıyor..."; connectionQuality.className = "bad"; }
+  if(opponentDot){ opponentDot.className = "onlineDot offline"; }
+});
+
+socket.on("connect_error", (err)=>{
+  console.log("⚠️ Connect error:", err.message);
+  if(connectionQuality){ connectionQuality.textContent = "Bağlanamıyor - tekrar deniyor..."; connectionQuality.className = "bad"; }
+});
+
+socket.on("reconnect", (attempt)=>{
+  console.log("🔄 Yeniden bağlandı, deneme:", attempt);
+});
+
+socket.on("reconnect_attempt", (attempt)=>{
+  console.log("🔄 Yeniden bağlanma denemesi:", attempt);
+});
+
+function flushPendingQueue(){
+  if(pendingQueue.length===0) return;
+  if(!socket.connected){ console.log("Kuyruk bekliyor - baglanti yok"); return; }
+  console.log(`Kuyruktaki ${pendingQueue.length} mesaj gonderiliyor`);
+  const queue = [...pendingQueue];
+  pendingQueue = [];
+  queue.forEach(item=>{
+    if(item.type==="text"){
+      socket.emit("chat-message", item.data);
+    } else {
+      socket.emit("chat-media", item.data);
+    }
+    console.log("Kuyruktan gonderildi:", item.data.msgId);
+  });
+}
+
+socket.on("message-ack", ({msgId, status})=>{
+  console.log("✅ Mesaj ACK alindi:", msgId, status);
+  const div = document.getElementById(msgId) || sentMessages.get(msgId);
+  if(div){
+    const ticks = div.querySelector(".ticks");
+    if(ticks){ ticks.textContent = " ✓✓"; ticks.style.color = "#999"; ticks.title = "Gönderildi"; }
+    // Timeout temizle
+    if(ackTimeouts.has(msgId)){ clearTimeout(ackTimeouts.get(msgId)); ackTimeouts.delete(msgId); }
+  }
+});
 
 const myVideo = document.getElementById("myVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -96,14 +166,21 @@ function doSecurityReset(reason){
     console.log("FOTO SECILIYOR - Guvenlik reset IPTAL:", reason, "isPickingFile", isPickingFile, "_photoPicking", _photoPicking);
     return;
   }
-  // V18 - GENEL MOD: sadece mikrofon kapansin, hesap makinesine donme yok
+  // V18.2 - GENEL MOD: hem mikrofon hem hoparlör kapansin, hesap makinesine dönme yok
   if(securityMode === "general"){
-    console.log("GENEL MOD - Sadece mikrofon kapaniyor, tam kapanis yok:", reason);
+    console.log("GENEL MOD - Mikrofon ve hoparlör kapaniyor, tam kapanis yok:", reason);
     if(localStream){
       localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
     }
     micEnabled=false;
     if(typeof micBtn !== "undefined" && micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+    // Hoparlör de kapansın
+    if(typeof remoteVideo !== "undefined" && remoteVideo){
+      try{ remoteVideo.muted=true; remoteVideo.volume=0; }catch(e){}
+    }
+    if(typeof soundBtn !== "undefined" && soundBtn){ soundBtn.textContent="🔇"; }
+    if(typeof volumeSlider !== "undefined" && volumeSlider){ volumeSlider.value=0; }
+    console.log("Genel mod - mic + hoparlör kapatildi");
     return;
   }
   console.log("OZEL MOD - GUVENLIK KAPANIS:", reason);
@@ -273,6 +350,7 @@ socket.on("pong-check", ts=>{
 });
 
 joinBtn.onclick=async()=>{
+    if(!socket.connected){ alert("İnternet bağlantısı yok, lütfen bekleyin bağlansın"); return; }
     const room=roomName.value.trim(); const password=roomPassword.value.trim(); const uname=userName.value.trim();
     if(!room){ alert("Oda adı gir"); return; }
     if(!uname){ alert("Kullanıcı adı gir"); return; }
@@ -342,23 +420,7 @@ socket.on("user-disconnected",()=>{
 });
 
 // === V17 - KALİTE DEĞİŞİNCE İKİMİZİN DEĞİŞSİN ===
-qualitySelect.onchange=async()=>{
-    const wasCamOn=camEnabled; const wasMicOn=micEnabled;
-    currentQuality=parseInt(qualitySelect.value);
-    console.log("Kalite degistiriliyor:", currentQuality);
-    socket.emit("quality-change", currentQuality);
-    await startCamera(currentQuality, currentFacingMode);
-    if(localStream){
-        localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn);
-        localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn);
-        camEnabled=wasCamOn; micEnabled=wasMicOn;
-        if(!wasCamOn) camBtn.classList.add("offIcon"); else camBtn.classList.remove("offIcon");
-    }
-    if(peer&&localStream){
-        const sender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video");
-        if(sender) await sender.replaceTrack(localStream.getVideoTracks()[0]);
-    }
-};
+
 socket.on("quality-change", async(q)=>{
     console.log("Karsi kalite degistirdi:", q);
     currentQuality=parseInt(q);
@@ -484,13 +546,42 @@ function getExpireFromSelect(){
 }
 sendBtn.onclick=async()=>{
     const text=input.value.trim(); if(!text) return;
-    let expire=getExpireFromSelect();
-    const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once";
-    if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); }
-    const msgId=await addMyMessage(text,expire,myRealUsername);
-    const enc=await encryptText(text,currentPassword); const sentAt=Date.now();
-    socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt});
-    input.value=""; socket.emit('typing',false); isTyping=false;
+    const expire=getExpireFromSelect();
+    if(perMessagePersistSelect && perMessagePersistSelect.value==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire", defaultExpire.toString()); }
+    try{
+        const enc=await encryptText(text, currentPassword);
+        const msgId=await addMyMessage(text, expire, myRealUsername);
+        const data={msgId, enc, expireSec:expire};
+        if(!socket.connected){
+            console.log("⚠️ Baglanti yok, mesaja kuyruga aliniyor:", msgId);
+            pendingQueue.push({type:"text", data});
+            const div=document.getElementById(msgId);
+            if(div){ const ticks=div.querySelector(".ticks"); if(ticks){ ticks.textContent=" ⏳"; ticks.style.color="#ffcc00"; ticks.title="Bağlantı bekleniyor, kuyrukta"; } }
+            input.value="";
+            return;
+        }
+        socket.emit("chat-message", data);
+        console.log("📤 Mesaj gonderildi:", msgId);
+        // 3 saniye icinde ACK gelmezse tekrar dene
+        const timeout = setTimeout(()=>{
+            const d=document.getElementById(msgId);
+            if(d){
+                const t=d.querySelector(".ticks");
+                if(t && t.textContent.includes("✓✓")===false){
+                    console.log("⏰ ACK gelmedi, tekrar deniyor:", msgId);
+                    t.textContent=" ❗"; t.style.color="#ff4444"; t.title="Gönderilemedi - tekrar dene, tikla";
+                    t.onclick=()=>{ 
+                        if(socket.connected){ socket.emit("chat-message", data); t.textContent=" ⏳"; t.style.color="#ffcc00"; 
+                        const retryTimeout=setTimeout(()=>{ t.textContent=" ❗"; t.style.color="#ff4444"; }, 3000);
+                        ackTimeouts.set(msgId, retryTimeout);
+                        } else { pendingQueue.push({type:"text", data}); t.textContent=" ⏳"; }
+                    };
+                }
+            }
+        }, 3000);
+        ackTimeouts.set(msgId, timeout);
+        input.value="";
+    }catch(e){ console.error("Mesaj gonderme hatasi", e); alert("Mesaj şifrelenemedi, tekrar dene"); }
 };
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt); });
@@ -626,7 +717,7 @@ camBtn.onclick=async()=>{
   // V17.3 - Kamera acilirken sesli acma sorusu
   if(!camEnabled){
     // Kamera kapali -> acilacak, sor
-    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nTamam = Mikrofon da açılsın\nİptal = Sadece kamera açılsın (mikrofon kapalı kalır)");
+    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nEvet = Mikrofon da açılsın\nHayır = Sadece kamera açılsın (mikrofon kapalı kalır)");
     camEnabled=true;
     localStream.getVideoTracks().forEach(t=>t.enabled=true);
     camBtn.classList.remove("offIcon");
@@ -904,7 +995,9 @@ drawSend.onclick=async()=>{
     let expire=getExpireFromSelect();
     const enc=await encryptText(dataUrl,currentPassword);
     const msgId=await addMyMediaMessage(dataUrl,"image",expire,"cizim.jpg");
-    socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image"});
+    const mediaData={msgId,enc,expireSec:expire,mediaType:"image"};
+        if(!socket.connected){ pendingQueue.push({type:"media", data:mediaData}); console.log("Medya kuyruga alindi", msgId); }
+        else { socket.emit("chat-media",mediaData); console.log("Medya gonderildi", msgId); const tout=setTimeout(()=>{ const d=document.getElementById(msgId); if(d){ const t=d.querySelector(".ticks"); if(t && !t.textContent.includes("✓✓")){ t.textContent=" ❗"; t.style.color="#ff4444"; t.onclick=()=>{ socket.emit("chat-media",mediaData); t.textContent=" ⏳"; }; } } }, 3000); ackTimeouts.set(msgId, tout); }
     drawOverlay.style.display="none";
 };
 window.addEventListener("beforeunload",()=>{ if(peer) peer.destroy(); if(localStream) localStream.getTracks().forEach(t=>t.stop()); });
@@ -979,5 +1072,129 @@ document.addEventListener("DOMContentLoaded", ()=>{
         alert("🔒 Özel mod: Sekme değiştirince program tamamen kapanıp hesap makinesine dönecek");
       }
     });
+  }
+});
+
+
+// V18.2 - Video çözünürlüğü değişince iki tarafta da değişsin
+if(qualitySelect){
+  qualitySelect.onchange=async()=>{
+    const wasCamOn=camEnabled; const wasMicOn=micEnabled;
+    const newQuality=parseInt(qualitySelect.value);
+    currentQuality=newQuality;
+    console.log("Kalite degistiriliyor (her iki taraf):", currentQuality);
+    socket.emit("quality-change", currentQuality);
+    try{
+      await startCamera(currentQuality, currentFacingMode);
+      if(localStream){
+        localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn);
+        localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn);
+        camEnabled=wasCamOn; micEnabled=wasMicOn;
+        if(!wasCamOn) camBtn.classList.add("offIcon"); else camBtn.classList.remove("offIcon");
+        if(!wasMicOn) micBtn.classList.add("offIcon"); else micBtn.classList.remove("offIcon");
+      }
+      if(peer&&localStream&&localStream.getVideoTracks()[0]){
+        const sender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video");
+        if(sender) await sender.replaceTrack(localStream.getVideoTracks()[0]);
+      }
+    }catch(e){ console.error("Kalite degisim hatasi", e); }
+  };
+}
+
+socket.on("quality-change", async(q)=>{
+  console.log("Karsi taraf kalite degistirdi, ben de degistiriyorum:", q);
+  currentQuality=parseInt(q);
+  if(qualitySelect) qualitySelect.value=currentQuality.toString();
+  const wasCamOn=camEnabled; const wasMicOn=micEnabled;
+  try{
+    await startCamera(currentQuality, currentFacingMode);
+    if(localStream){
+      localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn);
+      localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn);
+      camEnabled=wasCamOn; micEnabled=wasMicOn;
+    }
+    if(peer&&localStream&&localStream.getVideoTracks()[0]){
+      const sender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video");
+      if(sender) await sender.replaceTrack(localStream.getVideoTracks()[0]);
+    }
+    if(connectionQuality){ connectionQuality.textContent=`Kalite ${q}p`; connectionQuality.className="good"; setTimeout(()=>{ if(connectionQuality) connectionQuality.textContent="İyi"; },2000); }
+  }catch(e){ console.error("Karsi kalite degisim hatasi", e); }
+});
+
+
+// V18.2 - Görüntülü ve sesli arama istekleri - karşı taraf onayı
+socket.on("video-call-request", async(data)=>{
+  console.log("📹 Görüntülü arama isteği geldi:", data);
+  const kabul = confirm(`📹 ${data.from || "Karşı taraf"} görüntülü arama yapmak istiyor. Kabul ediyor musun?\n\nEvet = Kameran açılacak (mikrofon sorusu gelecek)\nHayır = Reddet`);
+  if(kabul){
+    if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ socket.emit("video-call-response",{accepted:false, from:myRealUsername}); return; } }
+    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nEvet = Mikrofon da açılsın\nHayır = Sadece kamera");
+    camEnabled=true;
+    localStream.getVideoTracks().forEach(t=>t.enabled=true);
+    camBtn.classList.remove("offIcon");
+    if(sesliAc){
+      localStream.getAudioTracks().forEach(t=>t.enabled=true);
+      micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤";
+    } else {
+      localStream.getAudioTracks().forEach(t=>t.enabled=false);
+      micEnabled=false; micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
+    }
+    if(peer&&localStream){
+      const vTrack=localStream.getVideoTracks()[0]; const aTrack=localStream.getAudioTracks()[0];
+      const vSender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video");
+      if(vSender&&vTrack) await vSender.replaceTrack(vTrack);
+      const aSender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="audio");
+      if(aSender&&aTrack) await aSender.replaceTrack(aTrack);
+    }
+    socket.emit("video-call-response",{accepted:true, from:myRealUsername});
+  } else {
+    socket.emit("video-call-response",{accepted:false, from:myRealUsername});
+  }
+});
+
+socket.on("video-call-response", (data)=>{
+  console.log("Görüntülü arama cevabı:", data);
+  if(data.accepted){
+    alert(`✅ ${data.from} görüntülü aramayı kabul etti`);
+  } else {
+    alert(`❌ ${data.from} görüntülü aramayı reddetti`);
+  }
+});
+
+socket.on("phone-call-request", (data)=>{
+  console.log("📞 Sesli arama isteği geldi:", data);
+  const kabul = confirm(`📞 ${data.from || "Karşı taraf"} sesli arama yapmak istiyor. Kabul ediyor musun?\n\nEvet = Telefon modu açılacak\nHayır = Reddet`);
+  if(kabul){
+    if(!isPhoneMode){
+      isPhoneMode=true;
+      document.body.classList.add("phone-mode");
+      phoneModeBtn.classList.add("active");
+      phoneCallUI.style.display="flex";
+      if(remoteVideo) remoteVideo.style.display="none";
+      volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false; soundBtn.textContent="🔊";
+      if(localStream){
+        localStream.getAudioTracks().forEach(t=>{ t.enabled=true; });
+      }
+      micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤";
+    }
+    socket.emit("phone-call-response",{accepted:true, from:myRealUsername});
+  } else {
+    socket.emit("phone-call-response",{accepted:false, from:myRealUsername});
+  }
+});
+
+socket.on("phone-call-response", (data)=>{
+  console.log("Sesli arama cevabı:", data);
+  if(data.accepted){
+    alert(`✅ ${data.from} sesli aramayı kabul etti`);
+  } else {
+    alert(`❌ ${data.from} sesli aramayı reddetti`);
+    if(isPhoneMode){
+      isPhoneMode=false;
+      document.body.classList.remove("phone-mode");
+      phoneModeBtn.classList.remove("active");
+      phoneCallUI.style.display="none";
+      if(remoteVideo) remoteVideo.style.display="block";
+    }
   }
 });
