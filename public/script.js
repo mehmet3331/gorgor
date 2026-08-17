@@ -267,6 +267,7 @@ joinBtn.onclick=async()=>{
     if(!uname){ alert("Kullanıcı adı gir"); return; }
     if(!password){ alert("Şifre gerekli"); return; }
     currentPassword=password; myUsername=normalize(uname); myRealUsername=uname;
+    if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
     await startCamera(currentQuality);
     currentRoom=room;
     socket.emit("join-room",{room,password,username:uname});
@@ -275,11 +276,19 @@ joinBtn.onclick=async()=>{
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{
     roomScreen.style.display="none"; mainScreen.style.display="block";
-    if(candleContainer) candleContainer.classList.remove("show");
+    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
     if(remoteVideo) remoteVideo.style.display="block";
+    if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
     if(currentUserBox) currentUserBox.textContent=`Ben: ${data.username}`;
     myRealUsername=data.username; myUsername=normalize(data.username);
     startPingMonitor();
+    // V17.6 FIX - Tekrar giriste kamera gorunmeme bugi - kamerayi yeniden baslat
+    if(!localStream){
+        console.log("V17.6 Tekrar giris - kamera yeniden baslatiliyor");
+        startCamera(currentQuality, currentFacingMode).then(()=>{
+            if(myVideoContainer) myVideoContainer.style.display="block";
+        });
+    }
     if(data.count===2) createPeer(true);
 });
 socket.on("user-connected",(d)=>{
@@ -372,10 +381,25 @@ function startSelfDestruct(div,msgId,expireSec,deleteAt){
     expireSec=Math.min(expireSec,MAX_SEC);
     if(activeTimers.has(msgId)){ const old=activeTimers.get(msgId); clearInterval(old.interval); clearTimeout(old.timeout); }
     const expireAt=deleteAt||(Date.now()+expireSec*1000);
-    const countdownEl=div.querySelector(".countdown");
+    const infoEl=div.querySelector(".expireInfo");
     const interval=setInterval(()=>{
         const remaining=Math.max(0,Math.floor((expireAt-Date.now())/1000));
-        if(countdownEl){ countdownEl.textContent=`⏳ ${formatTime(remaining)} içinde kaybolacak`; if(remaining<60) countdownEl.style.color="#ff4444"; }
+        // V17.6 - Sadece ustteki kucuk bilgiyi guncelle, altta kalabalik yok
+        if(infoEl){
+            if(div.classList.contains("myMessage")){
+                // Benim mesajim
+                if(infoEl.textContent.includes("henüz açılmadı")){
+                    // Henuz acilmadi, sabit kalsin
+                } else {
+                    infoEl.textContent=`✓ açıldı • ⏰ ${formatTime(remaining)} içinde kaybolacak`;
+                    if(remaining<60) infoEl.style.color="#ff4444";
+                }
+            } else {
+                // Karsi mesaj
+                infoEl.textContent=infoEl.textContent.split("•")[0]+` • ⏰ ${formatTime(remaining)}`;
+                if(remaining<60) infoEl.style.color="#ff4444";
+            }
+        }
         if(remaining<=0) clearInterval(interval);
     },1000);
     const timeout=setTimeout(()=>{
@@ -392,7 +416,8 @@ async function addMyMessage(text,expireSec,realName){
     const now=Date.now(); const msgId=`msg-${now}-${messageIdCounter++}`;
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC);
     const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks single" style="color:#999;"> ✓</span><span class="countdown">⏳ ${formatTime(expireSec)}</span>`;
+    // V17.6 - Kalabalik temizlendi, alt countdown kaldirildi, ust kucuk bilgi
+    div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">henüz açılmadı • ⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks single" style="color:#999;"> ✓</span>`;
     div._sentAt=now; div._deleteAt=now+expireSec*1000;
     messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10);
     sentMessages.set(msgId,div); div._expireSec=expireSec; startSelfDestruct(div,msgId,expireSec,div._deleteAt); return msgId;
@@ -400,10 +425,10 @@ async function addMyMessage(text,expireSec,realName){
 async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){
     const now=Date.now(); const msgId=`media-${now}-${messageIdCounter++}`;
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=now; div._deleteAt=now+expireSec*1000;
-    div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(expireSec)}</span>`;
+    // V17.6 - Kalabalik temizlendi
+    div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">henüz açılmadı • ⏰ ${formatTime(expireSec)}</span>`;
     if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; div.appendChild(im); setupLongPress(im,msgId); }
     else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
-    const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(expireSec)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
     messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); startSelfDestruct(div,msgId,expireSec,div._deleteAt); return msgId;
 }
 function setupLongPress(img,msgId){
@@ -421,14 +446,14 @@ async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal,sentAt)
         const plain=await decryptText(enc,currentPassword); if(!plain) return;
         const div=document.createElement("div"); div.className="otherMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=sent; div._deleteAt=deleteAt;
         const remaining=Math.max(1,Math.floor((deleteAt-Date.now())/1000));
+        // V17.6 - Alttaki kalabalik kaldirildi, sadece tik ve kucuk ust bilgi
         if(mediaType==="text"||!mediaType){
             const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-            div.innerHTML=`<span class="senderName">${senderReal}</span> → ${linked}<span class="ticks single" style="color:#999;"> ✓</span><span class="countdown">⏳ ${formatTime(remaining)}</span>`;
+            div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">${senderReal} • ⏰ ${formatTime(remaining)}</span>${senderReal} → ${linked}<span class="ticks single" style="color:#999;"> ✓✓</span>`;
         }else{
-            div.innerHTML=`<span class="senderName">${senderReal}</span> - ⏰ ${formatTime(remaining)}`;
+            div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">${senderReal} • ⏰ ${formatTime(remaining)}</span>`;
             if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); setupLongPress(img,msgId); }
             else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
-            const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(remaining)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
         }
         messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10);
         startSelfDestruct(div,msgId,remaining,deleteAt);
@@ -466,12 +491,12 @@ socket.on("pending-messages", async(list)=>{
             const div=document.createElement("div"); div.className=isMine?"myMessage":"otherMessage"; div.id=m.msgId;
             if(m.type==="text"){
                 const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-                div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(remaining)} - ${isMine?`BEN (${m.realUsername})`:m.realUsername}</span>${isMine?`BEN (${m.realUsername}) → `:`${m.realUsername} → `}${linked}<span class="countdown">⏳ ${formatTime(remaining)}</span>`;
+                div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">${isMine?`henüz açılmadı • ⏰ ${formatTime(remaining)}`:`${m.realUsername} • ⏰ ${formatTime(remaining)}`}</span>${isMine?`BEN (${m.realUsername}) → `:`${m.realUsername} → `}${linked}<span class="ticks single"> ✓${isMine?"":"✓"}</span>`;
             }else{
-                div.innerHTML=`<span class="expireInfo">⏰ ${formatTime(remaining)} - ${m.realUsername}</span>`;
+                div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">${m.realUsername} • ⏰ ${formatTime(remaining)}</span>`;
                 if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; img.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:plain,name:"gizli.jpg"}); }; div.appendChild(img); }
                 else if(m.type==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
-                const cd=document.createElement("span"); cd.className="countdown"; cd.textContent=`⏳ ${formatTime(remaining)}`; div.appendChild(document.createElement("br")); div.appendChild(cd);
+                
             }
             messages.appendChild(div); startSelfDestruct(div,m.msgId,remaining,m.deleteAt); if(isMine) sentMessages.set(m.msgId,div);
         }else{
@@ -487,7 +512,16 @@ socket.on("pending-messages", async(list)=>{
 });
 socket.on("message-opened",({msgId,deleteAt,expireSec})=>{
     const div=document.getElementById(msgId)||sentMessages.get(msgId); if(!div) return;
-    if(sentMessages.has(msgId)){ const cd=div.querySelector(".countdown"); if(cd){ cd.textContent=`✓ Karşı açtı - ${cd.textContent}`; cd.style.color="#00ff88"; } }
+    if(sentMessages.has(msgId)){ 
+        const info=div.querySelector(".expireInfo");
+        if(info){ 
+            const now=new Date(); const timeStr=now.getHours()+":"+String(now.getMinutes()).padStart(2,"0");
+            info.textContent=`✓ karşı açtı ${timeStr} • ⏰ ${formatTime(expireSec)} içinde kaybolacak`;
+            info.style.color="#00ff88"; info.style.fontSize="8px";
+        }
+        const ticks=div.querySelector(".ticks");
+        if(ticks){ ticks.textContent=" ✓✓"; ticks.style.color="#00ff88"; }
+    }
 });
 chatToggle.onclick=()=>{
     if(chatPanel.style.display==="flex"){ chatPanel.style.display="none"; document.body.classList.remove("chat-open"); chatToggle.textContent="💬"; }
