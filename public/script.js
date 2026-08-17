@@ -900,6 +900,7 @@ if(phoneModeBtn){
   }
   if(socket.connected) socket.emit("phone-mode", isPhoneMode);
 };
+}
 window.addEventListener("beforeunload",()=>{ if(peer) peer.destroy(); if(localStream) localStream.getTracks().forEach(t=>t.stop()); });
 let lastScale=1, currentScale=1;
 if(remoteVideo){
@@ -1025,10 +1026,10 @@ socket.on("quality-change", async(q)=>{
 // V18.2 - Görüntülü ve sesli arama istekleri - karşı taraf onayı
 socket.on("video-call-request", async(data)=>{
   console.log("📹 Görüntülü arama isteği geldi:", data);
-  const kabul = confirm(`📹 ${data.from || "Karşı taraf"} görüntülü arama yapmak istiyor. Kabul ediyor musun?\n\nTamam = Kameran açılacak (mikrofon sorusu gelecek)\nİptal = Reddet`);
+  const kabul = confirm(`📹 ${data.from || "Karşı taraf"} görüntülü arama yapmak istiyor. Kabul ediyor musun?\n\nEvet = Kameran açılacak (mikrofon sorusu gelecek)\nHayır = Reddet`);
   if(kabul){
     if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ socket.emit("video-call-response",{accepted:false, from:myRealUsername}); return; } }
-    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nEvet = Mikrofon da açılsın\nHayır = Sadece kamera");
+    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nTamam = Mikrofon da açılsın\nİptal = Sadece kamera");
     camEnabled=true;
     localStream.getVideoTracks().forEach(t=>t.enabled=true);
     camBtn.classList.remove("offIcon");
