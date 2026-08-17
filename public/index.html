@@ -47,6 +47,10 @@
       <span id="opponentDot" class="onlineDot offline"></span>
       <span id="opponentNameDisplay" class="opponentName">-</span>
       <span id="opponentStatusText" class="opponentStatus">Bekleniyor</span>
+      <select id="privacyModeSelect" title="Güvenlik Modu" style="margin-left:8px; background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 6px; height:22px;">
+        <option value="private" selected>🔒 Özel</option>
+        <option value="general">🔓 Genel</option>
+      </select>
     </div>
     <div id="floatingPillCenter">
       <button id="soundBtn" title="Ses">🔊</button>
@@ -72,8 +76,8 @@
   <!-- Settings - remaining buttons, now as floating glass circles left side -->
   <div id="settingsContainer">
     <button id="settingsBtn">⚙</button>
+    <button id="panicBtn" title="Panik - Her iki tarafı kapat" style="background:#ff0000 !important;">🚨</button>
     <button id="micBtn" title="Mikrofon"></button>
-    <button id="panicBtn" title="Panik">🚨</button>
     <button id="lightModeBtn" title="Işık">💡</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>

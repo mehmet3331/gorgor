@@ -89,13 +89,24 @@ const FAKE_USERS = ["buradayım","geldim","bekliyorum","hazırım","uyuyorum","m
 function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
 
 // === V17.3 GUVENLIK - SEKME DEGISTINCE TAM KAPANIS HESAP MAKINESINE DON ===
+let securityMode = localStorage.getItem("gorgor_security_mode") || "private"; // V18 - Ozel/Genel
 function doSecurityReset(reason){
   // V17.4 FIX - Foto secilirken guvenlik reseti iptal et
   if(isPickingFile || _photoPicking){
     console.log("FOTO SECILIYOR - Guvenlik reset IPTAL:", reason, "isPickingFile", isPickingFile, "_photoPicking", _photoPicking);
     return;
   }
-  console.log("GUVENLIK KAPANIS:", reason);
+  // V18 - GENEL MOD: sadece mikrofon kapansin, hesap makinesine donme yok
+  if(securityMode === "general"){
+    console.log("GENEL MOD - Sadece mikrofon kapaniyor, tam kapanis yok:", reason);
+    if(localStream){
+      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
+    }
+    micEnabled=false;
+    if(typeof micBtn !== "undefined" && micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+    return;
+  }
+  console.log("OZEL MOD - GUVENLIK KAPANIS:", reason);
   try{
     if(peer){ try{peer.destroy();}catch(e){} peer=null; }
     if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); localStream=null; }
@@ -615,7 +626,7 @@ camBtn.onclick=async()=>{
   // V17.3 - Kamera acilirken sesli acma sorusu
   if(!camEnabled){
     // Kamera kapali -> acilacak, sor
-    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nEvet = Mikrofon da açılsın\nHayır = Sadece kamera açılsın (mikrofon kapalı kalır)");
+    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nTamam = Mikrofon da açılsın\nİptal = Sadece kamera açılsın (mikrofon kapalı kalır)");
     camEnabled=true;
     localStream.getVideoTracks().forEach(t=>t.enabled=true);
     camBtn.classList.remove("offIcon");
@@ -868,7 +879,16 @@ function doPanic(){
     document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Geçmiş silindi</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>';
 }
 if(panicBtn) panicBtn.onclick=doPanic;
-socket.on("panic",()=>{ messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear(); const div=document.createElement("div"); div.className="selfDestructed"; div.textContent="🚨 Karşı taraf panik attı - silindi"; messages.appendChild(div); });
+socket.on("panic",()=>{
+    console.log("🚨 PANİK ALINDI - Karşı taraf panik attı, program kapanıyor");
+    messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
+    // V18 - Karşı tarafın da programı kapansın
+    const div=document.createElement("div"); div.className="selfDestructed"; div.textContent="🚨 Karşı taraf panik attı - her iki taraf kapanıyor"; messages.appendChild(div);
+    setTimeout(()=>{
+        doSecurityReset("panic from opponent");
+        document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Karşı taraf panik attı - program kapandı</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>';
+    }, 800);
+});
 
 let drawing=false;
 drawCanvas.addEventListener("mousedown", e=>{ drawing=true; const ctx=window._drawCtx; if(!ctx) return; ctx.beginPath(); ctx.moveTo(e.clientX,e.clientY); });
@@ -941,3 +961,23 @@ setInterval(()=>{
   }
 }, 2000);
 console.log("V17.5 FIX - foto cekme guvenlik iptal + kamera kapaninca mic kapanis");
+
+
+// V18 - Ozel/Genel mod secici
+document.addEventListener("DOMContentLoaded", ()=>{
+  const privacySelect = document.getElementById("privacyModeSelect");
+  if(privacySelect){
+    privacySelect.value = localStorage.getItem("gorgor_security_mode") || "private";
+    securityMode = privacySelect.value;
+    privacySelect.addEventListener("change", ()=>{
+      securityMode = privacySelect.value;
+      localStorage.setItem("gorgor_security_mode", securityMode);
+      console.log("Guvenlik modu degisti:", securityMode);
+      if(securityMode === "general"){
+        alert("🔓 Genel mod: Sekme değiştirince sadece mikrofon kapanacak, program açık kalacak");
+      } else {
+        alert("🔒 Özel mod: Sekme değiştirince program tamamen kapanıp hesap makinesine dönecek");
+      }
+    });
+  }
+});
