@@ -416,8 +416,8 @@ async function addMyMessage(text,expireSec,realName){
     const now=Date.now(); const msgId=`msg-${now}-${messageIdCounter++}`;
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC);
     const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-    // V17.6 - Kalabalik temizlendi, alt countdown kaldirildi, ust kucuk bilgi
-    div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">henüz açılmadı • ⏰ ${formatTime(expireSec)}</span>BEN (${realName}) → ${linked}<span class="ticks single" style="color:#999;"> ✓</span>`;
+    const initial = (realName||"Y").trim().charAt(0).toUpperCase() || "Y";
+    div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">henüz açılmadı • ⏰ ${formatTime(expireSec)}</span><div class="msgText">${linked}</div><span class="ticks single" style="color:#c8ffd8;"> ✓</span></div>`;
     div._sentAt=now; div._deleteAt=now+expireSec*1000;
     messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10);
     sentMessages.set(msgId,div); div._expireSec=expireSec; startSelfDestruct(div,msgId,expireSec,div._deleteAt); return msgId;
@@ -425,10 +425,11 @@ async function addMyMessage(text,expireSec,realName){
 async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){
     const now=Date.now(); const msgId=`media-${now}-${messageIdCounter++}`;
     const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=now; div._deleteAt=now+expireSec*1000;
-    // V17.6 - Kalabalik temizlendi
-    div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">henüz açılmadı • ⏰ ${formatTime(expireSec)}</span>`;
-    if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; div.appendChild(im); setupLongPress(im,msgId); }
-    else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
+    const initial = (myRealUsername||"Y").trim().charAt(0).toUpperCase() || "Y";
+    div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">henüz açılmadı • ⏰ ${formatTime(expireSec)}</span></div>`;
+    const bubble = div.querySelector(".msgBubble");
+    if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; bubble.appendChild(im); setupLongPress(im,msgId); }
+    else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); }
     messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); startSelfDestruct(div,msgId,expireSec,div._deleteAt); return msgId;
 }
 function setupLongPress(img,msgId){
@@ -446,14 +447,15 @@ async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal,sentAt)
         const plain=await decryptText(enc,currentPassword); if(!plain) return;
         const div=document.createElement("div"); div.className="otherMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=sent; div._deleteAt=deleteAt;
         const remaining=Math.max(1,Math.floor((deleteAt-Date.now())/1000));
-        // V17.6 - Alttaki kalabalik kaldirildi, sadece tik ve kucuk ust bilgi
+        const initial = (senderReal||"V").trim().charAt(0).toUpperCase() || "V";
         if(mediaType==="text"||!mediaType){
             const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-            div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">${senderReal} • ⏰ ${formatTime(remaining)}</span>${senderReal} → ${linked}<span class="ticks single" style="color:#999;"> ✓✓</span>`;
+            div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${senderReal} • ⏰ ${formatTime(remaining)}</span><div class="msgText">${linked}</div><span class="ticks single"> ✓✓</span></div>`;
         }else{
-            div.innerHTML=`<span class="expireInfo" style="font-size:8px; opacity:0.6; display:block; margin-bottom:2px;">${senderReal} • ⏰ ${formatTime(remaining)}</span>`;
-            if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; div.appendChild(img); setupLongPress(img,msgId); }
-            else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; div.appendChild(v); }
+            div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${senderReal} • ⏰ ${formatTime(remaining)}</span></div>`;
+            const bubble = div.querySelector(".msgBubble");
+            if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); setupLongPress(img,msgId); }
+            else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); }
         }
         messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10);
         startSelfDestruct(div,msgId,remaining,deleteAt);
@@ -613,7 +615,7 @@ camBtn.onclick=async()=>{
   // V17.3 - Kamera acilirken sesli acma sorusu
   if(!camEnabled){
     // Kamera kapali -> acilacak, sor
-    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nTamam = Mikrofon da açılsın\nİptal = Sadece kamera açılsın (mikrofon kapalı kalır)");
+    const sesliAc = confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nEvet = Mikrofon da açılsın\nHayır = Sadece kamera açılsın (mikrofon kapalı kalır)");
     camEnabled=true;
     localStream.getVideoTracks().forEach(t=>t.enabled=true);
     camBtn.classList.remove("offIcon");
