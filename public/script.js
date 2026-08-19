@@ -220,7 +220,41 @@ document.querySelectorAll('.flyEmoji').forEach(emoji=>{ if(emoji.id==='addCustom
 socket.on('fly-emoji',(data)=>createFlyingEmoji(data.emoji,data.effect,false));
 function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.innerWidth-120:80; const baseY=140; if(effect==='big-kiss'){ const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋'; big.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;z-index:9999;animation:explodeBoom 1s forwards;'; document.body.appendChild(big); setTimeout(()=>big.remove(),1000); return; } if(effect==='water'){ for(let i=0;i<10;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji water'; d.textContent='💧'; d.style.left=(window.innerWidth/2+Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='fireRainFall 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*60); } return; } let count=1; let animClass=effect||'heart'; if(effect==='heart'||effect==='kiss') count=8; else if(['kiss-rain','heart-rain','money-rain','star-rain','fire-rain','laugh-rain','angry-rain','emoji-rain'].includes(effect)) count=14; else if(['flower','sparkle','star'].includes(effect)) count=6; else if(['fire','explode'].includes(effect)) count=3; else if(['party','confetti'].includes(effect)) count=20; else if(['money','thumbs','wow','skull','heart-burst'].includes(effect)) count=1; for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+animClass; fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90+i*12)+'px'; fly.style.bottom=(baseY+Math.random()*60)+'px'; fly.style.fontSize=(effect==='explode'||effect==='heart-burst')?'90px':(effect==='fire'?'72px':(52+Math.random()*28)+'px'); document.body.appendChild(fly); setTimeout(()=>fly.remove(),3500); }, i*80); } if(['fire','explode','party','confetti','rocket','rocket-fly'].includes(effect)){ document.body.classList.add('mega-shake'); setTimeout(()=>document.body.classList.remove('mega-shake'),700); if(msnEffectLayer){ msnEffectLayer.style.background=effect==='fire'?'radial-gradient(circle at 50% 70%, rgba(255,80,0,0.25), transparent 65%)':'radial-gradient(circle at 50% 50%, rgba(255,255,0,0.2), transparent 60%)'; msnEffectLayer.style.display='block'; setTimeout(()=>msnEffectLayer.style.display='none',600); } if(navigator.vibrate) navigator.vibrate([80,40,80]); } else if(['heart','kiss','love','heart-burst'].includes(effect)){ if(navigator.vibrate) navigator.vibrate([50,30,50]); } }
 micBtn.onclick=async()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
-camBtn.onclick=async()=>{ if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } } if(!camEnabled){ const sesliAc=confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nTamam = Mikrofon da açılsın\nİptal = Sadece kamera açılsın"); camEnabled=true; localStream.getVideoTracks().forEach(t=>t.enabled=true); camBtn.classList.remove("offIcon"); if(sesliAc){ localStream.getAudioTracks().forEach(t=>t.enabled=true); micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { localStream.getAudioTracks().forEach(t=>t.enabled=false); micEnabled=false; micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } } else { camEnabled=false; localStream.getVideoTracks().forEach(t=>t.enabled=false); camBtn.classList.add("offIcon"); localStream.getAudioTracks().forEach(t=>t.enabled=false); micEnabled=false; micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } try{ if(peer&&peer._pc&&localStream){ const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0]; if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ await s.replaceTrack(vt); } } if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
+camBtn.onclick=async()=>{
+  if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
+  if(!camEnabled){
+    const sesliAc=confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nTamam = Mikrofon da açılsın\nİptal = Sadece kamera açılsın\n\nKarşı tarafa teklif gidecek, kabul ederse iki tarafta da açılacak");
+    camEnabled=true;
+    localStream.getVideoTracks().forEach(t=>t.enabled=true);
+    camBtn.classList.remove("offIcon");
+    if(sesliAc){
+      localStream.getAudioTracks().forEach(t=>t.enabled=true);
+      micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤";
+    } else {
+      localStream.getAudioTracks().forEach(t=>t.enabled=false);
+      micEnabled=false; micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
+    }
+    try{
+      if(peer&&peer._pc&&localStream){
+        const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0];
+        if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ await s.replaceTrack(vt); } }
+        if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } }
+      }
+    }catch(e){}
+    // Karsiya teklif gonder
+    socket.emit("video-call-request", {from: myRealUsername, withMic: sesliAc});
+    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+    if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
+    console.log("Kamera teklif gonderildi - karsi kabul ederse iki taraf acilacak");
+  } else {
+    camEnabled=false;
+    localStream.getVideoTracks().forEach(t=>t.enabled=false);
+    camBtn.classList.add("offIcon");
+    // Kapatinca iki taraf kapansin istege bagli - simdilik sadece kendim kapat
+    socket.emit("video-call-end", {from: myRealUsername});
+    console.log("Kamera kapatildi");
+  }
+};
 if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ try{ const wasCamOn=camEnabled; const wasMicOn=micEnabled; currentFacingMode=currentFacingMode==="user"?"environment":"user"; await startCamera(currentQuality,currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>{ t.enabled=wasCamOn; }); localStream.getAudioTracks().forEach(t=>{ t.enabled=wasMicOn; }); myVideo.srcObject=localStream; myVideo.play().catch(()=>{}); myVideo.style.transform=currentFacingMode==="user"?"scaleX(-1)":"scaleX(1)"; } camEnabled=wasCamOn; micEnabled=wasMicOn; if(camEnabled) camBtn.classList.remove("offIcon"); else camBtn.classList.add("offIcon"); if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(peer&&peer._pc&&localStream){ const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0]; if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} } } if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} } } } }catch(err){ alert("Ikinci kamera yok"); currentFacingMode="user"; try{ await startCamera(currentQuality,"user"); }catch(e){} } }; }
 remoteVideo.muted=false; remoteVideo.volume=0.1; volumeSlider.value=0.1;
 volumeSlider.oninput=()=>{ const v=parseFloat(volumeSlider.value); remoteVideo.volume=v; remoteVideo.muted=v<=0; soundBtn.textContent=v<=0?"🔇":"🔊"; };
@@ -242,8 +276,76 @@ closePreview.onclick=()=>{ mediaPreview.style.display="none"; previewVideo.pause
 downloadMediaBtn.onclick=()=>{ const pass=prompt("İndirmek için şifre:"); if(!pass||pass!==currentPassword){ alert("Şifre yanlış."); return; } const a=document.createElement("a"); a.href=currentMediaData.data; a.download=currentMediaData.name||"gizli"; a.click(); };
 if(lightModeBtn){ lightModeBtn.onclick=()=>{ const isLampOn=remoteVideo.classList.contains("lamp-on"); if(isLampOn){ remoteVideo.classList.remove("lamp-on"); remoteVideo.classList.remove("light-mode"); lightModeBtn.classList.remove("active"); } else { remoteVideo.classList.add("lamp-on"); remoteVideo.classList.add("light-mode"); lightModeBtn.classList.add("active"); remoteVideo.style.filter="brightness(1.3) contrast(1.1)"; setTimeout(()=>{ if(remoteVideo.classList.contains("lamp-on")) remoteVideo.style.filter="brightness(1.15)"; }, 300); } }; }
 let _phoneWasCamOn=false; let _phoneWasMicOn=false;
-if(phoneModeBtn){ phoneModeBtn.onclick=()=>{ if(!isPhoneMode){ volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false; soundBtn.textContent="🔊"; if(parseFloat(volumeSlider.value)<0.15){ volumeSlider.value=0.15; remoteVideo.volume=0.15; } _phoneWasCamOn=camEnabled; _phoneWasMicOn=micEnabled; if(localStream){ localStream.getAudioTracks().forEach(t=>{ t.enabled=true; }); } micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } if(volumeSlider){ if(parseFloat(volumeSlider.value)<0.15){ volumeSlider.value=0.15; } remoteVideo.volume=Math.max(0.15, parseFloat(volumeSlider.value)||0.15); remoteVideo.muted=false; } } isPhoneMode=!isPhoneMode; document.body.classList.toggle("phone-mode",isPhoneMode); phoneModeBtn.classList.toggle("active",isPhoneMode); if(isPhoneMode){ if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); } camEnabled=false; if(camBtn) camBtn.classList.add("offIcon"); phoneCallUI.style.display="flex"; if(remoteVideo) remoteVideo.style.display="none"; if(myVideoContainer) myVideoContainer.style.display="none"; if(candleContainer) candleContainer.classList.remove("show"); socket.emit("phone-mode",true); }else{ if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); localStream.getAudioTracks().forEach(t=>t.enabled=false); } camEnabled=false; micEnabled=false; if(camBtn) camBtn.classList.add("offIcon"); if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } phoneCallUI.style.display="none"; if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block"; if(myVideoContainer) myVideoContainer.style.display="block"; socket.emit("phone-mode",false); if(peer&&peer._pc&&localStream){ const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0]; (async()=>{ if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} } } if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} } } })(); } } }; }
-socket.on("phone-mode",(enabled)=>{ isPhoneMode=enabled; document.body.classList.toggle("phone-mode",enabled); phoneModeBtn.classList.toggle("active",enabled); if(enabled){ phoneCallUI.style.display="flex"; if(remoteVideo) remoteVideo.style.display="none"; if(candleContainer) candleContainer.classList.remove("show"); volumeSlider.value=0.15; remoteVideo.volume=0.15; } else{ phoneCallUI.style.display="none"; if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block"; if(myVideoContainer) myVideoContainer.style.display="block"; } });
+let _phoneWasCamOn=false; let _phoneWasMicOn=false;
+if(phoneModeBtn){
+  phoneModeBtn.onclick=()=>{
+    if(!isPhoneMode){
+      volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false; soundBtn.textContent="🔊";
+      if(parseFloat(volumeSlider.value)<0.15){ volumeSlider.value=0.15; remoteVideo.volume=0.15; }
+      _phoneWasCamOn=camEnabled; _phoneWasMicOn=micEnabled;
+      if(localStream){ localStream.getAudioTracks().forEach(t=>{ t.enabled=true; }); }
+      micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+      if(volumeSlider){ if(parseFloat(volumeSlider.value)<0.15){ volumeSlider.value=0.15; } remoteVideo.volume=Math.max(0.15, parseFloat(volumeSlider.value)||0.15); remoteVideo.muted=false; }
+    }
+    isPhoneMode=!isPhoneMode;
+    document.body.classList.toggle("phone-mode",isPhoneMode);
+    phoneModeBtn.classList.toggle("active",isPhoneMode);
+    if(isPhoneMode){
+      if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
+      camEnabled=false; if(camBtn) camBtn.classList.add("offIcon");
+      phoneCallUI.style.display="flex";
+      if(remoteVideo) remoteVideo.style.display="none";
+      if(myVideoContainer) myVideoContainer.style.display="none";
+      if(candleContainer) candleContainer.classList.remove("show");
+      socket.emit("phone-mode",true);
+      socket.emit("phone-call-request", {from: myRealUsername});
+      console.log("Sesli arama teklif gonderildi - karsi kabul ederse iki taraf mic acilacak");
+    }else{
+      if(localStream){
+        localStream.getVideoTracks().forEach(t=>t.enabled=false);
+        localStream.getAudioTracks().forEach(t=>t.enabled=false);
+      }
+      camEnabled=false; micEnabled=false;
+      if(camBtn) camBtn.classList.add("offIcon");
+      if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+      phoneCallUI.style.display="none";
+      if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
+      if(myVideoContainer) myVideoContainer.style.display="block";
+      socket.emit("phone-mode",false);
+      socket.emit("phone-call-end", {from: myRealUsername});
+      if(peer&&peer._pc&&localStream){
+        const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0];
+        (async()=>{
+          if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} } }
+          if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} } }
+        })();
+      }
+    }
+  };
+}
+socket.on("phone-mode",(enabled)=>{
+  isPhoneMode=enabled;
+  document.body.classList.toggle("phone-mode",enabled);
+  phoneModeBtn.classList.toggle("active",enabled);
+  if(enabled){
+    phoneCallUI.style.display="flex";
+    if(remoteVideo) remoteVideo.style.display="none";
+    if(candleContainer) candleContainer.classList.remove("show");
+    volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false;
+    // FIX: karsi tarafin mikrofonu da acilsin - otomatik
+    if(localStream){
+      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+    }
+    micEnabled=true;
+    if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+    console.log("Telefon modu acildi - mikrofon iki tarafta acildi");
+  } else {
+    phoneCallUI.style.display="none";
+    if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
+    if(myVideoContainer) myVideoContainer.style.display="block";
+    // Kapaninca mikrofonu kapatma - kullanici isterse acik birakabilir, ama simdilik kapatma
+  }
+});
 socket.on("general-pause", ()=>{ console.log("GENEL PAUSE - mum"); if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); } micEnabled=false; camEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(camBtn){ camBtn.classList.add("offIcon"); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } });
 socket.on("peer-paused", ()=>{ console.log("PEER PAUSED - mum"); if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); } micEnabled=false; camEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(camBtn){ camBtn.classList.add("offIcon"); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } });
 const wheelOverlay=document.getElementById("wheelOverlay");
