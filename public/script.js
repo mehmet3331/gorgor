@@ -93,7 +93,7 @@ let securityMode = localStorage.getItem("gorgor_security_mode") || "private";
 function doSecurityReset(reason){
   if(isPickingFile || _photoPicking){ console.log("FOTO IPTAL", reason); return; }
   if(securityMode === "general"){
-    console.log("GENEL MOD - kamera ve ses iki tarafta kapaniyor", reason);
+    console.log("GENEL MOD - kamera ve ses iki tarafta kapaniyor - mum", reason);
     try{
       if(localStream){
         localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
@@ -102,7 +102,8 @@ function doSecurityReset(reason){
       micEnabled=false; camEnabled=false;
       if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
       if(camBtn){ camBtn.classList.add("offIcon"); }
-      if(remoteVideo){ remoteVideo.muted=true; try{remoteVideo.volume=0;}catch(e){} }
+      if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; try{remoteVideo.volume=0;}catch(e){} remoteVideo.style.display="none"; try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.removeAttribute("src");}catch(e){} try{remoteVideo.load();}catch(e){} }
+      if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
       isPhoneMode=false;
       document.body.classList.remove("phone-mode");
       if(phoneCallUI) phoneCallUI.style.display="none";
@@ -260,9 +261,44 @@ if(defaultSelfDestructSelect){ defaultSelfDestructSelect.onchange=()=>{ if(defau
 if(wheelOk){ wheelOk.onclick=()=>{ const h=parseInt(wheelHour.value)||0; const m=parseInt(wheelMinute.value)||0; let sec=h*3600+m*60; if(sec<300) sec=300; if(sec>86400) sec=86400; defaultExpire=sec; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect){ let customOpt=defaultSelfDestructSelect.querySelector('option[value="custom_display"]'); if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; defaultSelfDestructSelect.appendChild(customOpt); } customOpt.textContent=formatTime(defaultExpire)+" (wheel)"; customOpt.selected=true; } closeWheel(); }; }
 if(wheelCancel){ wheelCancel.onclick=()=>closeWheel(); }
 if(wheelOverlay){ wheelOverlay.addEventListener("click",(e)=>{ if(e.target===wheelOverlay) closeWheel(); }); }
-function doPanic(){ if(!confirm("🚨 PANİK: Tüm mesajlar silinsin mi?")) return; try{ if(peer){ peer.destroy(); peer=null; } if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.style.display="none"; } if(myVideoContainer) myVideoContainer.style.display="none"; }catch(e){} messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear(); socket.emit("panic"); window.open("https://www.google.com","_blank"); document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Geçmiş silindi</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>'; }
+function doPanic(){
+  if(!confirm("🚨 PANİK: Tüm mesajlar silinsin mi?")) return;
+  try{
+    // 1. Tum medyayi aninda oldur - donuk kare kalmasin
+    if(peer){ try{peer.destroy();}catch(e){} peer=null; }
+    if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); localStream=null; }
+    if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.removeAttribute("src");}catch(e){} try{remoteVideo.load();}catch(e){} remoteVideo.style.display="none"; }
+    if(myVideo){ try{myVideo.pause();}catch(e){} try{myVideo.srcObject=null;}catch(e){} myVideo.style.display="none"; }
+    if(myVideoContainer) myVideoContainer.style.display="none";
+    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+    if(phoneCallUI) phoneCallUI.style.display="none";
+    if(mainScreen) mainScreen.style.display="none";
+    if(roomScreen) roomScreen.style.display="none";
+  }catch(e){}
+  messages.innerHTML=""; sentMessages.clear();
+  activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
+  socket.emit("panic");
+  // 2. Ikinci sekme aciliyor cunku kamufle icin Google aciliyor - istersen bu satiri sil, ikinci sekme acilmaz
+  window.open("https://www.google.com","_blank");
+  // 3. Aninda Google fake sayfaya don - 800ms bekleme yok, donuk kare yok
+  document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Geçmiş silindi</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>';
+}
 if(panicBtn) panicBtn.onclick=doPanic;
-socket.on("panic",()=>{ try{ if(peer){ peer.destroy(); peer=null; } if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.style.display="none"; } if(myVideoContainer) myVideoContainer.style.display="none"; }catch(e){} messages.innerHTML=""; sentMessages.clear(); activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear(); const div=document.createElement("div"); div.className="selfDestructed"; div.textContent="🚨 Karşı taraf panik attı - her iki taraf kapanıyor"; messages.appendChild(div); setTimeout(()=>{ doSecurityReset("panic from opponent"); document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Karşı taraf panik attı - program kapandı</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>'; }, 800); });
+socket.on("panic",()=>{
+  try{
+    if(peer){ try{peer.destroy();}catch(e){} peer=null; }
+    if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); localStream=null; }
+    if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.removeAttribute("src");}catch(e){} try{remoteVideo.load();}catch(e){} remoteVideo.style.display="none"; }
+    if(myVideo){ try{myVideo.pause();}catch(e){} try{myVideo.srcObject=null;}catch(e){} myVideo.style.display="none"; }
+    if(myVideoContainer) myVideoContainer.style.display="none";
+    if(candleContainer){ candleContainer.style.display="none"; }
+    if(phoneCallUI) phoneCallUI.style.display="none";
+  }catch(e){}
+  messages.innerHTML=""; sentMessages.clear();
+  activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
+  // Aninda Google - 800ms bekleme yok, donuk kare kalmiyor
+  document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Karşı taraf panik attı - program kapandı</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>';
+});
 let drawing=false;
 drawCanvas.addEventListener("mousedown", e=>{ drawing=true; const ctx=window._drawCtx; if(!ctx) return; ctx.beginPath(); ctx.moveTo(e.clientX,e.clientY); });
 drawCanvas.addEventListener("touchstart", e=>{ drawing=true; const ctx=window._drawCtx; if(!ctx) return; const t=e.touches[0]; ctx.beginPath(); ctx.moveTo(t.clientX,t.clientY); });
@@ -279,4 +315,121 @@ if(remoteVideo){ remoteVideo.style.transition="transform 0.1s"; remoteVideo.addE
 window.wheelStep=wheelStep; window.setWheelQuick=setWheelQuick; window.openWheel=openWheel; window.closeWheel=closeWheel;
 document.addEventListener("DOMContentLoaded", ()=>{ const owb=document.getElementById("openWheelBtn"); if(owb){ owb.addEventListener("click",(e)=>{ e.stopPropagation(); openWheel(); }); } const dsd=document.getElementById("defaultSelfDestructSelect"); if(dsd){ dsd.addEventListener("change", ()=>{ if(dsd.value==="custom"){ openWheel(); } }); } });
 setInterval(()=>{ if(isPickingFile||_photoPicking){ if(window._pickingStart){ if(Date.now()-window._pickingStart>10000){ isPickingFile=false; _photoPicking=false; window._pickingStart=null; } } else { window._pickingStart=Date.now(); } } else { window._pickingStart=null; } }, 2000);
+
+// V18.13 - Bekleniyor yerine ... animasyonu - ., .., ... yanıp sönme
+let waitingDotsInterval = null;
+let waitingDotsCount = 0;
+function startWaitingDots(){
+  const el = document.getElementById("opponentStatusText");
+  if(!el) return;
+  stopWaitingDots();
+  el.classList.add("waiting");
+  waitingDotsCount = 0;
+  el.textContent = ".";
+  waitingDotsInterval = setInterval(()=>{
+    waitingDotsCount = (waitingDotsCount + 1) % 3;
+    const dots = [".", "..", "..."][waitingDotsCount];
+    el.textContent = dots;
+  }, 400);
+}
+function stopWaitingDots(){
+  if(waitingDotsInterval){
+    clearInterval(waitingDotsInterval);
+    waitingDotsInterval = null;
+  }
+  const el = document.getElementById("opponentStatusText");
+  if(el) el.classList.remove("waiting");
+}
+function setOpponentStatus(text){
+  const el = document.getElementById("opponentStatusText");
+  if(!el) return;
+  const norm = (text||"").toLowerCase();
+  if(norm.includes("bekleniyor") || norm === "..." || norm === "bekleniyor..." || text.trim() === ""){
+    startWaitingDots();
+  } else {
+    stopWaitingDots();
+    el.textContent = text;
+    el.classList.remove("waiting");
+  }
+}
+// Hook: orijinal textContent setlerini yakala - MutationObserver ile
+document.addEventListener("DOMContentLoaded", ()=>{
+  const el = document.getElementById("opponentStatusText");
+  if(!el) return;
+  // Ilk durumda bekleniyor ise nokta yap
+  if(el.textContent.toLowerCase().includes("bekleniyor")){
+    startWaitingDots();
+  }
+  // Observer - baska yerden textContent degistirilirse yakala
+  const observer = new MutationObserver(()=>{
+    const txt = el.textContent;
+    if(txt.toLowerCase().includes("bekleniyor") && !el.classList.contains("waiting")){
+      startWaitingDots();
+    }
+  });
+  observer.observe(el, {childList:true, characterData:true, subtree:true});
+  // Ayrica eski kodlar direkt textContent = "Bekleniyor" yaparsa setTimeout ile kontrol
+  setInterval(()=>{
+    const txt = el.textContent;
+    if(txt.toLowerCase().includes("bekleniyor") && !el.classList.contains("waiting")){
+      startWaitingDots();
+    }
+    if(txt.toLowerCase().includes("içerde") || txt.toLowerCase().includes("dışarda") || txt.toLowerCase().includes("online") || txt.toLowerCase().includes("offline")){
+      stopWaitingDots();
+    }
+  }, 1000);
+});
+
+// V18.10 onceki istekler: kamera ve sesli arama teklif sistemi - girise dokunmadan
+// Kamera teklif
+let _videoRequestPending = false;
+if(typeof socket !== 'undefined'){
+  // Zaten var olan socket listener'larin uzerine ekle - giris bozulmaz
+  socket.on("video-call-request", async (data)=>{
+    if(_videoRequestPending) return;
+    _videoRequestPending = true;
+    const from = data.from || "Karşı taraf";
+    const withMic = data.withMic;
+    const kabul = confirm(`${from} kameralı arama başlattı${withMic?" (sesli)":""}. Kabul edip sen de kameranı açmak ister misin?\nTamam = Kabul et`);
+    if(kabul){
+      try{
+        if(!localStream){ await startCamera(currentQuality, currentFacingMode); }
+        localStream.getVideoTracks().forEach(t=>t.enabled=true);
+        camEnabled=true; if(camBtn) camBtn.classList.remove("offIcon");
+        if(withMic){ localStream.getAudioTracks().forEach(t=>t.enabled=true); micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } }
+        if(peer&&peer._pc&&localStream){
+          const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0];
+          if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} } }
+          if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} } }
+        }
+        if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+        if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
+        socket.emit("video-call-accept", {from: myRealUsername});
+      }catch(e){ socket.emit("video-call-decline", {from: myRealUsername}); }
+    } else {
+      socket.emit("video-call-decline", {from: myRealUsername});
+    }
+    _videoRequestPending = false;
+  });
+  socket.on("video-call-accept", (data)=>{
+    if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=true); localStream.getAudioTracks().forEach(t=>t.enabled=true); }
+    camEnabled=true; micEnabled=true;
+    if(camBtn) camBtn.classList.remove("offIcon");
+    if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+    if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
+  });
+  socket.on("video-call-decline", (data)=>{
+    alert(`${data.from||"Karşı taraf"} kamera isteğini reddetti`);
+    if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
+    camEnabled=false; if(camBtn) camBtn.classList.add("offIcon");
+  });
+  socket.on("video-call-end", ()=>{
+    if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); localStream.getAudioTracks().forEach(t=>t.enabled=false); }
+    camEnabled=false; micEnabled=false;
+    if(camBtn) camBtn.classList.add("offIcon");
+    if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document.getElementById("privacyModeSelect"); if(privacySelect){ privacySelect.value=localStorage.getItem("gorgor_security_mode")||"private"; securityMode=privacySelect.value; privacySelect.addEventListener("change", ()=>{ securityMode=privacySelect.value; localStorage.setItem("gorgor_security_mode", securityMode); if(securityMode==="general"){ alert("🔓 Genel mod: Sekme değiştirince sadece kamera ve ses kapanacak, program açık kalacak, iki tarafta"); } else { alert("🔒 Özel mod: Sekme değiştirince program tamamen kapanıp hesap makinesine dönecek"); } }); } });
