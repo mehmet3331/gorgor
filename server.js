@@ -73,15 +73,6 @@ io.on('connection', socket=>{
   socket.on('fly-emoji', d=>{ if(socket.room) socket.to(socket.room).emit('fly-emoji', d); });
   socket.on('quality-change', q=>{ if(socket.room) socket.to(socket.room).emit('quality-change', q); });
   socket.on('phone-mode', b=>{ if(socket.room) socket.to(socket.room).emit('phone-mode', b); });
-  // V18.10 VIDEO/PHONE CALL REQUEST FIX
-  socket.on('video-call-request', d=>{ if(socket.room){ console.log(`video-call-request ${socket.room} from ${d.from}`); socket.to(socket.room).emit('video-call-request', d); } });
-  socket.on('video-call-accept', d=>{ if(socket.room){ console.log(`video-call-accept ${socket.room}`); socket.to(socket.room).emit('video-call-accept', d); io.to(socket.room).emit('video-call-accept', d); } });
-  socket.on('video-call-decline', d=>{ if(socket.room) socket.to(socket.room).emit('video-call-decline', d); });
-  socket.on('video-call-end', d=>{ if(socket.room){ console.log(`video-call-end ${socket.room}`); socket.to(socket.room).emit('video-call-end', d); io.to(socket.room).emit('video-call-end', d); } });
-  socket.on('phone-call-request', d=>{ if(socket.room){ console.log(`phone-call-request ${socket.room}`); socket.to(socket.room).emit('phone-call-request', d); } });
-  socket.on('phone-call-accept', d=>{ if(socket.room){ console.log(`phone-call-accept ${socket.room}`); socket.to(socket.room).emit('phone-call-accept', d); io.to(socket.room).emit('phone-call-accept', d); } });
-  socket.on('phone-call-decline', d=>{ if(socket.room) socket.to(socket.room).emit('phone-call-decline', d); });
-  socket.on('phone-call-end', d=>{ if(socket.room){ console.log(`phone-call-end ${socket.room}`); socket.to(socket.room).emit('phone-call-end', d); io.to(socket.room).emit('phone-call-end', d); } });
   socket.on('paused', ()=>{ if(socket.room) socket.to(socket.room).emit('peer-paused'); });
   socket.on('general-pause', ()=>{ if(socket.room){ socket.to(socket.room).emit('general-pause'); socket.to(socket.room).emit('peer-paused'); } });
   socket.on('leave-room', room=>{ if(room&&rooms[room]){ delete rooms[room].users[socket.id]; socket.leave(room); socket.to(room).emit('user-disconnected'); } });
