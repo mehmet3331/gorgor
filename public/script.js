@@ -276,7 +276,6 @@ closePreview.onclick=()=>{ mediaPreview.style.display="none"; previewVideo.pause
 downloadMediaBtn.onclick=()=>{ const pass=prompt("İndirmek için şifre:"); if(!pass||pass!==currentPassword){ alert("Şifre yanlış."); return; } const a=document.createElement("a"); a.href=currentMediaData.data; a.download=currentMediaData.name||"gizli"; a.click(); };
 if(lightModeBtn){ lightModeBtn.onclick=()=>{ const isLampOn=remoteVideo.classList.contains("lamp-on"); if(isLampOn){ remoteVideo.classList.remove("lamp-on"); remoteVideo.classList.remove("light-mode"); lightModeBtn.classList.remove("active"); } else { remoteVideo.classList.add("lamp-on"); remoteVideo.classList.add("light-mode"); lightModeBtn.classList.add("active"); remoteVideo.style.filter="brightness(1.3) contrast(1.1)"; setTimeout(()=>{ if(remoteVideo.classList.contains("lamp-on")) remoteVideo.style.filter="brightness(1.15)"; }, 300); } }; }
 let _phoneWasCamOn=false; let _phoneWasMicOn=false;
-let _phoneWasCamOn=false; let _phoneWasMicOn=false;
 if(phoneModeBtn){
   phoneModeBtn.onclick=()=>{
     if(!isPhoneMode){
