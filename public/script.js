@@ -340,11 +340,33 @@ socket.on("phone-mode",(enabled)=>{
     console.log("Telefon modu acildi - mikrofon iki tarafta acildi");
   } else {
     phoneCallUI.style.display="none";
+    // FIX: telefonu kapatinca karsi tarafin mikrofonu da kapansin
+    if(localStream){
+      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
+    }
+    micEnabled=false;
+    if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
     if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
     if(myVideoContainer) myVideoContainer.style.display="block";
-    // Kapaninca mikrofonu kapatma - kullanici isterse acik birakabilir, ama simdilik kapatma
+    console.log("Telefon modu kapandi - mikrofon iki tarafta kapandi");
   }
 });
+
+socket.on("phone-call-end", ()=>{
+  console.log("Karşı taraf telefonu kapattı - mic kapanıyor");
+  isPhoneMode=false;
+  document.body.classList.remove("phone-mode");
+  if(phoneModeBtn) phoneModeBtn.classList.remove("active");
+  phoneCallUI.style.display="none";
+  if(localStream){
+    localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
+  }
+  micEnabled=false;
+  if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+  if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
+  if(myVideoContainer) myVideoContainer.style.display="block";
+});
+
 socket.on("general-pause", ()=>{ console.log("GENEL PAUSE - mum"); if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); } micEnabled=false; camEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(camBtn){ camBtn.classList.add("offIcon"); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } });
 socket.on("peer-paused", ()=>{ console.log("PEER PAUSED - mum"); if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); } micEnabled=false; camEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(camBtn){ camBtn.classList.add("offIcon"); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } });
 const wheelOverlay=document.getElementById("wheelOverlay");
