@@ -1,0 +1,52 @@
+
+/* V18.10 MOBILE FIX - ses kaydirma ile genel-ozel ust uste binmesin */
+@media (max-width: 480px) {
+  #floatingPill {
+    padding: 0 6px;
+    gap: 4px;
+    height: 38px;
+  }
+  #floatingPillLeft {
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+  }
+  #opponentNameDisplay {
+    max-width: 45px !important;
+    font-size: 10px !important;
+  }
+  #opponentStatusText {
+    font-size: 7px !important;
+    max-width: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #privacyModeSelect {
+    margin-left: 2px !important;
+    font-size: 8px !important;
+    padding: 1px 3px !important;
+    height: 16px !important;
+    border-radius: 8px !important;
+  }
+  #floatingPillCenter {
+    gap: 3px;
+  }
+  #floatingPillCenter #soundBtn {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 9px !important;
+  }
+  #floatingPillCenter #volumeSlider {
+    width: 32px !important;
+  }
+  #floatingPillRight {
+    gap: 4px;
+  }
+  #floatingPillRight #phoneModeBtn,
+  #floatingPillRight #camBtn {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 11px !important;
+  }
+}

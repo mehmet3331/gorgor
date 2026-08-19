@@ -5,8 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>GORGOR</title>
 <link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="mobile_fix.css" />
 <script src="/socket.io/socket.io.js"></script>
 <script src="./simplepeer.min.js"></script>
+<style>
+/* V18.10 extra mobile fix inline fallback */
+@media (max-width: 480px){
+  #floatingPillLeft{ gap:4px; }
+  #privacyModeSelect{ margin-left:2px !important; font-size:8px !important; padding:1px 3px !important; height:16px !important; }
+  #opponentStatusText{ font-size:7px !important; max-width:35px !important; }
+  #opponentNameDisplay{ max-width:40px !important; font-size:10px !important; }
+}
+</style>
 </head>
 <body>
 <div id="fakeCalc" style="display:flex;">
@@ -37,11 +47,8 @@
   <button id="joinBtn">Giriş</button>
 </div>
 
-
 <div id="mainScreen" style="display:none;">
   <video id="remoteVideo" autoplay playsinline></video>
-  
-  <!-- FLOATING PILL - Dynamic Island style top bar -->
   <div id="floatingPill">
     <div id="floatingPillLeft">
       <span id="opponentDot" class="onlineDot offline"></span>
@@ -57,7 +64,7 @@
       <input id="volumeSlider" type="range" min="0" max="1" step="0.05" value="0.1" />
     </div>
     <div id="floatingPillRight">
-      <button id="phoneModeBtn" title="Telefon Modu - Her zaman aktif">📞</button>
+      <button id="phoneModeBtn" title="Telefon Modu">📞</button>
       <button id="camBtn" title="Kamera Video">📹</button>
     </div>
   </div>
@@ -70,13 +77,11 @@
   </div>
 
   <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯</p></div>
-  
   <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
 
-  <!-- Settings - remaining buttons, now as floating glass circles left side -->
   <div id="settingsContainer">
     <button id="settingsBtn">⚙</button>
-    <button id="panicBtn" title="Panik - Her iki tarafı kapat" style="background:#ff0000 !important;">🚨</button>
+    <button id="panicBtn" title="Panik" style="background:#ff0000 !important;">🚨</button>
     <button id="micBtn" title="Mikrofon"></button>
     <button id="lightModeBtn" title="Işık">💡</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
@@ -181,7 +186,6 @@ function calcEqual(){
 
 <script src="script.js"></script>
 
-<!-- V17 WHEEL PICKER OVERLAY - Tasarımın aynısı -->
 <div id="wheelOverlay">
   <div class="wheelTitle">⏰ Süre Ayarla</div>
   <div class="wheelContainer">
@@ -210,15 +214,12 @@ function calcEqual(){
   </div>
   <div class="wheelActions">
     <button id="wheelCancel">İptal</button>
-    <button id="wheelOk">Kaydet (4 saat sabit)</button>
+    <button id="wheelOk">Kaydet</button>
   </div>
 </div>
 
-
 <script>
-// === V17.2 WHEEL GARANTİ FIX - INLINE ===
 (function(){
-  console.log("WHEEL INLINE FIX YUKLENDI");
   const overlay = document.getElementById("wheelOverlay");
   const hourInput = document.getElementById("wheelHour");
   const minuteInput = document.getElementById("wheelMinute");
@@ -226,26 +227,20 @@ function calcEqual(){
   const cancelBtn = document.getElementById("wheelCancel");
   const openBtn = document.getElementById("openWheelBtn");
   const selectEl = document.getElementById("defaultSelfDestructSelect");
-
   function openWheelFix(){
-    console.log("openWheelFix cagrildi");
     const def = parseInt(localStorage.getItem("gorgor_default_expire")||"14400");
     const h = Math.floor(def/3600);
     const m = Math.floor((def%3600)/60);
     if(hourInput) hourInput.value = h;
     if(minuteInput) minuteInput.value = m;
-    if(overlay){ overlay.style.display="flex"; overlay.classList.add("show"); console.log("Wheel overlay gosterildi"); }
+    if(overlay){ overlay.style.display="flex"; overlay.classList.add("show"); }
   }
-  function closeWheelFix(){
-    if(overlay){ overlay.style.display="none"; overlay.classList.remove("show"); }
-  }
+  function closeWheelFix(){ if(overlay){ overlay.style.display="none"; overlay.classList.remove("show"); } }
   function stepFix(type, dir){
     if(type==="hour" && hourInput){ let v=parseInt(hourInput.value)||0; v+=dir; if(v<0) v=23; if(v>23) v=0; hourInput.value=v; }
     if(type==="minute" && minuteInput){ let v=parseInt(minuteInput.value)||0; v+=dir; if(v<0) v=59; if(v>59) v=0; minuteInput.value=v; }
   }
-  function quickFix(sec){
-    if(hourInput && minuteInput){ hourInput.value=Math.floor(sec/3600); minuteInput.value=Math.floor((sec%3600)/60); }
-  }
+  function quickFix(sec){ if(hourInput && minuteInput){ hourInput.value=Math.floor(sec/3600); minuteInput.value=Math.floor((sec%3600)/60); } }
   function saveFix(){
     const h=parseInt(hourInput.value)||0; const m=parseInt(minuteInput.value)||0;
     let sec=h*3600+m*60; if(sec<60) sec=60; if(sec>86400) sec=86400;
@@ -253,37 +248,19 @@ function calcEqual(){
     if(selectEl){
       let customOpt=selectEl.querySelector('option[value="custom_display"]');
       if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; selectEl.appendChild(customOpt); }
-      const formatTime=(s)=>{ if(s<60) return s+" sn"; const mm=Math.floor(s/60); if(mm<60) return mm+" dk"; const hh=Math.floor(mm/60); return hh+"sa "+(mm%60)+"dk"; };
-      customOpt.textContent=formatTime(sec)+" (wheel)"; customOpt.selected=true;
+      customOpt.textContent=h+"sa "+m+"dk (wheel)"; customOpt.selected=true;
     }
     closeWheelFix();
-    alert("Varsayılan süre ayarlandı: "+h+" saat "+m+" dakika");
   }
-
-  // Global yap
   window.wheelStep = stepFix;
   window.setWheelQuick = quickFix;
   window.openWheel = openWheelFix;
   window.closeWheel = closeWheelFix;
-  window.openWheelFix = openWheelFix;
-
-  if(openBtn){
-    openBtn.onclick = function(e){ e.preventDefault(); e.stopPropagation(); console.log("openWheelBtn tiklandi"); openWheelFix(); };
-    console.log("openWheelBtn listener eklendi");
-  }
-  if(selectEl){
-    selectEl.addEventListener("change", function(){ if(this.value==="custom"){ console.log("custom secildi"); openWheelFix(); } });
-  }
+  if(openBtn){ openBtn.onclick = function(e){ e.preventDefault(); e.stopPropagation(); openWheelFix(); }; }
+  if(selectEl){ selectEl.addEventListener("change", function(){ if(this.value==="custom"){ openWheelFix(); } }); }
   if(okBtn){ okBtn.onclick = saveFix; }
   if(cancelBtn){ cancelBtn.onclick = closeWheelFix; }
-  if(overlay){
-    overlay.addEventListener("click", function(e){ if(e.target===overlay){ closeWheelFix(); } });
-  }
-  // Eski butonlar icin delegation
-  document.addEventListener("click", function(e){
-    if(e.target && e.target.id==="openWheelBtn"){ e.preventDefault(); openWheelFix(); }
-  });
-  console.log("WHEEL FIX TAMAM - Butonlar aktif");
+  if(overlay){ overlay.addEventListener("click", function(e){ if(e.target===overlay){ closeWheelFix(); } }); }
 })();
 </script>
 
