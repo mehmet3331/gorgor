@@ -87,4 +87,8 @@ io.on('connection', socket=>{
   socket.on('leave-room', room=>{ if(room&&rooms[room]){ delete rooms[room].users[socket.id]; socket.leave(room); socket.to(room).emit('user-disconnected'); } });
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
 });
-server.listen(process.env.PORT||10000, ()=> console.log("GOR V18.14 FINAL port 10000 - arama teklifi iki tarafta mic cam acilis fix"));
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, '0.0.0.0', ()=> {
+  console.log(`GORGOR V18.15 calisiyor port ${PORT} - 0.0.0.0 - giris kilitli 0000 oda1 varim`);
+});
+server.on('error', (err)=>{ console.error('Server hatasi:', err); });
