@@ -22,7 +22,7 @@ async function initMongo(){
 initMongo();
 function debouncedSave(){ if(saveTimeout) clearTimeout(saveTimeout); saveTimeout=setTimeout(saveDisk,1000); }
 async function saveDisk(){ if(!mongoCollection) return; try{ await mongoCollection.deleteMany({}); if(persistedMessages.length) await mongoCollection.insertMany(persistedMessages); }catch(e){ console.error(e.message); } }
-setInterval(async()=>{ const now=Date.now(); const before=persistedMessages.length; persistedMessages=persistedMessages.filter(m=>{ if(!m.opened) return true; return (m.deleteAt||0)>now; }); if(before!==persistedMessages.length) await saveDisk(); },60000);
+setInterval(async()=>{ const now=Date.now(); const before=persistedMessages.length; persistedMessages=persistedMessages.filter(m=>{ const del=m.deleteAt||m.expireAt||0; return del>now; }); if(before!==persistedMessages.length){ console.log(`AUTO DELETE ${before-persistedMessages.length} mesaj - suresi doldu, okunmasa bile silindi`); await saveDisk(); } },60000);
 let rooms={};
 io.on('connection', socket=>{
   socket.on('ping-check', ts=>{ socket.emit('pong-check', ts); });
@@ -39,7 +39,7 @@ io.on('connection', socket=>{
     const count=Object.keys(rooms[room].users).length;
     socket.emit('joined-room',{username:data.username,count});
     socket.to(room).emit('user-connected',{username:data.username,realUsername:socket.realUsername});
-    const pending=persistedMessages.filter(m=>m.room===room);
+    const now2=Date.now(); const pending=persistedMessages.filter(m=>m.room===room && (m.deleteAt||m.expireAt||0)>now2);
     if(pending.length) socket.emit('pending-messages',pending);
     console.log(`ODA: ${room} - ${data.username} girdi ${count}`);
   });
@@ -88,7 +88,4 @@ io.on('connection', socket=>{
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
 });
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', ()=> {
-  console.log(`GORGOR V18.15 calisiyor port ${PORT} - 0.0.0.0 - giris kilitli 0000 oda1 varim`);
-});
-server.on('error', (err)=>{ console.error('Server hatasi:', err); });
+server.listen(PORT, '0.0.0.0', ()=> console.log(`GORGOR V18.19 FINAL calisiyor port ${PORT} - 0.0.0.0 - mesaj gonderimde silme + 14dk Google kilit + telefon izin`));

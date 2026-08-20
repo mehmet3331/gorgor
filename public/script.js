@@ -1,4 +1,4 @@
-console.log("V18.9 FINAL FIX - mesaj saat + avatar + tik + genel mod kapanis + oda giris");
+console.log("V18.19 FINAL - mesaj suresi gonderimde + 14dk oto Google kilit + telefon izin");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
 const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
@@ -76,6 +76,32 @@ let typingTimer; let isTyping = false; let messageIdCounter = 0;
 const sentMessages = new Map();
 let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "14400");
 let activeTimers = new Map();
+let offlineTimer = null;
+const FOURTEEN_MIN = 14*60*1000;
+
+function startExpireTimer(msgId, deleteAt, expireSec){
+  const remaining = deleteAt - Date.now();
+  if(remaining <= 0){
+    const el = document.getElementById(msgId);
+    if(el) el.remove();
+    return;
+  }
+  if(activeTimers.has(msgId)){
+    const old = activeTimers.get(msgId);
+    if(old.timeout) clearTimeout(old.timeout);
+    if(old.interval) clearInterval(old.interval);
+  }
+  const timer = setTimeout(()=>{
+    const el = document.getElementById(msgId);
+    if(el){
+      el.style.opacity="0";
+      setTimeout(()=>{ el.remove(); }, 300);
+    }
+    activeTimers.delete(msgId);
+  }, remaining);
+  activeTimers.set(msgId, {timeout: timer, expireAt: deleteAt});
+}
+
 let isPhoneMode = false;
 let isPickingFile = false;
 let _photoPicking = false;
@@ -126,7 +152,7 @@ function doSecurityReset(reason){
     messageIdCounter=0;
     if(messages) messages.innerHTML="";
     sentMessages.clear();
-    activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
+    activeTimers.forEach(t=>{ if(t.interval) clearInterval(t.interval); if(t.timeout) clearTimeout(t.timeout); }); activeTimers.clear();
     if(roomName) roomName.value="";
     if(roomPassword) roomPassword.value="";
     if(userName) userName.value="";
@@ -168,7 +194,6 @@ async function startCamera(height=720, facingMode=currentFacingMode){ try{ if(lo
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=>socket.emit("ping-check",Date.now()),3000); }
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
 
-// ODA GIRIS FIX
 joinBtn.onclick=async()=>{
     const room=roomName.value.trim(); const password=roomPassword.value.trim(); const uname=userName.value.trim();
     if(!room){ alert("Oda adı gir"); return; }
@@ -176,18 +201,17 @@ joinBtn.onclick=async()=>{
     if(!password){ alert("Şifre gerekli"); return; }
     currentPassword=password; myUsername=normalize(uname); myRealUsername=uname;
     currentRoom=room;
-    console.log("Oda giris istegi:", room);
     if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
-    try{ await startCamera(currentQuality); }catch(e){ console.log("Kamera acilamadi ama giriliyor", e); }
+    try{ await startCamera(currentQuality); }catch(e){}
     socket.emit("join-room",{room,password,username:uname});
 };
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{ roomScreen.style.display="none"; mainScreen.style.display="block"; if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } if(remoteVideo) remoteVideo.style.display="block"; if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; } if(currentUserBox) currentUserBox.textContent=`Ben: ${data.username}`; myRealUsername=data.username; myUsername=normalize(data.username); startPingMonitor(); if(!localStream){ startCamera(currentQuality, currentFacingMode).then(()=>{ if(myVideoContainer) myVideoContainer.style.display="block"; }); } if(data.count===2) createPeer(true); });
-socket.on("user-connected",(d)=>{ if(!peer) createPeer(false); const oppName=d.username||d.realUsername||"Bilinmeyen"; updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } });
+socket.on("user-connected",(d)=>{ if(!peer) createPeer(false); const oppName=d.username||d.realUsername||"Bilinmeyen"; updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
 function createPeer(initiator){ peer=new SimplePeer({initiator,trickle:false,stream:localStream,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}}); peer.on("signal",signal=>socket.emit("signal",{room:currentRoom,signal})); peer.on("stream",stream=>{ remoteVideo.srcObject=stream; remoteVideo.play().catch(()=>{}); if(candleContainer) candleContainer.classList.remove("show"); if(isPhoneMode){ remoteVideo.style.display="none"; } else { remoteVideo.style.display="block"; } }); peer.on("close",()=>{ if(remoteVideo){ remoteVideo.pause(); try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.load(); remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } }); }
 socket.on("signal",signal=>{ if(!peer) createPeer(false); peer.signal(signal); });
-socket.on("user-status",(data)=>{ const {user,status,online}=data; if(user===myRealUsername) return; const isOnline=status==="varım"||online; updateOpponentDisplay(user,isOnline?"varım":"yokum"); if(connectionQuality){ if(isOnline){ connectionQuality.textContent=`${user} içerde`; connectionQuality.className="good"; } else { connectionQuality.textContent=`${user} dışarda`; connectionQuality.className="bad"; } } });
-socket.on("user-disconnected",()=>{ if(remoteVideo){ remoteVideo.pause(); try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.removeAttribute("src"); remoteVideo.load(); remoteVideo.style.display="none"; } if(peer){ try{peer.destroy();}catch(e){} peer=null; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } if(connectionQuality){ connectionQuality.textContent="Karşı yok - Mum 🕯"; connectionQuality.className="bad"; } if(pingTimer){ clearInterval(pingTimer); pingTimer=null; } updateOpponentDisplay(opponentUsername||"Bilinmeyen","yokum"); });
+socket.on("user-status",(data)=>{ const {user,status,online}=data; if(user===myRealUsername) return; const isOnline=status==="varım"||online; updateOpponentDisplay(user,isOnline?"varım":"yokum"); if(isOnline) clearOfflineTimer(); else startOfflineCountdown(); });
+socket.on("user-disconnected",()=>{ if(remoteVideo){ remoteVideo.pause(); try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.removeAttribute("src"); remoteVideo.load(); remoteVideo.style.display="none"; } if(peer){ try{peer.destroy();}catch(e){} peer=null; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } updateOpponentDisplay(opponentUsername||"Bilinmeyen","yokum"); startOfflineCountdown(); });
 qualitySelect.onchange=async()=>{ const wasCamOn=camEnabled; const wasMicOn=micEnabled; currentQuality=parseInt(qualitySelect.value); socket.emit("quality-change", currentQuality); await startCamera(currentQuality, currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn); localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn); camEnabled=wasCamOn; micEnabled=wasMicOn; if(!wasCamOn) camBtn.classList.add("offIcon"); else camBtn.classList.remove("offIcon"); } if(peer&&localStream){ const sender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video"); if(sender) await sender.replaceTrack(localStream.getVideoTracks()[0]); } };
 socket.on("quality-change", async(q)=>{ currentQuality=parseInt(q); if(qualitySelect) qualitySelect.value=currentQuality.toString(); const wasCamOn=camEnabled; const wasMicOn=micEnabled; await startCamera(currentQuality, currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn); localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn); } if(peer&&localStream){ const sender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video"); if(sender) await sender.replaceTrack(localStream.getVideoTracks()[0]); } });
 
@@ -195,20 +219,21 @@ settingsBtn.onclick=()=>settingsContainer.classList.toggle("menu-open");
 if(fullscreenBtn){ fullscreenBtn.onclick=()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }; }
 function formatTime(sec){ if(sec<60) return `${sec} sn`; const m=Math.floor(sec/60); const s=sec%60; if(m<60) return `${m} dk ${s} sn`; const h=Math.floor(m/60); const mm=m%60; if(h<24) return `${h}sa ${mm}dk`; const d=Math.floor(h/24); const hh=h%24; return `${d}g ${hh}sa ${mm}dk`; }
 function formatTimeShort(sec){ if(sec<60) return `${sec}sn`; const m=Math.floor(sec/60); if(m<60) return `${m}dk`; const h=Math.floor(m/60); if(h<24) return `${h}sa`; return `${Math.floor(h/24)}g`; }
-function startSelfDestruct(div,msgId,expireSec,deleteAt){ expireSec=Math.min(expireSec,MAX_SEC); if(activeTimers.has(msgId)){ const old=activeTimers.get(msgId); clearInterval(old.interval); clearTimeout(old.timeout); } const expireAt=deleteAt||(Date.now()+expireSec*1000); const clock=div._clock||formatClock(new Date(expireAt-expireSec*1000)); const infoEl=div.querySelector(".expireInfo"); const interval=setInterval(()=>{ const remaining=Math.max(0,Math.floor((expireAt-Date.now())/1000)); if(infoEl){ infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(remaining)}`; if(remaining<60) infoEl.style.color="#ff4444"; } if(remaining<=0) clearInterval(interval); },1000); const timeout=setTimeout(()=>{ div.innerHTML="💨 Bu mesaj kendini imha etti"; div.className="selfDestructed"; setTimeout(()=>div.remove(),2000); clearInterval(interval); activeTimers.delete(msgId); },expireAt-Date.now()); activeTimers.set(msgId,{interval,timeout,expireAt}); }
-function addReduceExtendButtons(div,msgId){ return; }
+function startSelfDestruct(div,msgId,expireSec,deleteAt){ expireSec=Math.min(expireSec,MAX_SEC); if(activeTimers.has(msgId)){ const old=activeTimers.get(msgId); if(old.interval) clearInterval(old.interval); if(old.timeout) clearTimeout(old.timeout); } const expireAt=deleteAt||(Date.now()+expireSec*1000); const clock=div._clock||formatClock(new Date(expireAt-expireSec*1000)); const infoEl=div.querySelector(".expireInfo"); const interval=setInterval(()=>{ const remaining=Math.max(0,Math.floor((expireAt-Date.now())/1000)); if(infoEl){ infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(remaining)}`; if(remaining<60) infoEl.style.color="#ff4444"; } if(remaining<=0) clearInterval(interval); },1000); const timeout=setTimeout(()=>{ div.innerHTML="💨 Bu mesaj kendini imha etti"; div.className="selfDestructed"; setTimeout(()=>div.remove(),2000); clearInterval(interval); activeTimers.delete(msgId); },expireAt-Date.now()); activeTimers.set(msgId,{interval,timeout,expireAt}); }
 
-async function addMyMessage(text,expireSec,realName){ const now=Date.now(); const msgId=`msg-${now}-${messageIdCounter++}`; const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC); const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); const initial=(realName||"Y").trim().charAt(0).toUpperCase()||"Y"; const clock=formatClock(new Date(now)); div._clock=clock; div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(expireSec)}</span><div class="msgText">${linked}</div><span class="ticks single"> ✓</span></div>`; div._sentAt=now; div._deleteAt=now+expireSec*1000; messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); div._expireSec=expireSec; startSelfDestruct(div,msgId,expireSec,div._deleteAt); return msgId; }
-async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){ const now=Date.now(); const msgId=`media-${now}-${messageIdCounter++}`; const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=now; div._deleteAt=now+expireSec*1000; const initial=(myRealUsername||"Y").trim().charAt(0).toUpperCase()||"Y"; const clock=formatClock(new Date(now)); div._clock=clock; div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(expireSec)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; bubble.appendChild(im); setupLongPress(im,msgId); } else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks single"; tick.textContent=" ✓"; bubble.appendChild(tick); messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); startSelfDestruct(div,msgId,expireSec,div._deleteAt); return msgId; }
-function setupLongPress(img,msgId){ let timer; img.addEventListener("touchstart",(e)=>{ timer=setTimeout(()=>{ const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0&&v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; div._clock=formatClock(new Date()); startSelfDestruct(div,msgId,v,newDelete); } } },800); }, {passive:true}); img.addEventListener("touchend",()=>clearTimeout(timer)); img.addEventListener("mousedown",(e)=>{ timer=setTimeout(()=>{ const inp=prompt("Foto süresi değiştir (sn, max 86400):"); if(!inp) return; let v=parseInt(inp); if(v>0&&v<=86400){ const div=document.getElementById(msgId); if(div){ const newDelete=Date.now()+v*1000; div._deleteAt=newDelete; div._clock=formatClock(new Date()); startSelfDestruct(div,msgId,v,newDelete); } } },800); }); img.addEventListener("mouseup",()=>clearTimeout(timer)); }
-async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal,sentAt){ if(document.getElementById(msgId)) return; expireSec=Math.min(expireSec||defaultExpire,MAX_SEC); const sent=sentAt||Date.now(); const deleteAt=sent+expireSec*1000; try{ const plain=await decryptText(enc,currentPassword); if(!plain) return; const div=document.createElement("div"); div.className="otherMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=sent; div._deleteAt=deleteAt; const remaining=Math.max(1,Math.floor((deleteAt-Date.now())/1000)); const initial=(senderReal||"V").trim().charAt(0).toUpperCase()||"V"; const clock=formatClock(new Date(sent)); div._clock=clock; if(mediaType==="text"||!mediaType){ const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span><div class="msgText">${linked}</div><span class="ticks double"> ✓✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); setupLongPress(img,msgId); } else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks double"; tick.textContent=" ✓✓"; bubble.appendChild(tick); } messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); startSelfDestruct(div,msgId,remaining,deleteAt); socket.emit("message-opened",{msgId}); socket.emit("message-read",{msgId,reader:myRealUsername}); if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); } return; }catch(e){ console.log(e); } }
+async function addMyMessage(text,expireSec,realName){ const now=Date.now(); const msgId=`msg-${now}-${messageIdCounter++}`; const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC); const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); const initial=(realName||"Y").trim().charAt(0).toUpperCase()||"Y"; const clock=formatClock(new Date(now)); div._clock=clock; div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(expireSec)}</span><div class="msgText">${linked}</div><span class="ticks single"> ✓</span></div>`; div._sentAt=now; div._deleteAt=now+expireSec*1000; messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); div._expireSec=expireSec; startSelfDestruct(div,msgId,expireSec,div._deleteAt); startExpireTimer(msgId, div._deleteAt, expireSec); return msgId; }
+async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){ const now=Date.now(); const msgId=`media-${now}-${messageIdCounter++}`; const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=now; div._deleteAt=now+expireSec*1000; const initial=(myRealUsername||"Y").trim().charAt(0).toUpperCase()||"Y"; const clock=formatClock(new Date(now)); div._clock=clock; div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(expireSec)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; bubble.appendChild(im); } else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks single"; tick.textContent=" ✓"; bubble.appendChild(tick); messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); startSelfDestruct(div,msgId,expireSec,div._deleteAt); startExpireTimer(msgId, div._deleteAt, expireSec); return msgId; }
+async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal,sentAt){ if(document.getElementById(msgId)) return; expireSec=Math.min(expireSec||defaultExpire,MAX_SEC); const sent=sentAt||Date.now(); const deleteAt=sent+expireSec*1000; try{ const plain=await decryptText(enc,currentPassword); if(!plain) return; const div=document.createElement("div"); div.className="otherMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=sent; div._deleteAt=deleteAt; const remaining=Math.max(1,Math.floor((deleteAt-Date.now())/1000)); const initial=(senderReal||"V").trim().charAt(0).toUpperCase()||"V"; const clock=formatClock(new Date(sent)); div._clock=clock; if(mediaType==="text"||!mediaType){ const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span><div class="msgText">${linked}</div><span class="ticks double"> ✓✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks double"; tick.textContent=" ✓✓"; bubble.appendChild(tick); } messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); startSelfDestruct(div,msgId,remaining,deleteAt); startExpireTimer(msgId, deleteAt, expireSec); socket.emit("message-opened",{msgId}); socket.emit("message-read",{msgId,reader:myRealUsername}); if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); } return; }catch(e){ console.log(e); } }
+
 function getExpireFromSelect(){ let val=perMessageTimerSelect.value; if(val==="default") return defaultExpire; if(val==="custom"){ let custom=prompt(`Manuel süre saniye:`); if(!custom) return defaultExpire; let num=parseInt(custom.replace(/[^0-9]/g,'')); if(isNaN(num)||num<=0) return defaultExpire; if(num>MAX_SEC) num=MAX_SEC; return num; } return Math.min(parseInt(val),MAX_SEC); }
-sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt}); input.value=""; socket.emit('typing',false); isTyping=false; };
+sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); input.value=""; socket.emit('typing',false); isTyping=false; };
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt); });
 socket.on("chat-media", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username,data.sentAt); });
-socket.on("pending-messages", async(list)=>{ for(const m of list){ const plain=await decryptText(m.enc,currentPassword); if(!plain) continue; const isMine=m.username===myUsername; const sent=m.expireAt?(m.expireAt-m.expireSec*1000):Date.now(); const clock=formatClock(new Date(sent)); if(m.opened&&m.deleteAt){ const remaining=Math.max(1,Math.floor((m.deleteAt-Date.now())/1000)); if(remaining<=0) continue; const div=document.createElement("div"); div.className=isMine?"myMessage":"otherMessage"; div.id=m.msgId; div._clock=clock; div._expireSec=m.expireSec; const initial=(m.realUsername||"V").trim().charAt(0).toUpperCase(); const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); if(m.type==="text"){ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span><div class="msgText">${linked}</div><span class="ticks double"> ✓✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } else if(m.type==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks double"; tick.textContent=" ✓✓"; bubble.appendChild(tick); } messages.appendChild(div); startSelfDestruct(div,m.msgId,remaining,m.deleteAt); if(isMine) sentMessages.set(m.msgId,div); }else{ if(isMine){ const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId; div._expireSec=m.expireSec; div._clock=clock; const initial=(m.realUsername||"Y").charAt(0).toUpperCase(); if(m.type==="text"){ const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(m.expireSec)}</span><div class="msgText">${linked}</div><span class="ticks single"> ✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(m.expireSec)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } const tick=document.createElement("span"); tick.className="ticks single"; tick.textContent=" ✓"; bubble.appendChild(tick); } messages.appendChild(div); sentMessages.set(m.msgId,div); startSelfDestruct(div,m.msgId,m.expireSec,Date.now()+m.expireSec*1000); }else{ addLockedMessage(m.msgId,m.expireSec,m.enc,m.type,m.realUsername,sent); } } } messages.scrollTop=messages.scrollHeight; });
+socket.on("pending-messages", async(list)=>{ for(const m of list){ const plain=await decryptText(m.enc,currentPassword); if(!plain) continue; const isMine=m.username===myUsername; const sent=m.expireAt?(m.expireAt-m.expireSec*1000):Date.now(); const clock=formatClock(new Date(sent)); if(m.opened&&m.deleteAt){ const remaining=Math.max(1,Math.floor((m.deleteAt-Date.now())/1000)); if(remaining<=0) continue; const div=document.createElement("div"); div.className=isMine?"myMessage":"otherMessage"; div.id=m.msgId; div._clock=clock; div._expireSec=m.expireSec; const initial=(m.realUsername||"V").trim().charAt(0).toUpperCase(); const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); if(m.type==="text"){ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span><div class="msgText">${linked}</div><span class="ticks double"> ✓✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } else if(m.type==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks double"; tick.textContent=" ✓✓"; bubble.appendChild(tick); } messages.appendChild(div); startSelfDestruct(div,m.msgId,remaining,m.deleteAt); startExpireTimer(m.msgId, m.deleteAt, m.expireSec); if(isMine) sentMessages.set(m.msgId,div); }else{ if(isMine){ const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId; div._expireSec=m.expireSec; div._clock=clock; const initial=(m.realUsername||"Y").charAt(0).toUpperCase(); if(m.type==="text"){ const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(m.expireSec)}</span><div class="msgText">${linked}</div><span class="ticks single"> ✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(m.expireSec)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } const tick=document.createElement("span"); tick.className="ticks single"; tick.textContent=" ✓"; bubble.appendChild(tick); } messages.appendChild(div); sentMessages.set(m.msgId,div); startSelfDestruct(div,m.msgId,m.expireSec,Date.now()+m.expireSec*1000); startExpireTimer(m.msgId, Date.now()+m.expireSec*1000, m.expireSec); }else{ addLockedMessage(m.msgId,m.expireSec,m.enc,m.type,m.realUsername,sent); } } } messages.scrollTop=messages.scrollHeight; });
+
 socket.on("message-opened",({msgId,deleteAt,expireSec})=>{ const div=document.getElementById(msgId)||sentMessages.get(msgId); if(!div) return; if(sentMessages.has(msgId)){ const info=div.querySelector(".expireInfo"); const clock=div._clock||formatClock(new Date()); if(info){ info.textContent=`${clock} • ⏰ ${formatTimeShort(expireSec)}`; info.style.color="#00ff88"; } const ticks=div.querySelector(".ticks"); if(ticks){ ticks.textContent=" ✓✓"; ticks.style.color="#00ff88"; ticks.className="ticks double read"; } } });
+
 chatToggle.onclick=()=>{ if(chatPanel.style.display==="flex"){ chatPanel.style.display="none"; document.body.classList.remove("chat-open"); chatToggle.textContent="💬"; } else{ chatPanel.style.display="flex"; document.body.classList.add("chat-open"); chatToggle.classList.remove("newMessageBlink"); chatToggle.textContent="✖"; const goBottom=()=>{ if(messages){ messages.scrollTop=messages.scrollHeight; } }; goBottom(); setTimeout(goBottom,50); setTimeout(goBottom,200); setTimeout(goBottom,600); socket.emit("messages-read-all"); } };
 input.addEventListener('input',()=>{ if(!isTyping&&input.value.trim()){ socket.emit('typing',true); isTyping=true; } clearTimeout(typingTimer); typingTimer=setTimeout(()=>{ socket.emit('typing',false); isTyping=false; },1000); });
 socket.on('typing',(data)=>{ let td=document.getElementById('typingIndicator'); if(!td){ td=document.createElement('div'); td.id='typingIndicator'; td.className='otherMessage'; messages.appendChild(td); } td.textContent=data.typing?`${data.username} yazıyor...`:''; td.style.display=data.typing?'block':'none'; });
@@ -218,7 +243,7 @@ socket.on("nudge",()=>{ triggerNudge(false); });
 if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.toggle("show"); };
 document.querySelectorAll('.flyEmoji').forEach(emoji=>{ if(emoji.id==='addCustomEmoji') return; emoji.onclick=(e)=>{ e.stopPropagation(); const emojiText=emoji.textContent; const effect=emoji.dataset.effect; socket.emit('fly-emoji',{emoji:emojiText,effect}); createFlyingEmoji(emojiText,effect,true); emojiPanel.classList.remove("show"); }; });
 socket.on('fly-emoji',(data)=>createFlyingEmoji(data.emoji,data.effect,false));
-function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.innerWidth-120:80; const baseY=140; if(effect==='big-kiss'){ const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋'; big.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;z-index:9999;animation:explodeBoom 1s forwards;'; document.body.appendChild(big); setTimeout(()=>big.remove(),1000); return; } if(effect==='water'){ for(let i=0;i<10;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji water'; d.textContent='💧'; d.style.left=(window.innerWidth/2+Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='fireRainFall 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*60); } return; } let count=1; let animClass=effect||'heart'; if(effect==='heart'||effect==='kiss') count=8; else if(['kiss-rain','heart-rain','money-rain','star-rain','fire-rain','laugh-rain','angry-rain','emoji-rain'].includes(effect)) count=14; else if(['flower','sparkle','star'].includes(effect)) count=6; else if(['fire','explode'].includes(effect)) count=3; else if(['party','confetti'].includes(effect)) count=20; else if(['money','thumbs','wow','skull','heart-burst'].includes(effect)) count=1; for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+animClass; fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90+i*12)+'px'; fly.style.bottom=(baseY+Math.random()*60)+'px'; fly.style.fontSize=(effect==='explode'||effect==='heart-burst')?'90px':(effect==='fire'?'72px':(52+Math.random()*28)+'px'); document.body.appendChild(fly); setTimeout(()=>fly.remove(),3500); }, i*80); } if(['fire','explode','party','confetti','rocket','rocket-fly'].includes(effect)){ document.body.classList.add('mega-shake'); setTimeout(()=>document.body.classList.remove('mega-shake'),700); if(msnEffectLayer){ msnEffectLayer.style.background=effect==='fire'?'radial-gradient(circle at 50% 70%, rgba(255,80,0,0.25), transparent 65%)':'radial-gradient(circle at 50% 50%, rgba(255,255,0,0.2), transparent 60%)'; msnEffectLayer.style.display='block'; setTimeout(()=>msnEffectLayer.style.display='none',600); } if(navigator.vibrate) navigator.vibrate([80,40,80]); } else if(['heart','kiss','love','heart-burst'].includes(effect)){ if(navigator.vibrate) navigator.vibrate([50,30,50]); } }
+function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.innerWidth-120:80; const baseY=140; if(effect==='big-kiss'){ const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋'; big.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;z-index:9999;animation:explodeBoom 1s forwards;'; document.body.appendChild(big); setTimeout(()=>big.remove(),1000); return; } if(effect==='water'){ for(let i=0;i<10;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji water'; d.textContent='💧'; d.style.left=(window.innerWidth/2+Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='fireRainFall 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*60); } return; } let count=1; let animClass=effect||'heart'; if(effect==='heart'||effect==='kiss') count=8; else if(['kiss-rain','heart-rain','money-rain','star-rain','fire-rain','laugh-rain','angry-rain','emoji-rain'].includes(effect)) count=14; else if(['flower','sparkle','star'].includes(effect)) count=6; else if(['fire','explode'].includes(effect)) count=3; else if(['party','confetti'].includes(effect)) count=20; else if(['money','thumbs','wow','skull','heart-burst'].includes(effect)) count=1; for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+animClass; fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90+i*12)+'px'; fly.style.bottom=(baseY+Math.random()*60)+'px'; fly.style.fontSize=(effect==='explode'||effect==='heart-burst')?'90px':(effect==='fire'?'72px':(52+Math.random()*28)+'px'); document.body.appendChild(fly); setTimeout(()=>fly.remove(),3500); }, i*80); } if(['fire','explode','party','confetti','rocket','rocket-fly'].includes(effect)){ document.body.classList.add('mega-shake'); setTimeout(()=>document.body.classList.remove('mega-shake'),700); } }
 micBtn.onclick=async()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
 camBtn.onclick=async()=>{
   if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
@@ -241,18 +266,14 @@ camBtn.onclick=async()=>{
         if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } }
       }
     }catch(e){}
-    // Karsiya teklif gonder
     socket.emit("video-call-request", {from: myRealUsername, withMic: sesliAc});
     if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
     if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
-    console.log("Kamera teklif gonderildi - karsi kabul ederse iki taraf acilacak");
   } else {
     camEnabled=false;
     localStream.getVideoTracks().forEach(t=>t.enabled=false);
     camBtn.classList.add("offIcon");
-    // Kapatinca iki taraf kapansin istege bagli - simdilik sadece kendim kapat
     socket.emit("video-call-end", {from: myRealUsername});
-    console.log("Kamera kapatildi");
   }
 };
 if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ try{ const wasCamOn=camEnabled; const wasMicOn=micEnabled; currentFacingMode=currentFacingMode==="user"?"environment":"user"; await startCamera(currentQuality,currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>{ t.enabled=wasCamOn; }); localStream.getAudioTracks().forEach(t=>{ t.enabled=wasMicOn; }); myVideo.srcObject=localStream; myVideo.play().catch(()=>{}); myVideo.style.transform=currentFacingMode==="user"?"scaleX(-1)":"scaleX(1)"; } camEnabled=wasCamOn; micEnabled=wasMicOn; if(camEnabled) camBtn.classList.remove("offIcon"); else camBtn.classList.add("offIcon"); if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(peer&&peer._pc&&localStream){ const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0]; if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} } } if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} } } } }catch(err){ alert("Ikinci kamera yok"); currentFacingMode="user"; try{ await startCamera(currentQuality,"user"); }catch(e){} } }; }
@@ -269,57 +290,34 @@ mediaBtn.onclick=(e)=>{ e.preventDefault(); isPickingFile=true; _photoPicking=tr
 drawBtn.onclick=()=>{ attachMenu.classList.remove("show"); drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
 locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt}); }); };
 if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); isPickingFile=true; _photoPicking=true; attachMenu.classList.remove("show"); setTimeout(()=>{ cameraInput.click(); }, 100); }; }
-cameraInput.onchange=async()=>{ isPickingFile=true; _photoPicking=true; try{ const file=cameraInput.files[0]; if(!file){ isPickingFile=false; _photoPicking=false; return; } if(file.size>20*1024*1024){ alert("Max 20MB"); isPickingFile=false; _photoPicking=false; return; } let expire=getExpireFromSelect(); let dataUrl=""; try{ const img=await createImageBitmap(file); const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.75)); dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); }); }catch(e){ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } const enc=await encryptText(dataUrl,currentPassword); const sentAt=Date.now(); const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg"); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image",sentAt}); cameraInput.value=""; setTimeout(()=>{ if(messages) messages.scrollTop=messages.scrollHeight; },100); }catch(err){ console.log(err); } setTimeout(()=>{ isPickingFile=false; _photoPicking=false; },1500); };
-mediaInput.onchange=async()=>{ isPickingFile=true; _photoPicking=true; try{ const file=mediaInput.files[0]; if(!file){ isPickingFile=false; _photoPicking=false; return; } if(file.size>20*1024*1024){ alert("Max 20MB"); isPickingFile=false; _photoPicking=false; return; } let expire=getExpireFromSelect(); let dataUrl=""; if(file.type.startsWith('image/')){ try{ const img=await createImageBitmap(file); const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.7)); dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); }); }catch(e){ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } }else{ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } const enc=await encryptText(dataUrl,currentPassword); const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file'; const sentAt=Date.now(); const msgId=await addMyMediaMessage(dataUrl,mediaType,expire,file.name); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType,sentAt}); mediaInput.value=""; setTimeout(()=>{ if(messages) messages.scrollTop=messages.scrollHeight; },100); }catch(e){ console.log(e); } setTimeout(()=>{ isPickingFile=false; _photoPicking=false; },1500); };
+cameraInput.onchange=async()=>{ isPickingFile=true; _photoPicking=true; try{ const file=cameraInput.files[0]; if(!file){ isPickingFile=false; _photoPicking=false; return; } if(file.size>20*1024*1024){ alert("Max 20MB"); isPickingFile=false; _photoPicking=false; return; } let expire=getExpireFromSelect(); let dataUrl=""; try{ const img=await createImageBitmap(file); const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.75)); dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); }); }catch(e){ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } const enc=await encryptText(dataUrl,currentPassword); const sentAt=Date.now(); const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg"); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image",sentAt,deleteAt:Date.now()+expire*1000}); cameraInput.value=""; }catch(err){} setTimeout(()=>{ isPickingFile=false; _photoPicking=false; },1500); };
+mediaInput.onchange=async()=>{ isPickingFile=true; _photoPicking=true; try{ const file=mediaInput.files[0]; if(!file){ isPickingFile=false; _photoPicking=false; return; } if(file.size>20*1024*1024){ alert("Max 20MB"); isPickingFile=false; _photoPicking=false; return; } let expire=getExpireFromSelect(); let dataUrl=""; if(file.type.startsWith('image/')){ try{ const img=await createImageBitmap(file); const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.7)); dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); }); }catch(e){ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } }else{ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } const enc=await encryptText(dataUrl,currentPassword); const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file'; const sentAt=Date.now(); const msgId=await addMyMediaMessage(dataUrl,mediaType,expire,file.name); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType,sentAt,deleteAt:Date.now()+expire*1000}); mediaInput.value=""; }catch(e){} setTimeout(()=>{ isPickingFile=false; _photoPicking=false; },1500); };
 function openPreview(data){ currentMediaData=data; mediaPreview.style.display="flex"; if(data.type==="image"){ previewImg.src=data.data; previewImg.style.display="block"; previewVideo.style.display="none"; }else if(data.type==="video"){ previewVideo.src=data.data; previewVideo.style.display="block"; previewImg.style.display="none"; } }
 closePreview.onclick=()=>{ mediaPreview.style.display="none"; previewVideo.pause(); };
 downloadMediaBtn.onclick=()=>{ const pass=prompt("İndirmek için şifre:"); if(!pass||pass!==currentPassword){ alert("Şifre yanlış."); return; } const a=document.createElement("a"); a.href=currentMediaData.data; a.download=currentMediaData.name||"gizli"; a.click(); };
 if(lightModeBtn){ lightModeBtn.onclick=()=>{ const isLampOn=remoteVideo.classList.contains("lamp-on"); if(isLampOn){ remoteVideo.classList.remove("lamp-on"); remoteVideo.classList.remove("light-mode"); lightModeBtn.classList.remove("active"); } else { remoteVideo.classList.add("lamp-on"); remoteVideo.classList.add("light-mode"); lightModeBtn.classList.add("active"); remoteVideo.style.filter="brightness(1.3) contrast(1.1)"; setTimeout(()=>{ if(remoteVideo.classList.contains("lamp-on")) remoteVideo.style.filter="brightness(1.15)"; }, 300); } }; }
 let _phoneWasCamOn=false; let _phoneWasMicOn=false;
+let _phoneCallOutgoing = false;
 if(phoneModeBtn){
-  phoneModeBtn.onclick=()=>{
-    if(!isPhoneMode){
-      volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false; soundBtn.textContent="🔊";
-      if(parseFloat(volumeSlider.value)<0.15){ volumeSlider.value=0.15; remoteVideo.volume=0.15; }
-      _phoneWasCamOn=camEnabled; _phoneWasMicOn=micEnabled;
-      if(localStream){ localStream.getAudioTracks().forEach(t=>{ t.enabled=true; }); }
-      micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
-      if(volumeSlider){ if(parseFloat(volumeSlider.value)<0.15){ volumeSlider.value=0.15; } remoteVideo.volume=Math.max(0.15, parseFloat(volumeSlider.value)||0.15); remoteVideo.muted=false; }
-    }
-    isPhoneMode=!isPhoneMode;
-    document.body.classList.toggle("phone-mode",isPhoneMode);
-    phoneModeBtn.classList.toggle("active",isPhoneMode);
+  phoneModeBtn.onclick = async ()=>{
+    if(_phoneCallOutgoing) return;
     if(isPhoneMode){
-      if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
-      camEnabled=false; if(camBtn) camBtn.classList.add("offIcon");
-      phoneCallUI.style.display="flex";
-      if(remoteVideo) remoteVideo.style.display="none";
-      if(myVideoContainer) myVideoContainer.style.display="none";
-      if(candleContainer) candleContainer.classList.remove("show");
-      socket.emit("phone-mode",true);
-      socket.emit("phone-call-request", {from: myRealUsername});
-      console.log("Sesli arama teklif gonderildi - karsi kabul ederse iki taraf mic acilacak");
-    }else{
-      if(localStream){
-        localStream.getVideoTracks().forEach(t=>t.enabled=false);
-        localStream.getAudioTracks().forEach(t=>t.enabled=false);
-      }
-      camEnabled=false; micEnabled=false;
-      if(camBtn) camBtn.classList.add("offIcon");
+      isPhoneMode=false;
+      document.body.classList.remove("phone-mode");
+      if(phoneCallUI) phoneCallUI.style.display="none";
+      if(phoneModeBtn) phoneModeBtn.classList.remove("active");
+      if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
+      micEnabled=false;
       if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
-      phoneCallUI.style.display="none";
-      if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
-      if(myVideoContainer) myVideoContainer.style.display="block";
-      socket.emit("phone-mode",false);
       socket.emit("phone-call-end", {from: myRealUsername});
-      if(peer&&peer._pc&&localStream){
-        const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0];
-        (async()=>{
-          if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} } }
-          if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} } }
-        })();
-      }
+      socket.emit("phone-mode", false);
+      return;
     }
+    _phoneCallOutgoing = true;
+    const origText = phoneModeBtn.textContent;
+    phoneModeBtn.textContent="⏳";
+    socket.emit("phone-call-request", {from: myRealUsername, room: currentRoom});
+    setTimeout(()=>{ _phoneCallOutgoing=false; if(phoneModeBtn) phoneModeBtn.textContent=origText||"📞"; }, 10000);
   };
 }
 socket.on("phone-mode",(enabled)=>{
@@ -331,44 +329,61 @@ socket.on("phone-mode",(enabled)=>{
     if(remoteVideo) remoteVideo.style.display="none";
     if(candleContainer) candleContainer.classList.remove("show");
     volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false;
-    // FIX: karsi tarafin mikrofonu da acilsin - otomatik
-    if(localStream){
-      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
-    }
+    if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} }); }
     micEnabled=true;
     if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
-    console.log("Telefon modu acildi - mikrofon iki tarafta acildi");
   } else {
     phoneCallUI.style.display="none";
-    // FIX: telefonu kapatinca karsi tarafin mikrofonu da kapansin
-    if(localStream){
-      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
-    }
+    if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
     micEnabled=false;
     if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
     if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
     if(myVideoContainer) myVideoContainer.style.display="block";
-    console.log("Telefon modu kapandi - mikrofon iki tarafta kapandi");
   }
 });
-
 socket.on("phone-call-end", ()=>{
-  console.log("Karşı taraf telefonu kapattı - mic kapanıyor");
   isPhoneMode=false;
   document.body.classList.remove("phone-mode");
   if(phoneModeBtn) phoneModeBtn.classList.remove("active");
   phoneCallUI.style.display="none";
-  if(localStream){
-    localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
-  }
+  if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
   micEnabled=false;
   if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
   if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
   if(myVideoContainer) myVideoContainer.style.display="block";
 });
+socket.on("general-pause", ()=>{ if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); } micEnabled=false; camEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(camBtn){ camBtn.classList.add("offIcon"); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } });
+socket.on("peer-paused", ()=>{ if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); } micEnabled=false; camEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(camBtn){ camBtn.classList.add("offIcon"); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } });
 
-socket.on("general-pause", ()=>{ console.log("GENEL PAUSE - mum"); if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); } micEnabled=false; camEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(camBtn){ camBtn.classList.add("offIcon"); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } });
-socket.on("peer-paused", ()=>{ console.log("PEER PAUSED - mum"); if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); } micEnabled=false; camEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(camBtn){ camBtn.classList.add("offIcon"); } if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } });
+// V18.19 - 14dk offline oto Google kilit + geri tus korumasi
+function clearOfflineTimer(){ if(offlineTimer){ clearTimeout(offlineTimer); offlineTimer=null; } }
+function autoLockToGoogle(reason){
+  console.log("14DK OFFLINE KILIT", reason);
+  clearOfflineTimer();
+  try{ if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); } if(peer){ try{peer.destroy();}catch(e){} peer=null; } }catch(e){}
+  if(mainScreen) mainScreen.style.display="none";
+  if(roomScreen) roomScreen.style.display="none";
+  if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+  if(phoneCallUI) phoneCallUI.style.display="none";
+  if(myVideoContainer) myVideoContainer.style.display="none";
+  const fakeCalcEl = document.getElementById("fakeCalc");
+  if(fakeCalcEl) fakeCalcEl.style.display="flex";
+  document.title = "Google";
+  try{ history.pushState(null, "", location.href); history.replaceState(null, "", location.href); localStorage.removeItem("gorgor_current_room"); sessionStorage.clear(); }catch(e){}
+  try{ socket.emit("leave-room", currentRoom); }catch(e){}
+  currentRoom=""; isPhoneMode=false; document.body.classList.remove("phone-mode");
+}
+function startOfflineCountdown(){ clearOfflineTimer(); offlineTimer = setTimeout(()=>{ autoLockToGoogle("14dk offline"); }, FOURTEEN_MIN); }
+window.addEventListener('popstate', ()=>{
+  const fakeCalcEl = document.getElementById("fakeCalc");
+  if(fakeCalcEl && fakeCalcEl.style.display!=="none"){
+    if(mainScreen) mainScreen.style.display="none";
+    if(roomScreen) roomScreen.style.display="none";
+    history.pushState(null, "", location.href);
+  }
+});
+history.pushState(null, "", location.href);
+
 const wheelOverlay=document.getElementById("wheelOverlay");
 const wheelHour=document.getElementById("wheelHour");
 const wheelMinute=document.getElementById("wheelMinute");
@@ -387,7 +402,6 @@ if(wheelOverlay){ wheelOverlay.addEventListener("click",(e)=>{ if(e.target===whe
 function doPanic(){
   if(!confirm("🚨 PANİK: Tüm mesajlar silinsin mi?")) return;
   try{
-    // 1. Tum medyayi aninda oldur - donuk kare kalmasin
     if(peer){ try{peer.destroy();}catch(e){} peer=null; }
     if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); localStream=null; }
     if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.removeAttribute("src");}catch(e){} try{remoteVideo.load();}catch(e){} remoteVideo.style.display="none"; }
@@ -399,11 +413,9 @@ function doPanic(){
     if(roomScreen) roomScreen.style.display="none";
   }catch(e){}
   messages.innerHTML=""; sentMessages.clear();
-  activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
+  activeTimers.forEach(t=>{ if(t.interval) clearInterval(t.interval); if(t.timeout) clearTimeout(t.timeout); }); activeTimers.clear();
   socket.emit("panic");
-  // 2. Ikinci sekme aciliyor cunku kamufle icin Google aciliyor - istersen bu satiri sil, ikinci sekme acilmaz
   window.open("https://www.google.com","_blank");
-  // 3. Aninda Google fake sayfaya don - 800ms bekleme yok, donuk kare yok
   document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Geçmiş silindi</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>';
 }
 if(panicBtn) panicBtn.onclick=doPanic;
@@ -418,8 +430,7 @@ socket.on("panic",()=>{
     if(phoneCallUI) phoneCallUI.style.display="none";
   }catch(e){}
   messages.innerHTML=""; sentMessages.clear();
-  activeTimers.forEach(t=>{ clearInterval(t.interval); clearTimeout(t.timeout); }); activeTimers.clear();
-  // Aninda Google - 800ms bekleme yok, donuk kare kalmiyor
+  activeTimers.forEach(t=>{ if(t.interval) clearInterval(t.interval); if(t.timeout) clearTimeout(t.timeout); }); activeTimers.clear();
   document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:white;color:black;font-family:Arial;"><div style="text-align:center;"><h1 style="font-size:80px;">G</h1><input style="width:400px;height:40px;border:1px solid #ddd;border-radius:20px;padding:10px;" placeholder="Google\'da ara"><p style="margin-top:20px;opacity:0.5;">Karşı taraf panik attı - program kapandı</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;">Geri Dön</button></div></div>';
 });
 let drawing=false;
@@ -431,15 +442,12 @@ drawCanvas.addEventListener("mouseup", ()=>drawing=false);
 drawCanvas.addEventListener("touchend", ()=>drawing=false);
 drawClear.onclick=()=>{ const ctx=window._drawCtx; if(ctx){ ctx.fillStyle="#000"; ctx.fillRect(0,0,window.innerWidth,window.innerHeight); } };
 drawClose.onclick=()=>{ drawOverlay.style.display="none"; };
-drawSend.onclick=async()=>{ const dataUrl=drawCanvas.toDataURL("image/jpeg",0.7); let expire=getExpireFromSelect(); const enc=await encryptText(dataUrl,currentPassword); const msgId=await addMyMediaMessage(dataUrl,"image",expire,"cizim.jpg"); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image"}); drawOverlay.style.display="none"; };
-window.addEventListener("beforeunload",()=>{ if(peer) peer.destroy(); if(localStream) localStream.getTracks().forEach(t=>t.stop()); });
+drawSend.onclick=async()=>{ const dataUrl=drawCanvas.toDataURL("image/jpeg",0.7); let expire=getExpireFromSelect(); const enc=await encryptText(dataUrl,currentPassword); const msgId=await addMyMediaMessage(dataUrl,"image",expire,"cizim.jpg"); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image",sentAt:Date.now(),deleteAt:Date.now()+expire*1000}); drawOverlay.style.display="none"; };
+window.addEventListener("beforeunload",()=>{ if(peer) try{peer.destroy();}catch(e){} if(localStream) try{localStream.getTracks().forEach(t=>t.stop());}catch(e){} });
 let lastScale=1, currentScale=1;
 if(remoteVideo){ remoteVideo.style.transition="transform 0.1s"; remoteVideo.addEventListener('touchstart', e=>{ if(e.touches.length===2&&!document.fullscreenElement&&!isPhoneMode){ e.preventDefault(); const dist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); lastScale=dist; } }, {passive:false}); remoteVideo.addEventListener('touchmove', e=>{ if(e.touches.length===2&&!document.fullscreenElement&&!isPhoneMode){ e.preventDefault(); const dist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); currentScale=Math.min(Math.max(1,currentScale*(dist/lastScale)),4); remoteVideo.style.transform=`scale(${currentScale})`; lastScale=dist; } }, {passive:false}); remoteVideo.addEventListener('touchend', ()=>{ if(currentScale<1.1){ remoteVideo.style.transform="scale(1)"; currentScale=1; } }); }
 window.wheelStep=wheelStep; window.setWheelQuick=setWheelQuick; window.openWheel=openWheel; window.closeWheel=closeWheel;
-document.addEventListener("DOMContentLoaded", ()=>{ const owb=document.getElementById("openWheelBtn"); if(owb){ owb.addEventListener("click",(e)=>{ e.stopPropagation(); openWheel(); }); } const dsd=document.getElementById("defaultSelfDestructSelect"); if(dsd){ dsd.addEventListener("change", ()=>{ if(dsd.value==="custom"){ openWheel(); } }); } });
-setInterval(()=>{ if(isPickingFile||_photoPicking){ if(window._pickingStart){ if(Date.now()-window._pickingStart>10000){ isPickingFile=false; _photoPicking=false; window._pickingStart=null; } } else { window._pickingStart=Date.now(); } } else { window._pickingStart=null; } }, 2000);
 
-// V18.13 - Bekleniyor yerine ... animasyonu - ., .., ... yanıp sönme
 let waitingDotsInterval = null;
 let waitingDotsCount = 0;
 function startWaitingDots(){
@@ -451,64 +459,62 @@ function startWaitingDots(){
   el.textContent = ".";
   waitingDotsInterval = setInterval(()=>{
     waitingDotsCount = (waitingDotsCount + 1) % 3;
-    const dots = [".", "..", "..."][waitingDotsCount];
-    el.textContent = dots;
+    el.textContent = [".", "..", "..."][waitingDotsCount];
   }, 400);
 }
 function stopWaitingDots(){
-  if(waitingDotsInterval){
-    clearInterval(waitingDotsInterval);
-    waitingDotsInterval = null;
-  }
+  if(waitingDotsInterval){ clearInterval(waitingDotsInterval); waitingDotsInterval = null; }
   const el = document.getElementById("opponentStatusText");
   if(el) el.classList.remove("waiting");
 }
-function setOpponentStatus(text){
-  const el = document.getElementById("opponentStatusText");
-  if(!el) return;
-  const norm = (text||"").toLowerCase();
-  if(norm.includes("bekleniyor") || norm === "..." || norm === "bekleniyor..." || text.trim() === ""){
-    startWaitingDots();
-  } else {
-    stopWaitingDots();
-    el.textContent = text;
-    el.classList.remove("waiting");
-  }
-}
-// Hook: orijinal textContent setlerini yakala - MutationObserver ile
 document.addEventListener("DOMContentLoaded", ()=>{
   const el = document.getElementById("opponentStatusText");
   if(!el) return;
-  // Ilk durumda bekleniyor ise nokta yap
-  if(el.textContent.toLowerCase().includes("bekleniyor")){
-    startWaitingDots();
-  }
-  // Observer - baska yerden textContent degistirilirse yakala
-  const observer = new MutationObserver(()=>{
-    const txt = el.textContent;
-    if(txt.toLowerCase().includes("bekleniyor") && !el.classList.contains("waiting")){
-      startWaitingDots();
-    }
-  });
-  observer.observe(el, {childList:true, characterData:true, subtree:true});
-  // Ayrica eski kodlar direkt textContent = "Bekleniyor" yaparsa setTimeout ile kontrol
-  setInterval(()=>{
-    const txt = el.textContent;
-    if(txt.toLowerCase().includes("bekleniyor") && !el.classList.contains("waiting")){
-      startWaitingDots();
-    }
-    if(txt.toLowerCase().includes("içerde") || txt.toLowerCase().includes("dışarda") || txt.toLowerCase().includes("online") || txt.toLowerCase().includes("offline")){
-      stopWaitingDots();
-    }
-  }, 1000);
+  if(el.textContent.toLowerCase().includes("bekleniyor")) startWaitingDots();
 });
 
-// V18.10 onceki istekler: kamera ve sesli arama teklif sistemi - girise dokunmadan
-// Kamera teklif
 let _videoRequestPending = false;
-if(typeof socket !== 'undefined'){
-  // Zaten var olan socket listener'larin uzerine ekle - giris bozulmaz
-  socket.on("video-call-request", async (data)=>{
+let _phoneRequestPending = false;
+socket.on("phone-call-request", async (data)=>{
+  if(_phoneRequestPending) return;
+  _phoneRequestPending = true;
+  const from = data.from || "Karşı taraf";
+  const kabul = confirm(`${from} sesli arama başlattı. Kabul ediyor musun?\n\nTamam = Kabul et, mikrofonun açılsın\nİptal = Reddet`);
+  if(kabul){
+    try{
+      if(!localStream){ try{ await startCamera(currentQuality, currentFacingMode); }catch(e){} }
+      if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} }); }
+      micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+      volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false;
+      isPhoneMode=true; document.body.classList.add("phone-mode"); if(phoneModeBtn) phoneModeBtn.classList.add("active");
+      if(phoneCallUI) phoneCallUI.style.display="flex";
+      if(remoteVideo) remoteVideo.style.display="none";
+      if(candleContainer){ candleContainer.classList.remove("show"); }
+      socket.emit("phone-call-accept", {from: myRealUsername});
+    }catch(e){ socket.emit("phone-call-decline", {from: myRealUsername}); }
+  } else {
+    socket.emit("phone-call-decline", {from: myRealUsername});
+  }
+  _phoneRequestPending = false;
+});
+socket.on("phone-call-accept", (data)=>{
+  if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} }); }
+  micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+  volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false;
+  isPhoneMode=true; document.body.classList.add("phone-mode"); if(phoneModeBtn) phoneModeBtn.classList.add("active");
+  if(phoneCallUI) phoneCallUI.style.display="flex";
+  if(remoteVideo) remoteVideo.style.display="none";
+});
+socket.on("phone-call-decline", (data)=>{
+  alert(`${data.from||"Karşı taraf"} sesli aramayı reddetti`);
+  isPhoneMode=false; document.body.classList.remove("phone-mode"); if(phoneModeBtn) phoneModeBtn.classList.remove("active");
+  if(phoneCallUI) phoneCallUI.style.display="none";
+  if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
+  micEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+  if(remoteVideo&&remoteVideo.srcObject) remoteVideo.style.display="block";
+  if(myVideoContainer) myVideoContainer.style.display="block";
+});
+socket.on("video-call-request", async (data)=>{
     if(_videoRequestPending) return;
     _videoRequestPending = true;
     const from = data.from || "Karşı taraf";
@@ -534,7 +540,7 @@ if(typeof socket !== 'undefined'){
     }
     _videoRequestPending = false;
   });
-  socket.on("video-call-accept", (data)=>{
+socket.on("video-call-accept", (data)=>{
     if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=true); localStream.getAudioTracks().forEach(t=>t.enabled=true); }
     camEnabled=true; micEnabled=true;
     if(camBtn) camBtn.classList.remove("offIcon");
@@ -542,17 +548,16 @@ if(typeof socket !== 'undefined'){
     if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
     if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
   });
-  socket.on("video-call-decline", (data)=>{
+socket.on("video-call-decline", (data)=>{
     alert(`${data.from||"Karşı taraf"} kamera isteğini reddetti`);
     if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); }
     camEnabled=false; if(camBtn) camBtn.classList.add("offIcon");
   });
-  socket.on("video-call-end", ()=>{
+socket.on("video-call-end", ()=>{
     if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); localStream.getAudioTracks().forEach(t=>t.enabled=false); }
     camEnabled=false; micEnabled=false;
     if(camBtn) camBtn.classList.add("offIcon");
     if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
   });
-}
 
 document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document.getElementById("privacyModeSelect"); if(privacySelect){ privacySelect.value=localStorage.getItem("gorgor_security_mode")||"private"; securityMode=privacySelect.value; privacySelect.addEventListener("change", ()=>{ securityMode=privacySelect.value; localStorage.setItem("gorgor_security_mode", securityMode); if(securityMode==="general"){ alert("🔓 Genel mod: Sekme değiştirince sadece kamera ve ses kapanacak, program açık kalacak, iki tarafta"); } else { alert("🔒 Özel mod: Sekme değiştirince program tamamen kapanıp hesap makinesine dönecek"); } }); } });
