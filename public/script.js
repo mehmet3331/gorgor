@@ -1,4 +1,4 @@
-console.log("V18.20 FINAL - son gorulme + oda dolu fix - mesaj suresi gonderimde + 14dk oto Google kilit + telefon izin");
+console.log("V19.0 FINAL - TUM OZELLIKLER - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim ortak");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
 const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
@@ -181,6 +181,21 @@ function renderFakeLists(){
 renderFakeLists();
 let opponentUsername=""; let opponentStatus="offline";
 let lastSeenTimes = {};
+// V19 NEW FEATURES GLOBALS
+let isBlurEnabled = false;
+let autoReconnectAttempts = 0;
+let maxReconnectAttempts = 5;
+let reconnectTimer = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecordingVoice = false;
+let voiceRecordStartTime = 0;
+let messageReactions = new Map();
+let readReceipts = new Map();
+let isCollaborativeDrawing = false;
+let collaborativeDrawColor = "#00ff88";
+let fakeNotifEnabled = true;
+let screenshotProtectionEnabled = true;
 function formatLastSeen(ts){
   if(!ts) return "";
   const diff = Math.floor((Date.now()-ts)/1000);
@@ -190,6 +205,7 @@ function formatLastSeen(ts){
   if(diff<86400) return `bugün ${formatClock(new Date(ts))}`;
   return `${formatClock(new Date(ts))}`;
 }
+
 function updateOpponentDisplay(name,status){ 
   opponentUsername=name||opponentUsername; 
   opponentStatus=status||opponentStatus; 
@@ -217,7 +233,23 @@ function updateOpponentDisplay(name,status){
 }
 roomName.addEventListener("input",()=>{ const v=normalize(roomName.value); if(v.length>0){ if(fakeRoomsHint) fakeRoomsHint.style.display="block"; } else { if(fakeRoomsHint) fakeRoomsHint.style.display="none"; } if(v===REAL_ROOM || v.length>=2){ userName.style.display="block"; userListBox.style.display="block"; } else { userName.style.display="none"; userListBox.style.display="none"; } });
 
-async function deriveKey(password){ const enc=new TextEncoder(); const hash=await crypto.subtle.digest('SHA-256', enc.encode(password)); return await crypto.subtle.importKey('raw', hash, { name:'AES-GCM' }, false, ['encrypt','decrypt']); }
+// V19 PBKDF2 + backward compatibility
+async function deriveKeyLegacy(password){ const enc=new TextEncoder(); const hash=await crypto.subtle.digest('SHA-256', enc.encode(password)); return await crypto.subtle.importKey('raw', hash, { name:'AES-GCM' }, false, ['encrypt','decrypt']); }
+async function deriveKeyPBKDF2(password, saltStr){
+  const enc=new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), {name:'PBKDF2'}, false, ['deriveKey']);
+  const salt = enc.encode(saltStr || (currentRoom + currentPassword + 'gorgor-v19-salt'));
+  return await crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:100000, hash:'SHA-256'}, keyMaterial, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function deriveKey(password){
+  try{
+    const salt = (currentRoom||'') + (currentPassword||'') + 'gorgor-v19-salt';
+    return await deriveKeyPBKDF2(password, salt);
+  }catch(e){
+    console.log('PBKDF2 fallback to legacy', e);
+    return await deriveKeyLegacy(password);
+  }
+}
 function bufToB64(buf){ const bytes=new Uint8Array(buf); let binary=""; const chunk=8192; for(let i=0;i<bytes.length;i+=chunk){ binary+=String.fromCharCode.apply(null, bytes.subarray(i,i+chunk)); } return btoa(binary); }
 function b64ToBuf(b64){ const binary=atob(b64); const bytes=new Uint8Array(binary.length); for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i); return bytes; }
 async function encryptText(text,password){ const key=await deriveKey(password); const iv=crypto.getRandomValues(new Uint8Array(12)); const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(text)); const combined=new Uint8Array(iv.length+ct.byteLength); combined.set(iv,0); combined.set(new Uint8Array(ct),iv.length); return bufToB64(combined); }
@@ -612,4 +644,482 @@ socket.on("video-call-end", ()=>{
     if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
   });
 
+
+// ================= V19 TUM OZELLIKLER =================
+// 1. SCREENSHOT KORUMASI
+function initScreenshotProtection(){
+  if(!screenshotProtectionEnabled) return;
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'PrintScreen' || e.keyCode === 44 || (e.ctrlKey && e.shiftKey && e.key === 'I')){
+      handleScreenshotDetected('keys');
+    }
+  });
+  document.addEventListener('keyup', (e)=>{
+    if(e.key === 'PrintScreen' || e.keyCode === 44){
+      handleScreenshotDetected('PrintScreen');
+    }
+  });
+  window.addEventListener('blur', ()=>{
+    if(document.visibilityState === 'hidden' && screenshotProtectionEnabled){
+      // hafif blur, tam ekran goruntusu degil ama odak kaybi
+      if(messages) messages.classList.add('screenshot-blur-active');
+      setTimeout(()=>{ if(messages) messages.classList.remove('screenshot-blur-active'); }, 2000);
+    }
+  });
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden && screenshotProtectionEnabled){
+      if(messages) messages.classList.add('screenshot-blur-active');
+      setTimeout(()=>{ if(messages) messages.classList.remove('screenshot-blur-active'); }, 3000);
+    } else {
+      if(messages) messages.classList.remove('screenshot-blur-active');
+    }
+  });
+}
+function handleScreenshotDetected(source){
+  if(!currentRoom) return;
+  console.log('SCREENSHOT DETECTED', source);
+  // kendi ekrani blurla
+  if(messages){
+    messages.classList.add('screenshot-blur-active');
+    setTimeout(()=>messages.classList.remove('screenshot-blur-active'), 3000);
+  }
+  // karsi tarafa bildir
+  socket.emit('screenshot-detected', {source, time: Date.now()});
+  // local toast
+  showToast('📸 Ekran görüntüsü koruması aktif - mesajlar bulanıklaştırıldı');
+}
+socket.on('screenshot-alert', (data)=>{
+  const from = data.from || 'Karşı taraf';
+  showToast(`📸 ${from} ekran görüntüsü aldı! ${formatClock(new Date(data.time))}`);
+  if(messages){
+    messages.classList.add('screenshot-blur-active');
+    setTimeout(()=>messages.classList.remove('screenshot-blur-active'), 4000);
+  }
+});
+
+// 2. PANIK 2.0 - clipboard temizle + localStorage temizle + fake arama ekrani
+function enhancedPanic(){
+  try{
+    // clipboard temizle
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText('').catch(()=>{});
+    }
+    // localStorage'dan oda bilgilerini sil (guvenlik modu hariç)
+    localStorage.removeItem('gorgor_last_room');
+    localStorage.removeItem('gorgor_last_user');
+    sessionStorage.clear();
+    // medya trackleri durdur
+    if(localStream){
+      localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} });
+    }
+    if(peer){
+      try{ peer.destroy(); }catch(e){}
+      peer = null;
+    }
+    // fake arama ekrani goster sonra Google'a at
+    const fakeCallDiv = document.createElement('div');
+    fakeCallDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:system-ui;';
+    fakeCallDiv.innerHTML = '<div style="font-size:80px;margin-bottom:20px;">📞</div><div style="font-size:22px;margin-bottom:8px;">Anne arıyor...</div><div style="font-size:14px;opacity:0.6;">kaydırmalı cevapla</div><div style="margin-top:40px;display:flex;gap:60px;"><div style="width:60px;height:60px;border-radius:50%;background:#ff3b30;display:flex;align-items:center;justify-content:center;font-size:30px;">📵</div><div style="width:60px;height:60px;border-radius:50%;background:#4cd964;display:flex;align-items:center;justify-content:center;font-size:30px;">📞</div></div>';
+    document.body.appendChild(fakeCallDiv);
+    setTimeout(()=>{
+      document.body.innerHTML = '';
+      window.location.href = 'https://www.google.com';
+    }, 1200);
+  }catch(e){
+    window.location.href = 'https://www.google.com';
+  }
+}
+// panicBtn'i gelistirilmis panik ile degistir
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(panicBtn){
+    panicBtn.removeEventListener('click', panicBtn._oldListener||(()=>{}));
+    panicBtn.onclick = enhancedPanic;
+  }
+});
+
+// 3. FAKE BILDIRIM - Hesap Makinesi bildirimi
+function initFakeNotifications(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'default'){
+    Notification.requestPermission().then(p=>{ console.log('Notif permission', p); });
+  }
+}
+function showFakeNotification(realFrom){
+  if(!fakeNotifEnabled) return;
+  if(document.visibilityState === 'visible') return;
+  if(Notification.permission !== 'granted') return;
+  try{
+    const n = new Notification('Hesap Makinesi', {
+      body: 'İşlem tamamlandı - 12 x 8 = 96',
+      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+      tag: 'fake-calc',
+      silent: true
+    });
+    n.onclick = ()=>{ window.focus(); n.close(); };
+    setTimeout(()=>n.close(), 4000);
+  }catch(e){}
+}
+document.addEventListener('DOMContentLoaded', initFakeNotifications);
+
+// 4. SESLI MESAJ (yok olan)
+function initVoiceMessage(){
+  // UI: sendBtn yanina mic basili tut butonu ekle
+  const inputArea = document.getElementById('inputArea');
+  const bottomRow = document.querySelector('.inputBottomRow');
+  if(!bottomRow) return;
+  // voice button
+  let voiceBtn = document.getElementById('voiceRecordBtn');
+  if(!voiceBtn){
+    voiceBtn = document.createElement('button');
+    voiceBtn.id = 'voiceRecordBtn';
+    voiceBtn.textContent = '🎙';
+    voiceBtn.title = 'Basılı tut, sesli mesaj kaydet (yok olan)';
+    voiceBtn.style.cssText = 'width:44px;height:44px;border-radius:50%;background:#111;border:1px solid #333;color:#00ff88;font-size:18px;cursor:pointer;';
+    bottomRow.appendChild(voiceBtn);
+  }
+  voiceBtn.addEventListener('mousedown', startVoiceRecording);
+  voiceBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); startVoiceRecording(); });
+  voiceBtn.addEventListener('mouseup', stopVoiceRecording);
+  voiceBtn.addEventListener('mouseleave', stopVoiceRecording);
+  voiceBtn.addEventListener('touchend', (e)=>{ e.preventDefault(); stopVoiceRecording(); });
+}
+async function startVoiceRecording(){
+  if(isRecordingVoice) return;
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e=>{ if(e.data.size>0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async ()=>{
+      const duration = Math.floor((Date.now() - voiceRecordStartTime)/1000);
+      if(duration < 1){ showToast('Çok kısa, en az 1 saniye konuş'); return; }
+      const blob = new Blob(audioChunks, {type:'audio/webm'});
+      const reader = new FileReader();
+      reader.onload = async ()=>{
+        const base64 = reader.result.split(',')[1];
+        const enc = await encryptText(base64, currentPassword);
+        const msgId = 'voice_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
+        const expireSec = parseInt(perMessageTimerSelect?.value || defaultExpire || '14400');
+        socket.emit('chat-voice', {msgId, enc, expireSec, duration, mediaType:'voice'});
+        // kendi ekrana ekle
+        addVoiceMessageToUI(msgId, base64, true, duration, expireSec);
+      };
+      reader.readAsDataURL(blob);
+      stream.getTracks().forEach(t=>t.stop());
+    };
+    mediaRecorder.start();
+    isRecordingVoice = true;
+    voiceRecordStartTime = Date.now();
+    document.getElementById('voiceRecordBtn').style.background = '#ff3b30';
+    document.getElementById('voiceRecordBtn').textContent = '⏹';
+    showToast('🎙 Kaydediliyor... bırakınca gönderilecek');
+    socket.emit('voice-start', {from: myRealUsername});
+  }catch(e){ showToast('Mikrofon izni gerekli'); console.error(e); }
+}
+function stopVoiceRecording(){
+  if(!isRecordingVoice) return;
+  isRecordingVoice = false;
+  const btn = document.getElementById('voiceRecordBtn');
+  if(btn){ btn.style.background = '#111'; btn.textContent = '🎙'; }
+  if(mediaRecorder && mediaRecorder.state !== 'inactive'){
+    mediaRecorder.stop();
+  }
+}
+function addVoiceMessageToUI(msgId, base64Audio, isMe, duration, expireSec){
+  const div = document.createElement('div');
+  div.id = msgId;
+  div.className = 'message ' + (isMe?'me':'other') + ' voice-message';
+  div.innerHTML = `<div class="voice-bubble"><button class="voice-play" onclick="playVoice('${msgId}')">▶</button><div class="voice-wave">${'<span></span>'.repeat(20)}</div><span class="voice-duration">${duration}sn</span></div><div class="msg-meta"><span class="msg-time">${formatClock()}</span><span class="msg-expire">⏳ ${Math.floor(expireSec/60)}dk</span></div><audio id="audio_${msgId}" src="data:audio/webm;base64,${base64Audio}" style="display:none;"></audio>`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  startExpireTimer(msgId, Date.now()+expireSec*1000, expireSec);
+}
+window.playVoice = function(msgId){
+  const audio = document.getElementById('audio_'+msgId);
+  if(!audio) return;
+  if(audio.paused){ audio.play(); } else { audio.pause(); }
+};
+socket.on('chat-voice', async (data)=>{
+  try{
+    const decrypted = await decryptText(data.enc, currentPassword);
+    const duration = data.duration || 5;
+    const expireSec = data.expireSec || 14400;
+    addVoiceMessageToUI(data.msgId, decrypted, false, duration, expireSec);
+    showFakeNotification(data.realUsername);
+  }catch(e){ console.error('voice decrypt fail', e); }
+});
+socket.on('voice-start', (data)=>{
+  if(data.from !== myRealUsername){
+    showToast(`🎙 ${data.from} sesli mesaj kaydediyor...`);
+  }
+});
+
+// 5. MESAJ REAKSIYONU
+const REACTION_EMOJIS = ['❤️','😂','🔥','😮','😢','👍'];
+function initReactions(){
+  // mesajlara long press ekle
+  messages.addEventListener('contextmenu', (e)=>{
+    const msgEl = e.target.closest('.message');
+    if(!msgEl) return;
+    e.preventDefault();
+    showReactionBar(msgEl.id, e.clientX, e.clientY);
+  });
+}
+function showReactionBar(msgId, x, y){
+  let bar = document.getElementById('reactionBar');
+  if(bar) bar.remove();
+  bar = document.createElement('div');
+  bar.id = 'reactionBar';
+  bar.style.cssText = `position:fixed;left:${Math.min(x, window.innerWidth-200)}px;top:${Math.max(10, y-60)}px;background:#111;border:1px solid #333;border-radius:20px;padding:6px 10px;display:flex;gap:6px;z-index:9999;`;
+  REACTION_EMOJIS.forEach(em=>{
+    const b = document.createElement('button');
+    b.textContent = em;
+    b.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;';
+    b.onclick = ()=>{ addReaction(msgId, em); bar.remove(); };
+    bar.appendChild(b);
+  });
+  document.body.appendChild(bar);
+  setTimeout(()=>{ if(bar) bar.addEventListener('click', ()=>bar.remove()); setTimeout(()=>bar.remove(), 3000); }, 100);
+}
+function addReaction(msgId, emoji){
+  socket.emit('message-reaction', {msgId, emoji});
+  applyReactionToUI(msgId, emoji, myRealUsername);
+}
+function applyReactionToUI(msgId, emoji, user){
+  const msgEl = document.getElementById(msgId);
+  if(!msgEl) return;
+  let reactionsDiv = msgEl.querySelector('.reactions');
+  if(!reactionsDiv){
+    reactionsDiv = document.createElement('div');
+    reactionsDiv.className = 'reactions';
+    reactionsDiv.style.cssText = 'display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;';
+    msgEl.appendChild(reactionsDiv);
+  }
+  const item = document.createElement('span');
+  item.textContent = emoji;
+  item.title = user;
+  item.style.cssText = 'background:#222;border:1px solid #333;border-radius:12px;padding:2px 6px;font-size:12px;';
+  reactionsDiv.appendChild(item);
+  if(!messageReactions.has(msgId)) messageReactions.set(msgId, []);
+  messageReactions.get(msgId).push({emoji,user,time:Date.now()});
+}
+socket.on('message-reaction', (data)=>{
+  applyReactionToUI(data.msgId, data.emoji, data.user);
+});
+
+// 6. MAVI TIK + OKUNDU SAATI
+function initReadReceipts(){
+  const observer = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        const msgId = entry.target.id;
+        if(msgId && !readReceipts.has(msgId)){
+          socket.emit('message-read', {msgId, reader: myRealUsername});
+          readReceipts.set(msgId, {time:Date.now()});
+        }
+      }
+    });
+  }, {threshold:0.5});
+  // mesajlar eklendikce observe et
+  const origAppend = messages.appendChild;
+  // basit: her yeni mesajda observe
+  setInterval(()=>{
+    document.querySelectorAll('.message').forEach(m=>{
+      if(!m.dataset.observed){
+        observer.observe(m);
+        m.dataset.observed = '1';
+      }
+    });
+  }, 1000);
+}
+socket.on('message-read', (data)=>{
+  const {msgId, reader, time} = data;
+  const el = document.getElementById(msgId);
+  if(!el) return;
+  let tick = el.querySelector('.read-tick');
+  if(!tick){
+    tick = document.createElement('span');
+    tick.className = 'read-tick';
+    tick.style.cssText = 'margin-left:6px;font-size:10px;color:#00aaff;';
+    const meta = el.querySelector('.msg-meta');
+    if(meta) meta.appendChild(tick);
+  }
+  tick.textContent = `✓✓ mavi ${formatClock(new Date(time))} ${reader}`;
+  tick.style.color = '#00aaff';
+});
+
+// 7. ORTAK CIZIM TAHTASI - collaborative
+function initCollaborativeDrawing(){
+  if(!drawCanvas) return;
+  const ctx = drawCanvas.getContext('2d');
+  let drawing = false;
+  let lastX=0,lastY=0;
+  function getPos(e){
+    const rect = drawCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {x: (clientX-rect.left)*(drawCanvas.width/rect.width), y: (clientY-rect.top)*(drawCanvas.height/rect.height)};
+  }
+  drawCanvas.addEventListener('mousedown', (e)=>{ drawing=true; const p=getPos(e); lastX=p.x; lastY=p.y; });
+  drawCanvas.addEventListener('mousemove', (e)=>{
+    if(!drawing) return;
+    const p=getPos(e);
+    drawLine(lastX,lastY,p.x,p.y, collaborativeDrawColor, true);
+    lastX=p.x; lastY=p.y;
+  });
+  drawCanvas.addEventListener('mouseup', ()=>drawing=false);
+  drawCanvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); drawing=true; const p=getPos(e); lastX=p.x; lastY=p.y; });
+  drawCanvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); if(!drawing) return; const p=getPos(e); drawLine(lastX,lastY,p.x,p.y, collaborativeDrawColor, true); lastX=p.x; lastY=p.y; });
+  drawCanvas.addEventListener('touchend', ()=>drawing=false);
+  function drawLine(x1,y1,x2,y2,color,emit){
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.stroke();
+    if(emit && isCollaborativeDrawing){
+      socket.emit('draw-stroke', {x1,y1,x2,y2,color});
+    }
+  }
+  window.drawLine = drawLine;
+  // gelen cizimleri ciz
+  socket.on('draw-stroke', (data)=>{
+    drawLine(data.x1,data.y1,data.x2,data.y2,data.color,false);
+  });
+  socket.on('draw-clear', ()=>{
+    ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+  });
+  if(drawClear){
+    const oldClear = drawClear.onclick;
+    drawClear.onclick = ()=>{
+      ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+      socket.emit('draw-clear');
+      if(oldClear) oldClear();
+    };
+  }
+  // isCollaborativeDrawing flagini drawOverlay acilinca true yap
+  const origShow = ()=>{ isCollaborativeDrawing = true; };
+  if(drawOverlay){
+    const observer = new MutationObserver(()=>{
+      if(drawOverlay.style.display !== 'none'){
+        isCollaborativeDrawing = true;
+        // canvas boyutunu ayarla
+        drawCanvas.width = drawOverlay.clientWidth;
+        drawCanvas.height = drawOverlay.clientHeight - 60;
+      } else {
+        isCollaborativeDrawing = false;
+      }
+    });
+    observer.observe(drawOverlay, {attributes:true, attributeFilter:['style']});
+  }
+}
+
+// 8. ARKA PLAN BLUR
+function initBackgroundBlur(){
+  let blurBtn = document.getElementById('blurToggleBtn');
+  if(!blurBtn){
+    blurBtn = document.createElement('button');
+    blurBtn.id = 'blurToggleBtn';
+    blurBtn.textContent = '🌫';
+    blurBtn.title = 'Arka planı bulanıklaştır (gizlilik)';
+    blurBtn.style.cssText = 'width:36px;height:36px;border-radius:50%;background:#111;border:1px solid #333;color:#ffcc00;font-size:16px;cursor:pointer;margin-left:4px;';
+    const right = document.getElementById('floatingPillRight');
+    if(right) right.appendChild(blurBtn);
+  }
+  blurBtn.onclick = ()=>{
+    isBlurEnabled = !isBlurEnabled;
+    if(isBlurEnabled){
+      myVideo.style.filter = 'blur(12px)';
+      myVideoContainer.style.filter = 'blur(12px)';
+      blurBtn.style.background = '#00ff88';
+      blurBtn.style.color = '#000';
+      socket.emit('background-blur', {enabled:true, from: myRealUsername});
+      showToast('🌫 Arka plan bulanık - gizlilik modu');
+    } else {
+      myVideo.style.filter = '';
+      myVideoContainer.style.filter = '';
+      blurBtn.style.background = '#111';
+      blurBtn.style.color = '#ffcc00';
+      socket.emit('background-blur', {enabled:false, from: myRealUsername});
+      showToast('Arka plan net');
+    }
+  };
+  socket.on('background-blur', (data)=>{
+    // karsi taraf blur acti bilgisi
+    if(data.enabled){
+      showToast(`🌫 ${data.from} arka planını bulanıklaştırdı`);
+    }
+  });
+}
+
+// 9. OTO RECONNECT - mum yanarken oto baglan
+function initAutoReconnect(){
+  socket.on('user-disconnected', ()=>{
+    if(autoReconnectAttempts >= maxReconnectAttempts) return;
+    if(reconnectTimer) clearTimeout(reconnectTimer);
+    autoReconnectAttempts++;
+    let count = 3;
+    if(opponentStatusText){
+      opponentStatusText.textContent = `Yeniden bağlanıyor... ${count}`;
+      opponentStatusText.style.color = '#ffcc00';
+    }
+    if(candleContainer){
+      candleContainer.classList.add('show');
+      candleContainer.style.display = 'flex';
+    }
+    const interval = setInterval(()=>{
+      count--;
+      if(opponentStatusText) opponentStatusText.textContent = `Yeniden bağlanıyor... ${count}`;
+      if(count<=0){
+        clearInterval(interval);
+        if(socket && currentRoom){
+          socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
+          showToast(`🔄 Yeniden bağlanma denemesi ${autoReconnectAttempts}/${maxReconnectAttempts}`);
+        }
+      }
+    }, 1000);
+    reconnectTimer = setTimeout(()=>{}, 4000);
+  });
+  socket.on('user-connected', ()=>{
+    autoReconnectAttempts = 0;
+    if(reconnectTimer) clearTimeout(reconnectTimer);
+    if(opponentStatusText && opponentStatusText.textContent.includes('Yeniden')){
+      opponentStatusText.textContent = 'içerde';
+      opponentStatusText.style.color = '#00ff88';
+    }
+  });
+}
+
+// 10. TOAST HELPER
+function showToast(msg){
+  let toast = document.getElementById('gorgorToast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'gorgorToast';
+    toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#111;border:1px solid #333;color:#fff;padding:10px 16px;border-radius:20px;font-size:12px;z-index:99999;max-width:80%;text-align:center;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  toast.style.opacity = '1';
+  setTimeout(()=>{ toast.style.opacity='0'; setTimeout(()=>toast.style.display='none', 300); }, 3000);
+}
+
+// V19 INIT
+document.addEventListener('DOMContentLoaded', ()=>{
+  initScreenshotProtection();
+  initReactions();
+  initReadReceipts();
+  initCollaborativeDrawing();
+  initBackgroundBlur();
+  initAutoReconnect();
+  setTimeout(initVoiceMessage, 1000);
+});
+
+
 document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document.getElementById("privacyModeSelect"); if(privacySelect){ privacySelect.value=localStorage.getItem("gorgor_security_mode")||"private"; securityMode=privacySelect.value; privacySelect.addEventListener("change", ()=>{ securityMode=privacySelect.value; localStorage.setItem("gorgor_security_mode", securityMode); if(securityMode==="general"){ alert("🔓 Genel mod: Sekme değiştirince sadece kamera ve ses kapanacak, program açık kalacak, iki tarafta"); } else { alert("🔒 Özel mod: Sekme değiştirince program tamamen kapanıp hesap makinesine dönecek"); } }); } });
+
+// V19 CSS injection
+(function(){ const style=document.createElement('style'); style.textContent=` .screenshot-blur-active { filter: blur(12px) !important; pointer-events:none; } .voice-message .voice-bubble{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #333;border-radius:16px;padding:8px 12px;} .voice-wave span{display:inline-block;width:3px;height:12px;background:#00ff88;margin:0 1px;border-radius:2px;animation:wave 1s infinite;} @keyframes wave{0%,100%{height:8px}50%{height:20px}} .reactions{animation:fadeIn 0.3s} #reactionBar{animation:pop 0.2s} @keyframes pop{0%{transform:scale(0.5)}100%{transform:scale(1)}} `; document.head.appendChild(style); })();

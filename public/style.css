@@ -239,3 +239,23 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   height: 30px !important;
   font-size: 13px !important;
 }
+
+
+/* V19 TUM OZELLIKLER */
+.screenshot-blur-active { filter: blur(18px) !important; transition: filter 0.3s; }
+#gorgorToast { backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+.voice-message .voice-bubble { display:flex; align-items:center; gap:10px; background: linear-gradient(135deg, #111, #222); border:1px solid #333; border-radius:18px; padding:10px 14px; min-width:180px; }
+.voice-bubble .voice-play { width:32px; height:32px; border-radius:50%; background:#00ff88; border:none; color:#000; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.voice-wave { display:flex; align-items:center; gap:2px; flex:1; }
+.voice-wave span { display:inline-block; width:3px; height:10px; background:#00ff88; border-radius:2px; animation: waveAnim 1s infinite ease-in-out; }
+.voice-wave span:nth-child(2){animation-delay:0.1s} .voice-wave span:nth-child(3){animation-delay:0.2s} .voice-wave span:nth-child(4){animation-delay:0.3s} .voice-wave span:nth-child(5){animation-delay:0.4s}
+@keyframes waveAnim { 0%,100%{height:8px} 50%{height:22px} }
+.voice-duration { font-size:11px; color:#aaa; }
+.reactions { display:flex; gap:4px; margin-top:6px; flex-wrap:wrap; }
+.reactions span { background:#222; border:1px solid #333; border-radius:12px; padding:3px 8px; font-size:12px; cursor:pointer; transition: transform 0.1s; }
+.reactions span:hover { transform:scale(1.2); }
+#reactionBar { box-shadow: 0 4px 20px rgba(0,0,0,0.6); backdrop-filter: blur(10px); }
+.read-tick { font-weight:bold; }
+#voiceRecordBtn.recording { animation: pulseRec 1s infinite; background:#ff3b30 !important; }
+@keyframes pulseRec { 0%{transform:scale(1)} 50%{transform:scale(1.1)} 100%{transform:scale(1)} }
+.blur-active-video { filter: blur(12px) !important; }

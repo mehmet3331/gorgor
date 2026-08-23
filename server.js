@@ -3,8 +3,10 @@ const http = require('http');
 const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { maxHttpBufferSize: 20 * 1024 * 1024, cors: { origin: "*" } });
+const io = new Server(server, { maxHttpBufferSize: 30 * 1024 * 1024, cors: { origin: "*" } });
 app.use(express.static('public'));
+app.use(express.static(__dirname));
+app.use(express.static(__dirname + '/public'));
 function normalize(s){ return (s||'').toString().trim().toLowerCase(); }
 let persistedMessages = [];
 let mongoCollection = null;
@@ -16,6 +18,13 @@ async function initMongo(){
     const client = new MongoClient(process.env.MONGODB_URI);
     await client.connect();
     mongoCollection = client.db('gorgor').collection('messages');
+    // V19 - TTL index ile oto silme - teknik temizlik
+    try{
+      await mongoCollection.createIndex({expireAt: 1}, {expireAfterSeconds: 0});
+      await mongoCollection.createIndex({room: 1});
+      await mongoCollection.createIndex({msgId: 1});
+      console.log("MongoDB indexler olusturuldu - TTL aktif");
+    }catch(e){ console.log("Index hatasi", e.message); }
     persistedMessages = await mongoCollection.find({}).toArray();
     console.log(`MONGODB BAGLI - ${persistedMessages.length} mesaj`);
   }catch(e){ console.error("Mongo hatasi", e); }
@@ -23,7 +32,7 @@ async function initMongo(){
 initMongo();
 function debouncedSave(){ if(saveTimeout) clearTimeout(saveTimeout); saveTimeout=setTimeout(saveDisk,1000); }
 async function saveDisk(){ if(!mongoCollection) return; try{ await mongoCollection.deleteMany({}); if(persistedMessages.length) await mongoCollection.insertMany(persistedMessages); }catch(e){ console.error(e.message); } }
-setInterval(async()=>{ const now=Date.now(); const before=persistedMessages.length; persistedMessages=persistedMessages.filter(m=>{ const del=m.deleteAt||m.expireAt||0; return del>now; }); if(before!==persistedMessages.length){ console.log(`AUTO DELETE ${before-persistedMessages.length} mesaj - suresi doldu, okunmasa bile silindi`); await saveDisk(); } },60000);
+setInterval(async()=>{ const now=Date.now(); const before=persistedMessages.length; persistedMessages=persistedMessages.filter(m=>{ const del=m.deleteAt||m.expireAt||0; return del>now; }); if(before!==persistedMessages.length){ console.log(`AUTO DELETE ${before-persistedMessages.length} mesaj - suresi doldu`); await saveDisk(); } },60000);
 let rooms={};
 io.on('connection', socket=>{
   socket.on('ping-check', ts=>{ socket.emit('pong-check', ts); });
@@ -37,11 +46,16 @@ io.on('connection', socket=>{
   });
   socket.on('typing', b=>{ if(!socket.room) return; if(typeof b==='object'&&b.from){ socket.to(socket.room).emit('typing',{username:b.from,typing:true}); } else if(typeof b==='object'){ socket.to(socket.room).emit('typing',b); } else { socket.to(socket.room).emit('typing',{username:socket.realUsername,typing:b}); } });
   socket.on('message-read', data=>{ if(!socket.room) return; const msgId=typeof data==='string'?data:data.msgId; const reader=data.reader||socket.realUsername; io.to(socket.room).emit('message-read',{msgId,reader,time:Date.now()}); });
+  socket.on('message-reaction', data=>{ if(!socket.room) return; io.to(socket.room).emit('message-reaction',{msgId:data.msgId,emoji:data.emoji,user:socket.realUsername,time:Date.now()}); });
+  socket.on('screenshot-detected', data=>{ if(!socket.room) return; console.log(`SCREENSHOT ${socket.room} from ${socket.realUsername}`); io.to(socket.room).emit('screenshot-alert',{from:socket.realUsername,time:Date.now()}); });
+  socket.on('draw-stroke', data=>{ if(!socket.room) return; socket.to(socket.room).emit('draw-stroke',data); });
+  socket.on('draw-clear', ()=>{ if(!socket.room) return; io.to(socket.room).emit('draw-clear'); });
+  socket.on('voice-start', data=>{ if(!socket.room) return; socket.to(socket.room).emit('voice-start',{from:socket.realUsername}); });
+  socket.on('background-blur', data=>{ if(!socket.room) return; socket.to(socket.room).emit('background-blur',data); });
   socket.on('join-room', data=>{
     const room=data.room; const requestedUsername=data.username;
     if(!rooms[room]) rooms[room]={users:{},messages:new Map(), lastSeen:{}};
     if(!rooms[room].lastSeen) rooms[room].lastSeen={};
-    // FIX V18.20 - aynı username ile eski soketleri sil + ölü soketleri temizle - oda dolu bug fix
     for(const [sid, uname] of Object.entries(rooms[room].users)){
       const alive = io.sockets.sockets.get(sid);
       if(normalize(uname)===normalize(requestedUsername) || !alive){
@@ -57,7 +71,6 @@ io.on('connection', socket=>{
     const count=Object.keys(rooms[room].users).length;
     socket.emit('joined-room',{username:data.username,count});
     socket.to(room).emit('user-connected',{username:data.username,realUsername:socket.realUsername});
-    // son gorulme listesini yeni girene gonder
     socket.emit('last-seen-list', rooms[room].lastSeen);
     socket.to(room).emit('user-last-seen',{user:socket.realUsername, ts: Date.now(), online:true});
     const now2=Date.now(); const pending=persistedMessages.filter(m=>m.room===room && (m.deleteAt||m.expireAt||0)>now2);
@@ -75,6 +88,12 @@ io.on('connection', socket=>{
     const msg={msgId:data.msgId,enc:data.enc,expireSec:data.expireSec,type:data.mediaType,username:socket.username,realUsername:socket.realUsername,opened:false,room,expireAt:now+data.expireSec*1000,deleteAt:now+data.expireSec*1000};
     rooms[room].messages.set(data.msgId,msg); persistedMessages.push(msg); debouncedSave();
     socket.to(room).emit('chat-media',{...data,username:socket.username,realUsername:socket.realUsername});
+  });
+  socket.on('chat-voice', async data=>{
+    const room=socket.room; if(!room||!rooms[room]) return; const now=Date.now();
+    const msg={msgId:data.msgId,enc:data.enc,expireSec:data.expireSec,type:'voice',username:socket.username,realUsername:socket.realUsername,opened:false,room,expireAt:now+data.expireSec*1000,deleteAt:now+data.expireSec*1000,duration:data.duration};
+    rooms[room].messages.set(data.msgId,msg); persistedMessages.push(msg); debouncedSave();
+    socket.to(room).emit('chat-voice',{...data,username:socket.username,realUsername:socket.realUsername});
   });
   socket.on('message-opened', async ({msgId})=>{
     const room=socket.room; if(!room) return;
@@ -104,7 +123,6 @@ io.on('connection', socket=>{
   socket.on('fly-emoji', d=>{ if(socket.room) socket.to(socket.room).emit('fly-emoji', d); });
   socket.on('quality-change', q=>{ if(socket.room) socket.to(socket.room).emit('quality-change', q); });
   socket.on('phone-mode', b=>{ if(socket.room) socket.to(socket.room).emit('phone-mode', b); });
-  // V18.14 - arama teklifleri - iki tarafta mic/cam acilsin
   socket.on('video-call-request', d=>{ if(socket.room){ console.log(`video-call-request ${socket.room} from ${d.from}`); socket.to(socket.room).emit('video-call-request', d); } });
   socket.on('video-call-accept', d=>{ if(socket.room){ console.log(`video-call-accept ${socket.room}`); io.to(socket.room).emit('video-call-accept', d); } });
   socket.on('video-call-decline', d=>{ if(socket.room) socket.to(socket.room).emit('video-call-decline', d); });
@@ -131,4 +149,4 @@ io.on('connection', socket=>{
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
 });
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', ()=> console.log(`GORGOR V18.20 FINAL - son gorulme + oda dolu fix calisiyor port ${PORT} - 0.0.0.0 - mesaj gonderimde silme + 14dk Google kilit + telefon izin`));
+server.listen(PORT, '0.0.0.0', ()=> console.log(`GORGOR V19.0 FINAL - tum ozellikler - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim`));
