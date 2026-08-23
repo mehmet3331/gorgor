@@ -5,6 +5,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 20 * 1024 * 1024, cors: { origin: "*" } });
 app.use(express.static('public'));
+function normalize(s){ return (s||'').toString().trim().toLowerCase(); }
 let persistedMessages = [];
 let mongoCollection = null;
 let saveTimeout = null;
@@ -23,64 +24,45 @@ initMongo();
 function debouncedSave(){ if(saveTimeout) clearTimeout(saveTimeout); saveTimeout=setTimeout(saveDisk,1000); }
 async function saveDisk(){ if(!mongoCollection) return; try{ await mongoCollection.deleteMany({}); if(persistedMessages.length) await mongoCollection.insertMany(persistedMessages); }catch(e){ console.error(e.message); } }
 setInterval(async()=>{ const now=Date.now(); const before=persistedMessages.length; persistedMessages=persistedMessages.filter(m=>{ const del=m.deleteAt||m.expireAt||0; return del>now; }); if(before!==persistedMessages.length){ console.log(`AUTO DELETE ${before-persistedMessages.length} mesaj - suresi doldu, okunmasa bile silindi`); await saveDisk(); } },60000);
-
-function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
-
 let rooms={};
-// rooms[room] = { users: {socketId: username}, lastSeen: {normalizedUsername: timestamp}, messages: Map }
-
 io.on('connection', socket=>{
   socket.on('ping-check', ts=>{ socket.emit('pong-check', ts); });
-  socket.on('status-change', ({user,status})=>{
-    const room = socket.room;
-    if(room && rooms[room]){
-      const norm = normalize(user);
-      if(status==='yokum'){
-        rooms[room].lastSeen[norm]=Date.now();
-      } else {
-        delete rooms[room].lastSeen[norm];
-      }
+  socket.on('status-change', ({user,status})=>{ 
+    if(status==='yokum' && socket.room && rooms[socket.room]){
+      if(!rooms[socket.room].lastSeen) rooms[socket.room].lastSeen={};
+      rooms[socket.room].lastSeen[user]=Date.now();
+      io.to(socket.room).emit('user-last-seen',{user, ts: Date.now(), online:false});
     }
-    io.emit('user-status',{user,status,online:status==='varım', lastSeen: Date.now()});
-    if(room && rooms[room]){
-      socket.to(room).emit('user-status',{user,status,online:status==='varım', lastSeen: rooms[room].lastSeen[normalize(user)]||Date.now()});
-    }
+    io.emit('user-status',{user,status,online:status==='varım'}); 
   });
   socket.on('typing', b=>{ if(!socket.room) return; if(typeof b==='object'&&b.from){ socket.to(socket.room).emit('typing',{username:b.from,typing:true}); } else if(typeof b==='object'){ socket.to(socket.room).emit('typing',b); } else { socket.to(socket.room).emit('typing',{username:socket.realUsername,typing:b}); } });
   socket.on('message-read', data=>{ if(!socket.room) return; const msgId=typeof data==='string'?data:data.msgId; const reader=data.reader||socket.realUsername; io.to(socket.room).emit('message-read',{msgId,reader,time:Date.now()}); });
   socket.on('join-room', data=>{
     const room=data.room; const requestedUsername=data.username;
-    if(!rooms[room]) rooms[room]={users:{}, lastSeen:{}, messages:new Map()};
-    // === V18.21 FIX - oda dolu bug düzeltme ===
-    // 1) ölü socketleri temizle
-    for(const sid of Object.keys(rooms[room].users)){
-      if(!io.sockets.sockets.get(sid)){
-        console.log(`Temizleniyor ölü socket ${sid} odadan ${room}`);
-        delete rooms[room].users[sid];
-      }
-    }
-    // 2) aynı kullanıcı adı varsa eski kaydı sil (yeniden girişe izin ver)
-    const normReq = normalize(requestedUsername);
+    if(!rooms[room]) rooms[room]={users:{},messages:new Map(), lastSeen:{}};
+    if(!rooms[room].lastSeen) rooms[room].lastSeen={};
+    // FIX V18.20 - aynı username ile eski soketleri sil + ölü soketleri temizle - oda dolu bug fix
     for(const [sid, uname] of Object.entries(rooms[room].users)){
-      if(normalize(uname)===normReq){
-        console.log(`Aynı isimle yeniden giriş: ${uname} eski ${sid} siliniyor`);
-        try{ io.sockets.sockets.get(sid)?.leave(room); }catch(e){}
+      const alive = io.sockets.sockets.get(sid);
+      if(normalize(uname)===normalize(requestedUsername) || !alive){
         delete rooms[room].users[sid];
       }
     }
     const currentCount=Object.keys(rooms[room].users).length;
-    if(currentCount>=2){ socket.emit('room-error','Oda dolu - sadece 2 kişi (V18.21)'); return; }
+    if(currentCount>=2){ socket.emit('room-error','Oda dolu - sadece 2 kişi'); return; }
     socket.room=room; socket.username=requestedUsername; socket.realUsername=data.realUsername||requestedUsername;
-    rooms[room].users[socket.id]=socket.username;
-    // online olunca lastSeen sil
-    delete rooms[room].lastSeen[normReq];
+    rooms[room].users[socket.id]=socket.username; 
+    rooms[room].lastSeen[socket.realUsername]=Date.now();
     socket.join(room);
     const count=Object.keys(rooms[room].users).length;
-    socket.emit('joined-room',{username:data.username,count, lastSeen: rooms[room].lastSeen});
+    socket.emit('joined-room',{username:data.username,count});
     socket.to(room).emit('user-connected',{username:data.username,realUsername:socket.realUsername});
+    // son gorulme listesini yeni girene gonder
+    socket.emit('last-seen-list', rooms[room].lastSeen);
+    socket.to(room).emit('user-last-seen',{user:socket.realUsername, ts: Date.now(), online:true});
     const now2=Date.now(); const pending=persistedMessages.filter(m=>m.room===room && (m.deleteAt||m.expireAt||0)>now2);
     if(pending.length) socket.emit('pending-messages',pending);
-    console.log(`ODA: ${room} - ${data.username} girdi ${count} - lastSeen:`, rooms[room].lastSeen);
+    console.log(`ODA: ${room} - ${data.username} girdi ${count} - lastSeen guncellendi`);
   });
   socket.on('chat-message', async data=>{
     const room=socket.room; if(!room||!rooms[room]) return; const now=Date.now();
@@ -105,25 +87,24 @@ io.on('connection', socket=>{
   });
   socket.on('disconnect', ()=>{
     const room=socket.room;
-    if(room&&rooms[room]){
-      const norm = normalize(socket.realUsername||socket.username);
-      rooms[room].lastSeen[norm]=Date.now();
-      delete rooms[room].users[socket.id];
-      socket.to(room).emit('user-disconnected');
-      io.emit('user-status',{user:socket.realUsername,status:'yokum',online:false, lastSeen: Date.now()});
-      socket.to(room).emit('user-status',{user:socket.realUsername,status:'yokum',online:false, lastSeen: rooms[room].lastSeen[norm]});
-      console.log(`DISCONNECT ${room} ${socket.realUsername} lastSeen kaydedildi`);
-      if(Object.keys(rooms[room].users).length===0){
-        // oda boş kaldı, lastSeen'i 1 saat daha tut, sonra sil
-        setTimeout(()=>{ if(rooms[room] && Object.keys(rooms[room].users).length===0){ console.log(`Oda ${room} boş, temizleniyor`); /* delete rooms[room]; */ } }, 1000*60*60);
+    if(room&&rooms[room]){ 
+      if(socket.realUsername){
+        if(!rooms[room].lastSeen) rooms[room].lastSeen={};
+        rooms[room].lastSeen[socket.realUsername]=Date.now();
+        io.to(room).emit('user-last-seen',{user:socket.realUsername, ts: Date.now(), online:false});
       }
+      delete rooms[room].users[socket.id]; 
+      socket.to(room).emit('user-disconnected'); 
+      io.emit('user-status',{user:socket.realUsername,status:'yokum',online:false}); 
     }
+    socket.room=null;
   });
   socket.on('signal', d=> socket.to(d.room).emit('signal', d.signal));
   socket.on('nudge', ()=>{ if(socket.room) socket.to(socket.room).emit('nudge'); });
   socket.on('fly-emoji', d=>{ if(socket.room) socket.to(socket.room).emit('fly-emoji', d); });
   socket.on('quality-change', q=>{ if(socket.room) socket.to(socket.room).emit('quality-change', q); });
   socket.on('phone-mode', b=>{ if(socket.room) socket.to(socket.room).emit('phone-mode', b); });
+  // V18.14 - arama teklifleri - iki tarafta mic/cam acilsin
   socket.on('video-call-request', d=>{ if(socket.room){ console.log(`video-call-request ${socket.room} from ${d.from}`); socket.to(socket.room).emit('video-call-request', d); } });
   socket.on('video-call-accept', d=>{ if(socket.room){ console.log(`video-call-accept ${socket.room}`); io.to(socket.room).emit('video-call-accept', d); } });
   socket.on('video-call-decline', d=>{ if(socket.room) socket.to(socket.room).emit('video-call-decline', d); });
@@ -134,28 +115,20 @@ io.on('connection', socket=>{
   socket.on('phone-call-end', d=>{ if(socket.room){ console.log(`phone-call-end ${socket.room}`); io.to(socket.room).emit('phone-call-end', d); } });
   socket.on('paused', ()=>{ if(socket.room) socket.to(socket.room).emit('peer-paused'); });
   socket.on('general-pause', ()=>{ if(socket.room){ socket.to(socket.room).emit('general-pause'); socket.to(socket.room).emit('peer-paused'); } });
-  socket.on('leave-room', room=>{
-    if(room&&rooms[room]){
-      const r = room || socket.room;
-      const norm = normalize(socket.realUsername||socket.username);
-      if(rooms[r]){
-        rooms[r].lastSeen[norm]=Date.now();
-        delete rooms[r].users[socket.id];
-        socket.leave(r);
-        socket.to(r).emit('user-disconnected');
-        socket.to(r).emit('user-status',{user:socket.realUsername||socket.username, status:'yokum', online:false, lastSeen: rooms[r].lastSeen[norm]});
-        console.log(`LEAVE-ROOM ${r} ${socket.realUsername} - lastSeen ${rooms[r].lastSeen[norm]} - kalan ${Object.keys(rooms[r].users).length}`);
+  socket.on('leave-room', room=>{ 
+    if(room&&rooms[room]){ 
+      if(socket.realUsername){
+        if(!rooms[room].lastSeen) rooms[room].lastSeen={};
+        rooms[room].lastSeen[socket.realUsername]=Date.now();
+        io.to(room).emit('user-last-seen',{user:socket.realUsername, ts: Date.now(), online:false});
       }
+      delete rooms[room].users[socket.id]; 
+      socket.leave(room); 
+      socket.to(room).emit('user-disconnected'); 
     }
-    socket.room="";
+    socket.room=null;
   });
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
-  socket.on('get-last-seen', (data)=>{
-    const room = data.room || socket.room;
-    if(room && rooms[room]){
-      socket.emit('last-seen-data', {room, lastSeen: rooms[room].lastSeen, users: Object.values(rooms[room].users)});
-    }
-  });
 });
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', ()=> console.log(`GORGOR V18.21 FINAL - oda dolu fix + son görülme + 14dk kilit - port ${PORT}`));
+server.listen(PORT, '0.0.0.0', ()=> console.log(`GORGOR V18.20 FINAL - son gorulme + oda dolu fix calisiyor port ${PORT} - 0.0.0.0 - mesaj gonderimde silme + 14dk Google kilit + telefon izin`));

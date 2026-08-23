@@ -145,8 +145,8 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 .opponentStatus.online { color: #00ff88; } .opponentStatus.offline { color: rgba(255,255,255,0.35); }
 #floatingPillCenter { display: flex; align-items: center; gap: 8px; padding: 0; border-right: none; flex: 0 0 auto; }
 #floatingPillCenter #soundBtn { width: 28px; height: 28px; border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; background: transparent; color: rgba(255,255,255,0.6); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-#floatingPillCenter #volumeSlider { width: 64px; height: 1px; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.12); border-radius: 0; }
-#floatingPillCenter #volumeSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #ffffff; border: 1px solid #000000; }
+#floatingPillCenter #volumeSlider { width: 96px; height: 4px; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.12); border-radius: 0; }
+#floatingPillCenter #volumeSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ffffff; border: 1px solid #000000; }
 #floatingPillRight { display: flex; align-items: center; gap: 8px; padding-left: 0; flex: 0 0 auto; }
 #floatingPillRight #phoneModeBtn, #floatingPillRight #camBtn { width: 32px; height: 32px; border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; color: rgba(255,255,255,0.7); }
 #floatingPillRight #phoneModeBtn.active { background: #ffffff; color: #000000; border-color: #ffffff; }
@@ -159,7 +159,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #settingsContainer > #panicBtn { display: block !important; width: 46px; height: 46px; border: none; border-radius: 50%; font-size: 22px; cursor: pointer; background: rgba(255,0,0,0.85) !important; color: white; }
 #chatToggle { position: fixed; bottom: 16px; right: 16px; width: 44px; height: 44px; border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; background: #000000; color: rgba(255,255,255,0.7); font-size: 18px; cursor: pointer; z-index: 1000; }
 #chatPanel { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; height: 50%; background: #000000; display: none; flex-direction: column; z-index: 900; border-top: 1px solid rgba(255,255,255,0.08); }
-#privacyModeSelect { cursor: pointer; font-weight: bold; }
+#privacyModeSelect { cursor: pointer; margin-left:4px !important; font-weight: bold; }
 #floatingPillLeft { display: flex; align-items: center; gap: 6px; }
 
 /* V18.10 MOBILE FIX - ses kaydirma ile genel-ozel ust uste binmesin */
@@ -176,14 +176,66 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   #floatingPillRight #phoneModeBtn, #floatingPillRight #camBtn { width: 26px !important; height: 26px !important; font-size: 11px !important; }
 }
 
-/* V18.21 - son görülme stili */
-#opponentStatusText{
-  transition: color 0.2s;
-  cursor: default;
+/* V18.13 - Bekleniyor yerine ... animasyonu */
+@keyframes waitingDots {
+  0% { content: "."; }
+  33% { content: ".."; }
+  66% { content: "..."; }
+  100% { content: "."; }
 }
-#opponentStatusText[title]{
-  text-decoration: underline dotted rgba(255,255,255,0.2);
+@keyframes blinkDots {
+  0%, 20% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
 }
-.opponentStatus.offline{
-  font-size: 10px !important;
+.opponentStatus.waiting {
+  min-width: 18px;
+  max-width: 18px !important;
+  font-size: 14px !important;
+  letter-spacing: 2px;
+  font-weight: bold;
+}
+.opponentStatus.waiting::after {
+  content: "...";
+  animation: waitingDots 1.2s infinite;
+}
+#opponentStatusText.waiting {
+  display: inline-block;
+  width: 18px;
+  text-align: left;
+}
+
+/* Genel-Ozel 3-4px sola çekildi */
+#privacyModeSelect {
+  margin-left: 4px !important;
+  transform: translateX(-3px);
+}
+
+/* Ses kaydırma daha büyük ve kullanışlı */
+#floatingPillCenter #volumeSlider {
+  width: 96px !important;
+  height: 4px !important;
+  background: rgba(255,255,255,0.25) !important;
+  border-radius: 2px !important;
+  cursor: pointer;
+}
+#floatingPillCenter #volumeSlider::-webkit-slider-thumb {
+  width: 18px !important;
+  height: 18px !important;
+  background: #fff !important;
+  border: 2px solid #000 !important;
+  box-shadow: 0 0 6px rgba(255,255,255,0.5);
+  cursor: grab;
+}
+#floatingPillCenter #volumeSlider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border: 2px solid #000;
+  border-radius: 50%;
+}
+#floatingPillCenter #soundBtn {
+  width: 30px !important;
+  height: 30px !important;
+  font-size: 13px !important;
 }

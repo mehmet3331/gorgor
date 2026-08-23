@@ -1,7 +1,7 @@
 {
   "name": "gorgor",
   "version": "1.7.0",
-  "description": "Gorgor - WebRTC tabanl\u0131 g\u00f6r\u00fcnt\u00fcl\u00fc g\u00f6r\u00fc\u015fme ve dosya payla\u015f\u0131m uygulamas\u0131 V17",
+  "description": "Gorgor - WebRTC tabanlı görüntülü görüşme ve dosya paylaşım uygulaması V17",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
