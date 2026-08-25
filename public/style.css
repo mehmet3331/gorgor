@@ -240,7 +240,6 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   font-size: 13px !important;
 }
 
-
 /* V19 TUM OZELLIKLER */
 .screenshot-blur-active { filter: blur(18px) !important; transition: filter 0.3s; }
 #gorgorToast { backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
@@ -259,3 +258,92 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #voiceRecordBtn.recording { animation: pulseRec 1s infinite; background:#ff3b30 !important; }
 @keyframes pulseRec { 0%{transform:scale(1)} 50%{transform:scale(1.1)} 100%{transform:scale(1)} }
 .blur-active-video { filter: blur(12px) !important; }
+
+
+
+/* V20 - Kurukafa Panik + Flip Blur + Sönen Mum */
+#skullPanicBtn {
+  display: block !important;
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 50% !important;
+  font-size: 22px !important;
+  cursor: pointer !important;
+  background: #111 !important;
+  border: 1px solid #ff4444 !important;
+  color: white !important;
+  box-shadow: 0 0 10px rgba(255,68,68,0.3);
+}
+#skullPanicBtn:hover { background: #222 !important; box-shadow: 0 0 15px rgba(255,68,68,0.6); }
+#settingsContainer.menu-open > #skullPanicBtn { display: flex !important; align-items: center; justify-content: center; }
+
+/* Flip panic blur - tüm ekran bulanık */
+.flip-blur-active #mainScreen,
+.flip-blur-active #remoteVideo,
+.flip-blur-active #myVideoContainer,
+.flip-blur-active #messages,
+.flip-blur-active #floatingPill {
+  filter: blur(20px) brightness(0.3) !important;
+  transition: filter 0.4s ease;
+}
+.flip-blur-active::after {
+  content: "📱 TERS ÇEVRİLDİ - GİZLİLİK MODU";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffcc00;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+/* Sönen mum animasyonu */
+.candle-extinguish .flame {
+  animation: extinguishFlame 1.2s forwards !important;
+}
+.candle-extinguish .wax {
+  animation: waxMelt 1.2s forwards;
+}
+@keyframes extinguishFlame {
+  0% { transform: scaleY(1) scaleX(1); opacity: 1; filter: brightness(1); }
+  30% { transform: scaleY(1.4) scaleX(0.7); opacity: 0.8; filter: brightness(1.5); }
+  60% { transform: scaleY(0.3) scaleX(1.5); opacity: 0.3; filter: brightness(0.5); }
+  100% { transform: scaleY(0) scaleX(2); opacity: 0; filter: brightness(0); }
+}
+@keyframes waxMelt {
+  0% { filter: brightness(1); }
+  100% { filter: brightness(0.3); }
+}
+.candle-smoke {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  width: 2px;
+  height: 40px;
+  background: linear-gradient(to top, rgba(255,255,255,0.3), transparent);
+  transform: translateX(-50%);
+  animation: smokeRise 2s forwards;
+  pointer-events: none;
+}
+@keyframes smokeRise {
+  0% { opacity: 0.6; transform: translateX(-50%) translateY(0) scaleX(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scaleX(3); }
+}
+
+/* V20 skull panic overlay */
+.skull-panic-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: system-ui;
+}

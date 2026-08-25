@@ -81,12 +81,22 @@
 
   <div id="settingsContainer">
     <button id="settingsBtn">⚙</button>
-    <button id="panicBtn" title="Panik" style="background:#ff0000 !important;">🚨</button>
+    <button id="panicBtn" title="Hızlı Kaçış - sadece kaç, mesajlar silinmez" style="background:#ff0000 !important;">🚨</button>
+    <button id="skullPanicBtn" title="💀 Tam Yok Et + Kaçış - clipboard + oda bilgisi sil, mum sönsün, Anne arıyor ekranı + Google" style="background:#111 !important; border:1px solid #ff4444 !important;">💀</button>
     <button id="micBtn" title="Mikrofon"></button>
     <button id="lightModeBtn" title="Işık">💡</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
-    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="900">15 dk</option><option value="3600">1 saat</option><option value="14400" selected>4 saat</option><option value="86400">24 saat</option><option value="custom">⚙ Ayarla (Wheel)</option></select><button id="openWheelBtn" style="margin-top:8px;width:100%;height:32px;background:#111;border:1px solid #333;color:#ffcc00;border-radius:6px;cursor:pointer;font-size:11px;">⚙ Wheel ile Ayarla</button></div>
+    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="900">15 dk</option><option value="3600">1 saat</option><option value="14400" selected>4 saat</option><option value="86400">24 saat</option><option value="custom">⚙ Ayarla (Wheel)</option></select><button id="openWheelBtn" style="margin-top:8px;width:100%;height:32px;background:#111;border:1px solid #333;color:#ffcc00;border-radius:6px;cursor:pointer;font-size:11px;">⚙ Wheel ile Ayarla</button>
+      <div style="margin-top:12px; padding-top:10px; border-top:1px solid #222;">
+        <label style="font-size:11px; color:#ffcc00; display:block; margin-bottom:6px;">🛡 Güvenlik Sensörleri</label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:11px; cursor:pointer; background:#111; border:1px solid #333; border-radius:8px; padding:8px;">
+          <input type="checkbox" id="flipPanicToggle" style="width:16px;height:16px;" />
+          <span>📱 Ters çevirince panik aktif<br/><span style="font-size:9px; opacity:0.6;">Telefon ters dönerse önce bulanıklaştır, sonra 💀 panik</span></span>
+        </label>
+        <div style="font-size:9px; opacity:0.5; margin-top:4px; line-height:1.2;">Sadece program açıldıktan sonra çalışır. Giriş ekranında pasif. Hassasiyet düşük.</div>
+      </div>
+    </div>
   </div>
 
   <button id="chatToggle">💬</button>

@@ -50,6 +50,7 @@ const phoneCallUI = document.getElementById("phoneCallUI");
 const candleContainer = document.getElementById("candleContainer");
 const msnEffectLayer = document.getElementById("msnEffectLayer");
 const panicBtn = document.getElementById("panicBtn");
+const skullPanicBtn = document.getElementById("skullPanicBtn");
 const userListBox = document.getElementById("userListBox");
 const fakeUsersList = document.getElementById("fakeUsersList");
 const fakeRoomsList = document.getElementById("fakeRoomsList");
@@ -282,7 +283,6 @@ socket.on("user-last-seen",(data)=>{
   if(user===myRealUsername) return;
   if(ts) lastSeenTimes[user]=ts;
   if(online===false || online===undefined){
-    // eger offline ise guncelle
     if(user===opponentUsername || !opponentUsername){
       updateOpponentDisplay(user,"yokum");
     }
@@ -332,7 +332,7 @@ micBtn.onclick=async()=>{ if(!localStream) return; micEnabled=!micEnabled; local
 camBtn.onclick=async()=>{
   if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
   if(!camEnabled){
-    const sesliAc=confirm("Kamerayı sesli olarak açmak ister misiniz?\n\nTamam = Mikrofon da açılsın\nİptal = Sadece kamera açılsın\n\nKarşı tarafa teklif gidecek, kabul ederse iki tarafta da açılacak");
+    const sesliAc=confirm("Kamerayı sesli olarak açmak ister misiniz?\\n\\nTamam = Mikrofon da açılsın\\nİptal = Sadece kamera açılsın\\n\\nKarşı tarafa teklif gidecek, kabul ederse iki tarafta da açılacak");
     camEnabled=true;
     localStream.getVideoTracks().forEach(t=>t.enabled=true);
     camBtn.classList.remove("offIcon");
@@ -563,7 +563,7 @@ socket.on("phone-call-request", async (data)=>{
   if(_phoneRequestPending) return;
   _phoneRequestPending = true;
   const from = data.from || "Karşı taraf";
-  const kabul = confirm(`${from} sesli arama başlattı. Kabul ediyor musun?\n\nTamam = Kabul et, mikrofonun açılsın\nİptal = Reddet`);
+  const kabul = confirm(`${from} sesli arama başlattı. Kabul ediyor musun?\\n\\nTamam = Kabul et, mikrofonun açılsın\\nİptal = Reddet`);
   if(kabul){
     try{
       if(!localStream){ try{ await startCamera(currentQuality, currentFacingMode); }catch(e){} }
@@ -603,7 +603,7 @@ socket.on("video-call-request", async (data)=>{
     _videoRequestPending = true;
     const from = data.from || "Karşı taraf";
     const withMic = data.withMic;
-    const kabul = confirm(`${from} kameralı arama başlattı${withMic?" (sesli)":""}. Kabul edip sen de kameranı açmak ister misin?\nTamam = Kabul et`);
+    const kabul = confirm(`${from} kameralı arama başlattı${withMic?" (sesli)":""}. Kabul edip sen de kameranı açmak ister misin?\\nTamam = Kabul et`);
     if(kabul){
       try{
         if(!localStream){ await startCamera(currentQuality, currentFacingMode); }
@@ -729,15 +729,217 @@ function enhancedPanic(){
     window.location.href = 'https://www.google.com';
   }
 }
-// panicBtn'i gelistirilmis panik ile degistir
+// panicBtn'i gelistirilmis panik ile degistir - V20: panicBtn = sadece kacis, skull = tam yok et
 document.addEventListener('DOMContentLoaded', ()=>{
   if(panicBtn){
     panicBtn.removeEventListener('click', panicBtn._oldListener||(()=>{}));
     panicBtn.onclick = enhancedPanic;
   }
+  if(skullPanicBtn){
+    skullPanicBtn.onclick = skullPanicFullDelete;
+  }
+  initFlipPanicSensor();
 });
 
 // 3. FAKE BILDIRIM - Hesap Makinesi bildirimi
+
+// ================= V20 - KURUKAFA TAM YOK ET + MUM SONME + GOOGLE KACIS =================
+function skullPanicFullDelete(){
+  console.log("💀 SKULL PANIC - TAM YOK ET BASLADI");
+  try{
+    // 1. Tum yazismalari server + local yok et (eski panik gibi ama duzgun tek sayfa)
+    if(messages){
+      messages.innerHTML = "";
+    }
+    sentMessages.clear();
+    activeTimers.forEach(t=>{ if(t.interval) clearInterval(t.interval); if(t.timeout) clearTimeout(t.timeout); });
+    activeTimers.clear();
+    if(socket && currentRoom){
+      socket.emit("panic"); // server'daki persistedMessages'i siler + karsiya panic yayar
+    }
+
+    // 2. Clipboard temizle
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText('').catch(()=>{});
+    }
+
+    // 3. Oda bilgilerini sil (gizlilik)
+    try{
+      localStorage.removeItem("gorgor_last_room");
+      localStorage.removeItem("gorgor_last_user");
+      localStorage.removeItem("gorgor_current_room");
+      sessionStorage.clear();
+    }catch(e){}
+
+    // 4. Medya trackleri durdur
+    try{
+      if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); localStream=null; }
+      if(peer){ try{peer.destroy();}catch(e){} peer=null; }
+      if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} }
+      if(myVideo){ try{myVideo.pause();}catch(e){} try{myVideo.srcObject=null;}catch(e){} }
+    }catch(e){}
+
+    // 5. Sönen mum animasyonu
+    if(candleContainer){
+      candleContainer.classList.add("show");
+      candleContainer.style.display = "flex";
+      candleContainer.classList.add("candle-extinguish");
+      const flame = candleContainer.querySelector(".flame");
+      if(flame){
+        // duman ekle
+        const smoke = document.createElement("div");
+        smoke.className = "candle-smoke";
+        candleContainer.querySelector(".candle")?.appendChild(smoke);
+        setTimeout(()=>{ try{smoke.remove();}catch(e){} }, 2000);
+      }
+    }
+
+    // 6. 800ms sonra sahte Anne arıyor ekranı + Google'a at (eski 2 sayfa bug'i yok, tek redirect)
+    setTimeout(()=>{
+      const fakeCallDiv = document.createElement('div');
+      fakeCallDiv.className = "skull-panic-overlay";
+      fakeCallDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:100000;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:system-ui;';
+      fakeCallDiv.innerHTML = '<div style="font-size:80px;margin-bottom:20px;">📞</div><div style="font-size:22px;margin-bottom:8px;">Anne arıyor...</div><div style="font-size:14px;opacity:0.6;">kaydırmalı cevapla</div><div style="margin-top:40px;display:flex;gap:60px;"><div style="width:60px;height:60px;border-radius:50%;background:#ff3b30;display:flex;align-items:center;justify-content:center;font-size:30px;">📵</div><div style="width:60px;height:60px;border-radius:50%;background:#4cd964;display:flex;align-items:center;justify-content:center;font-size:30px;">📞</div></div><div style="margin-top:20px;font-size:10px;opacity:0.4;">💀 Geçmiş silindi - Gizlice kaçış</div>';
+      document.body.appendChild(fakeCallDiv);
+      // 1.2sn sonra Google - tek sayfa, donma yok
+      setTimeout(()=>{
+        try{
+          // son temizlik
+          document.body.innerHTML = '';
+          window.location.href = 'https://www.google.com';
+        }catch(e){
+          window.location.href = 'https://www.google.com';
+        }
+      }, 1200);
+    }, 800);
+
+  }catch(e){
+    console.log("skull panic error", e);
+    window.location.href = 'https://www.google.com';
+  }
+}
+
+// ================= V20 - TERS CEVIRINCE OTOMATIK BLUR + PANIK =================
+let flipPanicEnabled = false;
+let flipPanicArmed = false;
+let lastFlipTrigger = 0;
+let flipOrientationHandler = null;
+let flipDebounceTimer = null;
+
+function initFlipPanicSensor(){
+  const toggle = document.getElementById("flipPanicToggle");
+  if(!toggle) return;
+  // localStorage'dan oku
+  flipPanicEnabled = localStorage.getItem("gorgor_flip_panic") === "1";
+  toggle.checked = flipPanicEnabled;
+  toggle.addEventListener("change", ()=>{
+    flipPanicEnabled = toggle.checked;
+    localStorage.setItem("gorgor_flip_panic", flipPanicEnabled ? "1" : "0");
+    if(flipPanicEnabled){
+      armFlipSensor();
+      showToast("📱 Ters çevirince panik AKTİF - program açıkken çalışır");
+      // iOS için izin iste
+      if(typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"){
+        DeviceOrientationEvent.requestPermission().then(state=>{
+          if(state === "granted"){ armFlipSensor(); }
+        }).catch(()=>{});
+      }
+    } else {
+      disarmFlipSensor();
+      showToast("📱 Ters çevirince panik KAPALI");
+    }
+  });
+  if(flipPanicEnabled){
+    // sadece mainScreen acildiktan sonra arm et - giriste degil
+    const checkMain = setInterval(()=>{
+      if(mainScreen && mainScreen.style.display !== "none" && mainScreen.style.display !== ""){
+        armFlipSensor();
+        clearInterval(checkMain);
+      }
+    }, 1000);
+  }
+}
+
+function armFlipSensor(){
+  if(flipPanicArmed) return;
+  if(!flipPanicEnabled) return;
+  // sadece program acildiktan sonra (mainScreen gorunurken) calissin
+  if(!mainScreen || mainScreen.style.display === "none") return;
+
+  flipPanicArmed = true;
+  console.log("📱 Flip sensor ARMED - hassasiyet dusuk");
+
+  // DeviceOrientation - telefon ters cevirme algilama
+  flipOrientationHandler = (e)=>{
+    if(!flipPanicEnabled || !flipPanicArmed) return;
+    if(!mainScreen || mainScreen.style.display === "none") return; // giriste pasif
+    if(document.hidden) return;
+    const beta = e.beta; // -180 to 180, 0 = flat, 90 = dik, 180 = ters
+    const gamma = e.gamma;
+    if(beta === null) return;
+    // Hassasiyet DUSUK: sadece net ters cevirmede tetikle
+    // beta > 140 veya beta < -140 = yuz ustu ters
+    // veya gamma cok buyuk + beta orta = yan ters
+    const isFaceDown = Math.abs(beta) > 150; // cok net ters
+    const isUpsideDown = Math.abs(beta) > 140 && Math.abs(gamma) > 60;
+    if(isFaceDown || isUpsideDown){
+      if(Date.now() - lastFlipTrigger < 10000) return; // 10sn cooldown
+      if(flipDebounceTimer) clearTimeout(flipDebounceTimer);
+      // 600ms stabil ters kalirsa tetikle - hassas degil
+      flipDebounceTimer = setTimeout(()=>{
+        if(!flipPanicEnabled) return;
+        if(Date.now() - lastFlipTrigger < 10000) return;
+        triggerFlipPanic();
+      }, 600);
+    } else {
+      if(flipDebounceTimer){ clearTimeout(flipDebounceTimer); flipDebounceTimer = null; }
+    }
+  };
+
+  window.addEventListener("deviceorientation", flipOrientationHandler, true);
+
+  // Yedek: proximity benzeri - ekran kararma + visibilitychange ile blur (kulağa götürme)
+  // Ama sadece flip toggle aktifse ve mainScreen'deyken
+}
+
+function disarmFlipSensor(){
+  flipPanicArmed = false;
+  if(flipOrientationHandler){
+    window.removeEventListener("deviceorientation", flipOrientationHandler, true);
+    flipOrientationHandler = null;
+  }
+  if(flipDebounceTimer){ clearTimeout(flipDebounceTimer); flipDebounceTimer = null; }
+  document.body.classList.remove("flip-blur-active");
+  console.log("📱 Flip sensor DISARMED");
+}
+
+function triggerFlipPanic(){
+  if(!flipPanicEnabled) return;
+  lastFlipTrigger = Date.now();
+  console.log("📱 FLIP TESPIT - BLUR + PANIK");
+  // Once bulaniklastir - hemen
+  document.body.classList.add("flip-blur-active");
+  showToast("📱 Ters çevrildi - gizlilik modu aktif");
+  try{ if(navigator.vibrate) navigator.vibrate([100,50,100]); }catch(e){}
+  // 1.2sn sonra kurukafa panik otomatik
+  setTimeout(()=>{
+    document.body.classList.remove("flip-blur-active");
+    skullPanicFullDelete();
+  }, 1200);
+}
+
+
+// mainScreen acildiginda flip sensor'u arm et (giris degil, program acildiktan sonra) - V20
+socket.on("joined-room", (data)=>{
+  setTimeout(()=>{
+    if(localStorage.getItem("gorgor_flip_panic") === "1"){
+      armFlipSensor();
+    }
+  }, 2000);
+});
+
+
+
 function initFakeNotifications(){
   if(!('Notification' in window)) return;
   if(Notification.permission === 'default'){
@@ -855,7 +1057,7 @@ socket.on('voice-start', (data)=>{
 });
 
 // 5. MESAJ REAKSIYONU
-const REACTION_EMOJIS = ['❤️','😂','🔥','😮','😢','👍'];
+const REACTION_EMOJIS = ['❤','😂','🔥','😮','😢','👍'];
 function initReactions(){
   // mesajlara long press ekle
   messages.addEventListener('contextmenu', (e)=>{
