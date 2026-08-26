@@ -329,7 +329,7 @@ if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.t
 document.querySelectorAll('.flyEmoji').forEach(emoji=>{ if(emoji.id==='addCustomEmoji') return; emoji.onclick=(e)=>{ e.stopPropagation(); const emojiText=emoji.textContent; const effect=emoji.dataset.effect; socket.emit('fly-emoji',{emoji:emojiText,effect}); createFlyingEmoji(emojiText,effect,true); emojiPanel.classList.remove("show"); }; });
 socket.on('fly-emoji',(data)=>createFlyingEmoji(data.emoji,data.effect,false));
 function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.innerWidth-120:80; const baseY=140; if(effect==='big-kiss'){ const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋'; big.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;z-index:9999;animation:explodeBoom 1s forwards;'; document.body.appendChild(big); setTimeout(()=>big.remove(),1000); return; } if(effect==='water'){ for(let i=0;i<10;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji water'; d.textContent='💧'; d.style.left=(window.innerWidth/2+Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='fireRainFall 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*60); } return; } let count=1; let animClass=effect||'heart'; if(effect==='heart'||effect==='kiss') count=8; else if(['kiss-rain','heart-rain','money-rain','star-rain','fire-rain','laugh-rain','angry-rain','emoji-rain'].includes(effect)) count=14; else if(['flower','sparkle','star'].includes(effect)) count=6; else if(['fire','explode'].includes(effect)) count=3; else if(['party','confetti'].includes(effect)) count=20; else if(['money','thumbs','wow','skull','heart-burst'].includes(effect)) count=1; for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+animClass; fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90+i*12)+'px'; fly.style.bottom=(baseY+Math.random()*60)+'px'; fly.style.fontSize=(effect==='explode'||effect==='heart-burst')?'90px':(effect==='fire'?'72px':(52+Math.random()*28)+'px'); document.body.appendChild(fly); setTimeout(()=>fly.remove(),3500); }, i*80); } if(['fire','explode','party','confetti','rocket','rocket-fly'].includes(effect)){ document.body.classList.add('mega-shake'); setTimeout(()=>document.body.classList.remove('mega-shake'),700); } }
-micBtn.onclick=async()=>{ console.log("mic click", !!localStream); if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ showToast("Kamera başlatılamadı"); return; } } micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
+micBtn.onclick=async()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
 camBtn.onclick=async()=>{
   if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
   if(!camEnabled){
@@ -758,10 +758,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   initFlipPanicSensor();
   if(typeof initSecuritySettings === 'function') initSecuritySettings();
-  // Fix phone call cancelable
-  if(typeof _phoneCallOutgoing !== 'undefined'){
-    // phone cancel will be handled in phoneModeBtn onclick below
-  }
+  // Ensure modals hidden on load - FIX
+  const m = document.getElementById("panicConfirmModal");
+  if(m){ m.style.display = "none"; m.classList.remove("show"); }
+  const s = document.getElementById("securitySettingsPanel");
+  if(s){ s.style.display = "none"; s.classList.remove("show"); }
 });
 
 // 3. FAKE BILDIRIM - Hesap Makinesi bildirimi
@@ -925,7 +926,7 @@ function triggerFlipPanic(){
 }
 
 
-// ================= V21 PHONE4 FIX2 - GÜVENLİK AYARLARI + SES/KAMERA FIX =================
+// ================= V21 PHONE4 FIX2 + MODAL FIX =================
 let securityConfigCache = null;
 function defaultSecurityConfig(){
   return {
@@ -1018,6 +1019,11 @@ function initSecuritySettings(){
   const cfg = loadSecurityConfig();
   applySecuritySettingsToUI(cfg);
   applySecurityTriggers(cfg);
+  // Ensure modals hidden on init - FIX for ilk acilista gorunme
+  const m = document.getElementById("panicConfirmModal");
+  if(m){ m.style.display = "none"; m.classList.remove("show"); }
+  const s = document.getElementById("securitySettingsPanel");
+  if(s){ s.style.display = "none"; s.classList.remove("show"); }
 }
 function showSecurityPanel(){
   const panel = document.getElementById("securitySettingsPanel");
@@ -1025,10 +1031,14 @@ function showSecurityPanel(){
   const cfg = loadSecurityConfig();
   applySecuritySettingsToUI(cfg);
   panel.style.display = "flex";
+  panel.classList.add("show");
 }
 function hideSecurityPanel(){
   const panel = document.getElementById("securitySettingsPanel");
-  if(panel) panel.style.display = "none";
+  if(panel){
+    panel.style.display = "none";
+    panel.classList.remove("show");
+  }
 }
 function applySecuritySettingsToUI(cfg){
   const setVal = (id, val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
@@ -1158,8 +1168,10 @@ function showPanicConfirm(text, onConfirm){
   if(!modal) { onConfirm(); return; }
   if(txt) txt.textContent = text;
   modal.style.display = "flex";
+  modal.classList.add("show");
   const cleanup = ()=>{
     modal.style.display = "none";
+    modal.classList.remove("show");
     if(ok) ok.onclick = null;
     if(cancel) cancel.onclick = null;
     modal.onclick = null;
