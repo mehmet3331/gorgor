@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>GORGOR V21 - PHONE4 HIBRIT</title>
+<title>GORGOR V21 - PHONE4 HIBRIT FIX</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="mobile_fix.css" />
 <script src="/socket.io/socket.io.js"></script>
@@ -33,7 +33,7 @@
   </div>
 </div>
 
-<div id="roomScreen" style="display:none;"><div style="position:absolute;top:10px;right:10px;background:#00ff88;color:#000;padding:2px 8px;border-radius:10px;font-size:10px;">V21 PHONE4 HIBRIT</div>
+<div id="roomScreen" style="display:none;"><div style="position:absolute;top:10px;right:10px;background:#00ff88;color:#000;padding:2px 8px;border-radius:10px;font-size:10px;">V21 PHONE4 FIX</div>
   <h2>🔒 GORGOR</h2>
   <input id="roomName" placeholder="Oda adı" autocomplete="off" />
   <div id="fakeRoomsHint" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; font-size:12px;">
@@ -86,6 +86,7 @@
   <div id="settingsContainer">
     <button id="settingsBtn">⚙</button>
     <button id="panicBtn" title="Panik" style="background:#ff0000 !important;">🚨</button>
+    <button id="skullPanicBtn" title="Tam Yok Et" style="background:#111 !important; border:1px solid #333;">💀</button>
     <button id="micBtn" title="Mikrofon"></button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
@@ -118,7 +119,7 @@
           <label><input type="checkbox" id="triggerThreeFinger"> 👆 3 Parmak</label>
           <label><input type="checkbox" id="triggerPocket"> 👖 Cebe koyma</label>
         </div>
-        <p style="font-size:9px; color:#888; margin-top:8px;">İstediğini aç, hepsi aynı anda çalışır, biri tetiklenince diğerleri susar</p>
+        <p style="font-size:9px; color:#888; margin-top:8px;">İstediğini aç, hepsi aynı anda çalışır</p>
       </div>
       <button id="saveSecuritySettings">Kaydet</button>
     </div>
@@ -140,7 +141,7 @@
   <div id="chatPanel">
     <div id="messages"></div>
     <div id="inputArea">
-      <div class="inputTopRow">
+            <div class="inputTopRow">
         <select id="perMessageTimerSelect">
           <option value="300">5 dakika</option>
           <option value="3600">1 saat</option>

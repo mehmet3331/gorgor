@@ -14,21 +14,22 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; overflow: 
 .userTag:hover { background: #222; color: #aaa; border-color: #444; }
 #mainScreen { display: none; width: 100%; height: 100vh; }
 #remoteVideo { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 1; touch-action: pinch-zoom!important; -webkit-touch-callout: none; }
-#myVideoContainer { position: fixed; top: 15px; right: 15px; width: 180px; height: 240px; border-radius: 12px; border: 2px solid #fff; background: #000; z-index: 100; touch-action: none; cursor: move; }
+#myVideoContainer{
+  width:100px;
+  height:130px;
+  top:58px;
+  right:12px;
+  position:absolute;
+  z-index:20;
+  border-radius:12px;
+  overflow:hidden;
+  border:2px solid #333;
+  background:#000;
+}
 #myVideo { width: 100%; height: 100%; border-radius: 10px; object-fit: cover; transform: scaleX(-1); }
 .cameraOverlayBtn { position: absolute; width: 32px; height: 32px; border: none; border-radius: 50%; background: rgba(0,0,0,.7); color: white; font-size: 16px; cursor: pointer; z-index: 120; }
 #switchCameraBtn { bottom: 5px; left: 5px; } #fullscreenBtn { top: 5px; right: 5px; }
-.qualitySelect{
-  width:48px;
-  height:20px;
-  font-size:9px;
-  background:rgba(0,0,0,0.8);
-  color:#fff;
-  border:1px solid #333;
-  border-radius:12px;
-  padding:1px 2px;
-  text-align:center;
-}
+.qualitySelect { position: absolute; bottom: 5px; right: 5px; width: 60px; height: 28px; border: none; border-radius: 6px; background: rgba(0,0,0,.8); color: white; font-size: 12px; }
 #settingsContainer { position: fixed; top: 10px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; max-height: 90vh; overflow-y: auto; }
 #settingsBtn { width: 46px; height: 46px; border: none; border-radius: 50%; font-size: 22px; cursor: pointer; background: rgba(0,0,0,.7); color: white; }
 #settingsContainer > button:not(#settingsBtn), #settingsContainer > #statusBar, #settingsContainer > #secretSettings { display: none; width: 50px; height: 50px; border: none; border-radius: 12px; font-size: 22px; cursor: pointer; background: rgba(0,0,0,.8); color: white; }
@@ -110,7 +111,18 @@ body.phone-mode #chatPanel { pointer-events: none; opacity: 0.2; } body.phone-mo
 .flyEmoji { font-size: 24px; cursor: pointer; transition: transform 0.15s ease; user-select: none; }
 .flyEmoji:hover { transform: scale(1.35) rotate(5deg); }
 .flying-emoji { position: fixed; font-size: 50px; z-index: 9999; pointer-events: none; text-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.5); will-change: transform, opacity; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); }
-#myVideoContainer { resize: both; overflow: hidden; min-width: 90px; min-height: 120px; max-width: 90vw; max-height: 70vh; }
+#myVideoContainer{
+  width:100px;
+  height:130px;
+  top:58px;
+  right:12px;
+  position:absolute;
+  z-index:20;
+  border-radius:12px;
+  overflow:hidden;
+  border:2px solid #333;
+  background:#000;
+}
 #myVideoContainer:active { border-color: #00ff88; }
 @keyframes heartRain { 0%{transform:translateY(0) scale(0) rotate(0); opacity:0;} 15%{opacity:1; transform:translateY(-30px) scale(1.2) rotate(10deg);} 100%{transform:translateY(-500px) scale(1.8) rotate(-20deg) translateX(40px); opacity:0;} }
 @keyframes kissPop { 0%{transform:translate(-50%,0) scale(0);} 20%{transform:translate(-50%,-40px) scale(1.6) rotate(-5deg);} 40%{transform:translate(-50%,-90px) scale(0.9) rotate(5deg);} 70%{transform:translate(-50%,-160px) scale(1.3);} 100%{transform:translate(-50%,-280px) scale(0.8); opacity:0;} }
@@ -144,7 +156,21 @@ body:fullscreen #remoteVideo { touch-action: none!important; object-fit: cover; 
 body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", sans-serif; font-weight: 400; letter-spacing: -0.2px; }
 #mainScreen { background: #000000; }
 #remoteVideo { background: #000000; object-fit: contain; }
-#floatingPill { position: fixed; top: 0; left: 0; right: 0; transform: none; display: flex; align-items: center; justify-content: space-between; height: 44px; background: #000000; border-bottom: 1px solid rgba(255,255,255,0.08); border-radius: 0; padding: 0 12px; z-index: 1000; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; min-width: auto; max-width: none; gap: 12px; }
+#floatingPill{
+  position:absolute;
+  top:8px;
+  left:8px;
+  right:8px;
+  height:40px;
+  background:rgba(0,0,0,0.9);
+  border:1px solid #333;
+  border-radius:20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 8px;
+  z-index:30;
+}
 #floatingPillLeft { display: flex; align-items: center; gap: 8px; padding: 0; border-right: none; min-width: 0; flex: 1; }
 #opponentDot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 #opponentDot.online { background: #00ff88; box-shadow: none; animation: none; }
@@ -160,7 +186,18 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #floatingPillRight { display: flex; align-items: center; gap: 8px; padding-left: 0; flex: 0 0 auto; }
 #floatingPillRight #phoneModeBtn, #floatingPillRight #camBtn { width: 32px; height: 32px; border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; color: rgba(255,255,255,0.7); }
 #floatingPillRight #phoneModeBtn.active { background: #ffffff; color: #000000; border-color: #ffffff; }
-#myVideoContainer { position: fixed; top: 56px; right: 12px; width: 96px; height: 128px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: #000000; z-index: 100; overflow: hidden; }
+#myVideoContainer{
+  width:100px;
+  height:130px;
+  top:58px;
+  right:12px;
+  position:absolute;
+  z-index:20;
+  border-radius:12px;
+  overflow:hidden;
+  border:2px solid #333;
+  background:#000;
+}
 #myVideo { width: 100%; height: 100%; border-radius: 7px; object-fit: cover; transform: scaleX(-1); }
 #settingsContainer { position: fixed; top: 56px; left: 12px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 120px); overflow-y: auto; }
 #settingsBtn { width: 32px; height: 32px; border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; font-size: 14px; cursor: pointer; background: #000000; color: rgba(255,255,255,0.7); }
@@ -174,7 +211,21 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 /* V18.10 MOBILE FIX - ses kaydirma ile genel-ozel ust uste binmesin */
 @media (max-width: 480px) {
-  #floatingPill { padding: 0 6px; gap: 4px; height: 38px; }
+  #floatingPill{
+  position:absolute;
+  top:8px;
+  left:8px;
+  right:8px;
+  height:40px;
+  background:rgba(0,0,0,0.9);
+  border:1px solid #333;
+  border-radius:20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 8px;
+  z-index:30;
+}
   #floatingPillLeft { gap: 4px; flex: 1; min-width: 0; }
   #opponentNameDisplay { max-width: 45px !important; font-size: 10px !important; }
   #opponentStatusText { font-size: 7px !important; max-width: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -269,198 +320,27 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 @keyframes pulseRec { 0%{transform:scale(1)} 50%{transform:scale(1.1)} 100%{transform:scale(1)} }
 .blur-active-video { filter: blur(12px) !important; }
 
-
-/* V21 PHONE4 HIBRIT - myVideoUnderBar */
-#myVideoUnderBar{
-  position:absolute;
-  top: 12px;
-  right: 12px;
-  width: 100px;
+#skullPanicBtn{
+  width:36px;
+  height:36px;
+  background:#111 !important;
+  border:1px solid #333 !important;
+  color:#fff;
+  border-radius:50%;
+  font-size:16px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+#settingsContainer{
   display:flex;
   flex-direction:column;
-  gap:4px;
-  z-index:25;
-  margin-top: 132px;
-}
-#myVideoUnderBar #lightModeBtn{
-  width:100%;
-  height:28px;
-  background:#222;
-  border:1px solid #333;
-  color:#ffcc00;
-  border-radius:14px;
-  font-size:14px;
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-#myVideoUnderBar #qualitySelect{
-  width:100%;
-  height:20px;
-  font-size:9px;
-}
-#myVideoUnderBar #securitySettingsBtn{
-  width:100%;
-  height:28px;
-  background:#1a1a1a;
-  border:1px solid #333;
-  color:#fff;
-  border-radius:14px;
-  font-size:11px;
-  cursor:pointer;
-}
-#myVideoContainer{
-  width:100px;
-  height:130px;
-  top:12px;
-  right:12px;
-}
-
-/* V21 Security Panel - Bottom Sheet like Telegram */
-#securitySettingsPanel{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.7);
-  z-index:99990;
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-}
-#securitySettingsPanel .securitySheet{
-  width:100%;
-  max-width:400px;
-  max-height:85vh;
-  background:#111;
-  border-radius:16px 16px 0 0;
-  padding:16px;
-  overflow-y:auto;
-  border-top:1px solid #333;
-  animation: sheetSlideUp 0.3s ease;
-}
-@keyframes sheetSlideUp{ from{ transform:translateY(100%);} to{ transform:translateY(0);} }
-.securityHeader{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  font-size:14px;
-  font-weight:bold;
-  margin-bottom:12px;
-  color:#fff;
-  border-bottom:1px solid #222;
-  padding-bottom:8px;
-}
-.securityHeader button{
-  width:28px; height:28px; background:#222; border:none; color:#fff; border-radius:50%; font-size:18px; cursor:pointer;
-}
-.securitySection{
-  margin-bottom:16px;
-  background:#0a0a0a;
-  border-radius:10px;
-  padding:10px;
-  border:1px solid #222;
-}
-.securitySection h4{
-  font-size:11px;
-  color:#FF6B35;
-  margin:0 0 8px 0;
-  letter-spacing:0.5px;
-}
-.securitySection label{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  font-size:11px;
-  color:#ccc;
-  margin-bottom:6px;
-  gap:8px;
-}
-.securitySection select{
-  background:#222;
-  color:#fff;
-  border:1px solid #333;
-  border-radius:6px;
-  font-size:10px;
-  padding:2px 6px;
-  height:26px;
-}
-.securitySection input[type="checkbox"]{
-  accent-color:#FF6B35;
-  width:16px;
-  height:16px;
-}
-.triggerGrid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
   gap:6px;
-}
-.triggerGrid label{
-  background:#1a1a1a;
-  border:1px solid #222;
-  border-radius:8px;
-  padding:6px 8px;
-  justify-content:flex-start;
-  cursor:pointer;
-}
-.triggerGrid label:has(input:checked){
-  background:#2a1a0a;
-  border-color:#FF6B35;
-  color:#fff;
-}
-#saveSecuritySettings{
-  width:100%;
-  height:44px;
-  background:#FF6B35;
-  color:white;
-  border:none;
+  background:rgba(0,0,0,0.8);
+  border:1px solid #333;
   border-radius:12px;
-  font-weight:bold;
-  font-size:13px;
-  cursor:pointer;
+  padding:6px;
+  max-height:80vh;
+  overflow-y:auto;
 }
-
-/* Panic confirm modal */
-#panicConfirmModal{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.85);
-  z-index:100000;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-#panicConfirmModal .confirmBox{
-  width:280px;
-  background:#111;
-  border:1px solid #333;
-  border-radius:16px;
-  padding:20px;
-  text-align:center;
-}
-
-/* perMessage wheel button */
-#perMessageWheelBtn{
-  width:32px;
-  height:28px;
-  background:#111;
-  border:1px solid #333;
-  color:#ffcc00;
-  border-radius:6px;
-  cursor:pointer;
-  font-size:12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-/* Remove voice button hidden */
-#voiceRecordBtn{ display:none !important; }
-
-/* Emoji animation for all - ensure all have animation */
-.flyEmoji{
-  animation: emojiFloat 0.5s ease;
-}
-@keyframes emojiFloat{ 0%{ transform:scale(0.5);} 100%{ transform:scale(1);} }
-
-/* V21 - ensure top blur button removed */
-#blurToggleBtn, #floatingPillRight #blurToggleBtn{ display:none !important; }

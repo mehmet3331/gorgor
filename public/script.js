@@ -1219,7 +1219,60 @@ function showFakeNotification(realFrom){
 document.addEventListener('DOMContentLoaded', initFakeNotifications);
 
 // 4. SESLI MESAJ (yok olan)
-// voice removed
+function initVoiceMessage(){
+  // UI: sendBtn yanina mic basili tut butonu ekle
+  const inputArea = document.getElementById('inputArea');
+  const bottomRow = document.querySelector('.inputBottomRow');
+  if(!bottomRow) return;
+  // voice button
+  let voiceBtn = document.getElementById('voiceRecordBtn');
+  if(!voiceBtn){
+    voiceBtn = document.createElement('button');
+    voiceBtn.id = 'voiceRecordBtn';
+    voiceBtn.textContent = '🎙';
+    voiceBtn.title = 'Basılı tut, sesli mesaj kaydet (yok olan)';
+    voiceBtn.style.cssText = 'width:44px;height:44px;border-radius:50%;background:#111;border:1px solid #333;color:#00ff88;font-size:18px;cursor:pointer;';
+    bottomRow.appendChild(voiceBtn);
+  }
+  voiceBtn.addEventListener('mousedown', startVoiceRecording);
+  voiceBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); startVoiceRecording(); });
+  voiceBtn.addEventListener('mouseup', stopVoiceRecording);
+  voiceBtn.addEventListener('mouseleave', stopVoiceRecording);
+  voiceBtn.addEventListener('touchend', (e)=>{ e.preventDefault(); stopVoiceRecording(); });
+}
+async function startVoiceRecording(){
+  if(isRecordingVoice) return;
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e=>{ if(e.data.size>0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async ()=>{
+      const duration = Math.floor((Date.now() - voiceRecordStartTime)/1000);
+      if(duration < 1){ showToast('Çok kısa, en az 1 saniye konuş'); return; }
+      const blob = new Blob(audioChunks, {type:'audio/webm'});
+      const reader = new FileReader();
+      reader.onload = async ()=>{
+        const base64 = reader.result.split(',')[1];
+        const enc = await encryptText(base64, currentPassword);
+        const msgId = 'voice_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
+        const expireSec = parseInt(perMessageTimerSelect?.value || defaultExpire || '14400');
+        socket.emit('chat-voice', {msgId, enc, expireSec, duration, mediaType:'voice'});
+        // kendi ekrana ekle
+        addVoiceMessageToUI(msgId, base64, true, duration, expireSec);
+      };
+      reader.readAsDataURL(blob);
+      stream.getTracks().forEach(t=>t.stop());
+    };
+    mediaRecorder.start();
+    isRecordingVoice = true;
+    voiceRecordStartTime = Date.now();
+    document.getElementById('voiceRecordBtn').style.background = '#ff3b30';
+    document.getElementById('voiceRecordBtn').textContent = '⏹';
+    showToast('🎙 Kaydediliyor... bırakınca gönderilecek');
+    socket.emit('voice-start', {from: myRealUsername});
+  }catch(e){ showToast('Mikrofon izni gerekli'); console.error(e); }
+}
 function stopVoiceRecording(){
   if(!isRecordingVoice) return;
   isRecordingVoice = false;
@@ -1528,16 +1581,10 @@ document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document
 // V19 CSS injection
 (function(){ const style=document.createElement('style'); style.textContent=` .screenshot-blur-active { filter: blur(12px) !important; pointer-events:none; } .voice-message .voice-bubble{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #333;border-radius:16px;padding:8px 12px;} .voice-wave span{display:inline-block;width:3px;height:12px;background:#00ff88;margin:0 1px;border-radius:2px;animation:wave 1s infinite;} @keyframes wave{0%,100%{height:8px}50%{height:20px}} .reactions{animation:fadeIn 0.3s} #reactionBar{animation:pop 0.2s} @keyframes pop{0%{transform:scale(0.5)}100%{transform:scale(1)}} `; document.head.appendChild(style); })();
 
-// V21 - emoji animation fix for all
+// V21 - emoji animation fix
 function ensureEmojiAnimations(){
-  const emojis = document.querySelectorAll(".flyEmoji");
-  emojis.forEach(em=>{
-    if(!em.dataset.effect || em.dataset.effect === ""){
-      em.dataset.effect = "bounce";
-    }
-    if(!em.style.animation){
-      em.style.animation = "emojiFloat 0.5s ease";
-    }
+  document.querySelectorAll(".flyEmoji").forEach(em=>{
+    if(!em.dataset.effect) em.dataset.effect="bounce";
   });
 }
 document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(ensureEmojiAnimations, 500); });
