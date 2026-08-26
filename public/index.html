@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>GORGOR V19.0 - TUM OZELLIKLER</title>
+<title>GORGOR V21 - PHONE4 HIBRIT</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="mobile_fix.css" />
 <script src="/socket.io/socket.io.js"></script>
@@ -33,7 +33,7 @@
   </div>
 </div>
 
-<div id="roomScreen" style="display:none;"><div style="position:absolute;top:10px;right:10px;background:#00ff88;color:#000;padding:2px 8px;border-radius:10px;font-size:10px;">V19.0 TUM OZELLIKLER</div>
+<div id="roomScreen" style="display:none;"><div style="position:absolute;top:10px;right:10px;background:#00ff88;color:#000;padding:2px 8px;border-radius:10px;font-size:10px;">V21 PHONE4 HIBRIT</div>
   <h2>🔒 GORGOR</h2>
   <input id="roomName" placeholder="Oda adı" autocomplete="off" />
   <div id="fakeRoomsHint" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; font-size:12px;">
@@ -73,7 +73,11 @@
     <video id="myVideo" autoplay muted playsinline></video>
     <button id="switchCameraBtn" class="cameraOverlayBtn">🔄</button>
     <button id="fullscreenBtn" class="cameraOverlayBtn">⛶</button>
-    <select id="qualitySelect" class="qualitySelect"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
+  </div>
+  <div id="myVideoUnderBar">
+    <button id="lightModeBtn" title="Işık">💡</button>
+    <select id="qualitySelect" class="qualitySelect" title="Kalite"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
+    <button id="securitySettingsBtn" title="Güvenlik">🛡</button>
   </div>
 
   <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯</p></div>
@@ -81,20 +85,52 @@
 
   <div id="settingsContainer">
     <button id="settingsBtn">⚙</button>
-    <button id="panicBtn" title="Hızlı Kaçış - sadece kaç, mesajlar silinmez" style="background:#ff0000 !important;">🚨</button>
-    <button id="skullPanicBtn" title="💀 Tam Yok Et + Kaçış - clipboard + oda bilgisi sil, mum sönsün, Anne arıyor ekranı + Google" style="background:#111 !important; border:1px solid #ff4444 !important;">💀</button>
+    <button id="panicBtn" title="Panik" style="background:#ff0000 !important;">🚨</button>
     <button id="micBtn" title="Mikrofon"></button>
-    <button id="lightModeBtn" title="Işık">💡</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
-    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="900">15 dk</option><option value="3600">1 saat</option><option value="14400" selected>4 saat</option><option value="86400">24 saat</option><option value="custom">⚙ Ayarla (Wheel)</option></select><button id="openWheelBtn" style="margin-top:8px;width:100%;height:32px;background:#111;border:1px solid #333;color:#ffcc00;border-radius:6px;cursor:pointer;font-size:11px;">⚙ Wheel ile Ayarla</button>
-      <div style="margin-top:12px; padding-top:10px; border-top:1px solid #222;">
-        <label style="font-size:11px; color:#ffcc00; display:block; margin-bottom:6px;">🛡 Güvenlik Sensörleri</label>
-        <label style="display:flex; align-items:center; gap:8px; font-size:11px; cursor:pointer; background:#111; border:1px solid #333; border-radius:8px; padding:8px;">
-          <input type="checkbox" id="flipPanicToggle" style="width:16px;height:16px;" />
-          <span>📱 Ters çevirince panik aktif<br/><span style="font-size:9px; opacity:0.6;">Telefon ters dönerse önce bulanıklaştır, sonra 💀 panik</span></span>
-        </label>
-        <div style="font-size:9px; opacity:0.5; margin-top:4px; line-height:1.2;">Sadece program açıldıktan sonra çalışır. Giriş ekranında pasif. Hassasiyet düşük.</div>
+  </div>
+
+  <div id="securitySettingsPanel" style="display:none;">
+    <div class="securitySheet">
+      <div class="securityHeader">🛡 Güvenlik Ayarları <button id="closeSecurityPanel">×</button></div>
+      <div class="securitySection">
+        <h4>Panik ne yapsın?</h4>
+        <label>Kurukafa 💀 <select id="skullActionSelect"><option value="full">Tam sil+kaç</option><option value="escape">Sadece kaç</option><option value="confirm_full">Onay+sil</option></select></label>
+        <label>Kırmızı 🚨 <select id="redActionSelect"><option value="escape" selected>Sadece kaç</option><option value="confirm_escape">Onay+kaç</option></select></label>
+        <label>Ters çevir 🔄 <select id="flipActionSelect"><option value="red" selected>Kırmızı gibi kaç</option><option value="skull">Kurukafa gibi sil</option><option value="blur">Sadece blur</option><option value="off">Kapalı</option></select></label>
+      </div>
+      <div class="securitySection">
+        <h4>Onay sorulsun mu?</h4>
+        <label><input type="checkbox" id="confirmSkull" checked> Kurukafa için onay sor</label>
+        <label><input type="checkbox" id="confirmRed"> Kırmızı için onay sor</label>
+        <label><input type="checkbox" id="confirmFlip"> Ters çevir için onay sor</label>
+      </div>
+      <div class="securitySection">
+        <h4>Tetikleyiciler - Birini/hepsini aç</h4>
+        <div class="triggerGrid">
+          <label><input type="checkbox" id="triggerFlip" checked> 🔄 Ters çevir</label>
+          <label><input type="checkbox" id="triggerShake"> 📳 Sallayınca</label>
+          <label><input type="checkbox" id="triggerVolDown3"> 🔉 Ses Kıs 3x</label>
+          <label><input type="checkbox" id="triggerVolUp3"> 🔊 Ses Aç 3x</label>
+          <label><input type="checkbox" id="triggerPower2"> 🔋 Güç 2x</label>
+          <label><input type="checkbox" id="triggerVolBoth"> 🎚 Aç+Kıs</label>
+          <label><input type="checkbox" id="triggerThreeFinger"> 👆 3 Parmak</label>
+          <label><input type="checkbox" id="triggerPocket"> 👖 Cebe koyma</label>
+        </div>
+        <p style="font-size:9px; color:#888; margin-top:8px;">İstediğini aç, hepsi aynı anda çalışır, biri tetiklenince diğerleri susar</p>
+      </div>
+      <button id="saveSecuritySettings">Kaydet</button>
+    </div>
+  </div>
+
+  <div id="panicConfirmModal" style="display:none;">
+    <div class="confirmBox">
+      <div style="font-size:40px; margin-bottom:12px;">⚠️</div>
+      <div id="panicConfirmText" style="font-size:14px; margin-bottom:20px;">Emin misin? Panik atılacak</div>
+      <div style="display:flex; gap:12px;">
+        <button id="panicConfirmCancel" style="flex:1; height:44px; background:#333; color:white; border:none; border-radius:8px;">İptal</button>
+        <button id="panicConfirmOk" style="flex:1; height:44px; background:#ff0000; color:white; border:none; border-radius:8px; font-weight:bold;">Panik At</button>
       </div>
     </div>
   </div>
@@ -110,7 +146,9 @@
           <option value="3600">1 saat</option>
           <option value="14400" selected>4 saat (varsayılan)</option>
           <option value="86400">1 gün</option>
+          <option value="custom_wheel">⚙ Wheel ile özel</option>
         </select>
+        <button id="perMessageWheelBtn" title="Wheel ile ayarla" style="width:32px; height:28px; background:#111; border:1px solid #333; color:#ffcc00; border-radius:6px; cursor:pointer; font-size:12px;">⚙</button>
         <select id="perMessagePersistSelect"><option value="once">Bu mesaj</option><option value="persist">Varsayılan yap</option></select>
         <button id="emojiBtn" title="Emoji">😊</button>
         <button id="nudgeBtn" title="Titreşim">👉</button>

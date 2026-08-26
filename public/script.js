@@ -1,4 +1,5 @@
-console.log("V19.0 FINAL - TUM OZELLIKLER - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim ortak");
+/* GORGOR V20 - 25 TEMMUZ STABIL - Kurukafa tam yok et + Flip blur + Sonen mum - Temel kurallar: fakeCalc 0000, oda1, varim/yokum korunuyor */
+console.log("V20 25TEMMUZ STABIL - V20 - Kurukafa + Flip Panik - Temel kurallar korunuyor - V19.0 FINAL - TUM OZELLIKLER - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim ortak");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
 const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
@@ -729,16 +730,42 @@ function enhancedPanic(){
     window.location.href = 'https://www.google.com';
   }
 }
-// panicBtn'i gelistirilmis panik ile degistir - V20: panicBtn = sadece kacis, skull = tam yok et
+// panicBtn'i gelistirilmis panik ile degistir
 document.addEventListener('DOMContentLoaded', ()=>{
   if(panicBtn){
     panicBtn.removeEventListener('click', panicBtn._oldListener||(()=>{}));
-    panicBtn.onclick = enhancedPanic;
+    panicBtn.onclick = function(){
+      const cfg = (typeof loadSecurityConfig === 'function') ? loadSecurityConfig() : {confirmRed:false, redAction:'escape'};
+      const needConfirm = cfg.confirmRed;
+      const doRed = ()=>{ enhancedPanic(); };
+      if(needConfirm && typeof showPanicConfirm === 'function'){
+        showPanicConfirm("Kırmızı panik atılsın mı?", doRed);
+      } else {
+        doRed();
+      }
+    };
   }
   if(skullPanicBtn){
-    skullPanicBtn.onclick = skullPanicFullDelete;
+    skullPanicBtn.onclick = function(){
+      const cfg = (typeof loadSecurityConfig === 'function') ? loadSecurityConfig() : {confirmSkull:true, skullAction:'full'};
+      const needConfirm = cfg.confirmSkull;
+      const doSkull = ()=>{
+        const action = cfg.skullAction;
+        if(action === 'escape'){
+          enhancedPanic();
+        } else {
+          skullPanicFullDelete();
+        }
+      };
+      if(needConfirm && typeof showPanicConfirm === 'function'){
+        showPanicConfirm("Kurukafa panik - mesajlar silinecek, emin misin?", doSkull);
+      } else {
+        doSkull();
+      }
+    };
   }
   initFlipPanicSensor();
+  if(typeof initSecuritySettings === 'function') initSecuritySettings();
 });
 
 // 3. FAKE BILDIRIM - Hesap Makinesi bildirimi
@@ -747,79 +774,50 @@ document.addEventListener('DOMContentLoaded', ()=>{
 function skullPanicFullDelete(){
   console.log("💀 SKULL PANIC - TAM YOK ET BASLADI");
   try{
-    // 1. Tum yazismalari server + local yok et (eski panik gibi ama duzgun tek sayfa)
-    if(messages){
-      messages.innerHTML = "";
-    }
+    if(messages){ messages.innerHTML = ""; }
     sentMessages.clear();
     activeTimers.forEach(t=>{ if(t.interval) clearInterval(t.interval); if(t.timeout) clearTimeout(t.timeout); });
     activeTimers.clear();
-    if(socket && currentRoom){
-      socket.emit("panic"); // server'daki persistedMessages'i siler + karsiya panic yayar
-    }
-
-    // 2. Clipboard temizle
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText('').catch(()=>{});
-    }
-
-    // 3. Oda bilgilerini sil (gizlilik)
+    if(socket && currentRoom){ socket.emit("panic"); }
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText('').catch(()=>{}); }
     try{
       localStorage.removeItem("gorgor_last_room");
       localStorage.removeItem("gorgor_last_user");
       localStorage.removeItem("gorgor_current_room");
       sessionStorage.clear();
     }catch(e){}
-
-    // 4. Medya trackleri durdur
     try{
       if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); localStream=null; }
       if(peer){ try{peer.destroy();}catch(e){} peer=null; }
       if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} }
       if(myVideo){ try{myVideo.pause();}catch(e){} try{myVideo.srcObject=null;}catch(e){} }
     }catch(e){}
-
-    // 5. Sönen mum animasyonu
     if(candleContainer){
       candleContainer.classList.add("show");
       candleContainer.style.display = "flex";
       candleContainer.classList.add("candle-extinguish");
       const flame = candleContainer.querySelector(".flame");
       if(flame){
-        // duman ekle
         const smoke = document.createElement("div");
         smoke.className = "candle-smoke";
         candleContainer.querySelector(".candle")?.appendChild(smoke);
         setTimeout(()=>{ try{smoke.remove();}catch(e){} }, 2000);
       }
     }
-
-    // 6. 800ms sonra sahte Anne arıyor ekranı + Google'a at (eski 2 sayfa bug'i yok, tek redirect)
     setTimeout(()=>{
       const fakeCallDiv = document.createElement('div');
       fakeCallDiv.className = "skull-panic-overlay";
       fakeCallDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:100000;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:system-ui;';
       fakeCallDiv.innerHTML = '<div style="font-size:80px;margin-bottom:20px;">📞</div><div style="font-size:22px;margin-bottom:8px;">Anne arıyor...</div><div style="font-size:14px;opacity:0.6;">kaydırmalı cevapla</div><div style="margin-top:40px;display:flex;gap:60px;"><div style="width:60px;height:60px;border-radius:50%;background:#ff3b30;display:flex;align-items:center;justify-content:center;font-size:30px;">📵</div><div style="width:60px;height:60px;border-radius:50%;background:#4cd964;display:flex;align-items:center;justify-content:center;font-size:30px;">📞</div></div><div style="margin-top:20px;font-size:10px;opacity:0.4;">💀 Geçmiş silindi - Gizlice kaçış</div>';
       document.body.appendChild(fakeCallDiv);
-      // 1.2sn sonra Google - tek sayfa, donma yok
       setTimeout(()=>{
-        try{
-          // son temizlik
-          document.body.innerHTML = '';
-          window.location.href = 'https://www.google.com';
-        }catch(e){
-          window.location.href = 'https://www.google.com';
-        }
+        try{ document.body.innerHTML = ''; window.location.href = 'https://www.google.com'; }catch(e){ window.location.href = 'https://www.google.com'; }
       }, 1200);
     }, 800);
-
-  }catch(e){
-    console.log("skull panic error", e);
-    window.location.href = 'https://www.google.com';
-  }
+  }catch(e){ console.log("skull panic error", e); window.location.href = 'https://www.google.com'; }
 }
 
-// ================= V20 - TERS CEVIRINCE OTOMATIK BLUR + PANIK =================
+// ================= V20 - TERS CEVIRINCE OTOMATIK FULL BLUR + PANIK =================
 let flipPanicEnabled = false;
 let flipPanicArmed = false;
 let lastFlipTrigger = 0;
@@ -829,7 +827,6 @@ let flipDebounceTimer = null;
 function initFlipPanicSensor(){
   const toggle = document.getElementById("flipPanicToggle");
   if(!toggle) return;
-  // localStorage'dan oku
   flipPanicEnabled = localStorage.getItem("gorgor_flip_panic") === "1";
   toggle.checked = flipPanicEnabled;
   toggle.addEventListener("change", ()=>{
@@ -838,11 +835,8 @@ function initFlipPanicSensor(){
     if(flipPanicEnabled){
       armFlipSensor();
       showToast("📱 Ters çevirince panik AKTİF - program açıkken çalışır");
-      // iOS için izin iste
       if(typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"){
-        DeviceOrientationEvent.requestPermission().then(state=>{
-          if(state === "granted"){ armFlipSensor(); }
-        }).catch(()=>{});
+        DeviceOrientationEvent.requestPermission().then(state=>{ if(state === "granted"){ armFlipSensor(); } }).catch(()=>{});
       }
     } else {
       disarmFlipSensor();
@@ -850,7 +844,6 @@ function initFlipPanicSensor(){
     }
   });
   if(flipPanicEnabled){
-    // sadece mainScreen acildiktan sonra arm et - giriste degil
     const checkMain = setInterval(()=>{
       if(mainScreen && mainScreen.style.display !== "none" && mainScreen.style.display !== ""){
         armFlipSensor();
@@ -863,29 +856,21 @@ function initFlipPanicSensor(){
 function armFlipSensor(){
   if(flipPanicArmed) return;
   if(!flipPanicEnabled) return;
-  // sadece program acildiktan sonra (mainScreen gorunurken) calissin
   if(!mainScreen || mainScreen.style.display === "none") return;
-
   flipPanicArmed = true;
-  console.log("📱 Flip sensor ARMED - hassasiyet dusuk");
-
-  // DeviceOrientation - telefon ters cevirme algilama
+  console.log("📱 Flip sensor ARMED - FULL BLUR");
   flipOrientationHandler = (e)=>{
     if(!flipPanicEnabled || !flipPanicArmed) return;
-    if(!mainScreen || mainScreen.style.display === "none") return; // giriste pasif
+    if(!mainScreen || mainScreen.style.display === "none") return;
     if(document.hidden) return;
-    const beta = e.beta; // -180 to 180, 0 = flat, 90 = dik, 180 = ters
+    const beta = e.beta;
     const gamma = e.gamma;
     if(beta === null) return;
-    // Hassasiyet DUSUK: sadece net ters cevirmede tetikle
-    // beta > 140 veya beta < -140 = yuz ustu ters
-    // veya gamma cok buyuk + beta orta = yan ters
-    const isFaceDown = Math.abs(beta) > 150; // cok net ters
+    const isFaceDown = Math.abs(beta) > 150;
     const isUpsideDown = Math.abs(beta) > 140 && Math.abs(gamma) > 60;
     if(isFaceDown || isUpsideDown){
-      if(Date.now() - lastFlipTrigger < 10000) return; // 10sn cooldown
+      if(Date.now() - lastFlipTrigger < 10000) return;
       if(flipDebounceTimer) clearTimeout(flipDebounceTimer);
-      // 600ms stabil ters kalirsa tetikle - hassas degil
       flipDebounceTimer = setTimeout(()=>{
         if(!flipPanicEnabled) return;
         if(Date.now() - lastFlipTrigger < 10000) return;
@@ -895,11 +880,7 @@ function armFlipSensor(){
       if(flipDebounceTimer){ clearTimeout(flipDebounceTimer); flipDebounceTimer = null; }
     }
   };
-
   window.addEventListener("deviceorientation", flipOrientationHandler, true);
-
-  // Yedek: proximity benzeri - ekran kararma + visibilitychange ile blur (kulağa götürme)
-  // Ama sadece flip toggle aktifse ve mainScreen'deyken
 }
 
 function disarmFlipSensor(){
@@ -910,33 +891,307 @@ function disarmFlipSensor(){
   }
   if(flipDebounceTimer){ clearTimeout(flipDebounceTimer); flipDebounceTimer = null; }
   document.body.classList.remove("flip-blur-active");
-  console.log("📱 Flip sensor DISARMED");
 }
 
 function triggerFlipPanic(){
   if(!flipPanicEnabled) return;
+  const cfg = (typeof loadSecurityConfig === 'function') ? loadSecurityConfig() : {flipAction:'red', confirmFlip:false, triggers:{flip:true}};
+  if(cfg.triggers && cfg.triggers.flip === false) return;
+  if(Date.now() - lastFlipTrigger < 10000) return;
   lastFlipTrigger = Date.now();
-  console.log("📱 FLIP TESPIT - BLUR + PANIK");
-  // Once bulaniklastir - hemen
+  console.log("📱 FLIP TESPIT - FULL BLUR + PANIK - Phone4 red gibi");
   document.body.classList.add("flip-blur-active");
-  showToast("📱 Ters çevrildi - gizlilik modu aktif");
+  showToast("📱 Ters çevrildi - tum program buğulandi");
   try{ if(navigator.vibrate) navigator.vibrate([100,50,100]); }catch(e){}
-  // 1.2sn sonra kurukafa panik otomatik
   setTimeout(()=>{
     document.body.classList.remove("flip-blur-active");
-    skullPanicFullDelete();
+    const flipAction = cfg.flipAction || 'red';
+    const needConfirm = cfg.confirmFlip;
+    const doFlip = ()=>{
+      if(flipAction === 'skull'){
+        skullPanicFullDelete();
+      } else if(flipAction === 'blur'){
+        showToast("🌫 Tam ekran buğulu - gizlilik modu");
+        document.body.classList.add("flip-blur-active");
+        setTimeout(()=>document.body.classList.remove("flip-blur-active"), 3000);
+      } else if(flipAction === 'off'){
+        return;
+      } else {
+        enhancedPanic();
+      }
+    };
+    if(needConfirm && typeof showPanicConfirm === 'function'){
+      showPanicConfirm("Ters çevirme panik atılsın mı?", doFlip);
+    } else {
+      doFlip();
+    }
   }, 1200);
 }
 
 
-// mainScreen acildiginda flip sensor'u arm et (giris degil, program acildiktan sonra) - V20
-socket.on("joined-room", (data)=>{
-  setTimeout(()=>{
-    if(localStorage.getItem("gorgor_flip_panic") === "1"){
-      armFlipSensor();
+// ================= V21 PHONE4 HIBRIT - GÜVENLİK AYARLARI - ONAY + ÇOKLU TETİKLEYİCİ =================
+let securityConfigCache = null;
+function defaultSecurityConfig(){
+  return {
+    skullAction: 'full',
+    redAction: 'escape',
+    flipAction: 'red',
+    confirmSkull: true,
+    confirmRed: false,
+    confirmFlip: false,
+    triggers: {
+      flip: true,
+      shake: false,
+      volDown3: false,
+      volUp3: false,
+      power2: false,
+      volBoth: false,
+      threeFinger: false,
+      pocket: false
     }
-  }, 2000);
-});
+  };
+}
+function loadSecurityConfig(){
+  try{
+    const saved = localStorage.getItem("gorgor_security_config");
+    if(saved){
+      const parsed = JSON.parse(saved);
+      return {...defaultSecurityConfig(), ...parsed, triggers:{...defaultSecurityConfig().triggers, ...(parsed.triggers||{})}};
+    }
+  }catch(e){}
+  return defaultSecurityConfig();
+}
+function saveSecurityConfig(cfg){
+  try{
+    localStorage.setItem("gorgor_security_config", JSON.stringify(cfg));
+    securityConfigCache = cfg;
+  }catch(e){}
+}
+function initSecuritySettings(){
+  const panel = document.getElementById("securitySettingsPanel");
+  const btn = document.getElementById("securitySettingsBtn");
+  const closeBtn = document.getElementById("closeSecurityPanel");
+  const saveBtn = document.getElementById("saveSecuritySettings");
+  const wheelBtn = document.getElementById("perMessageWheelBtn");
+  if(btn && panel){
+    btn.onclick = ()=>{ showSecurityPanel(); };
+  }
+  if(closeBtn){
+    closeBtn.onclick = ()=>{ hideSecurityPanel(); };
+  }
+  if(panel){
+    panel.addEventListener("click", (e)=>{ if(e.target===panel) hideSecurityPanel(); });
+  }
+  if(saveBtn){
+    saveBtn.onclick = ()=>{
+      const cfg = {
+        skullAction: document.getElementById("skullActionSelect")?.value || 'full',
+        redAction: document.getElementById("redActionSelect")?.value || 'escape',
+        flipAction: document.getElementById("flipActionSelect")?.value || 'red',
+        confirmSkull: !!document.getElementById("confirmSkull")?.checked,
+        confirmRed: !!document.getElementById("confirmRed")?.checked,
+        confirmFlip: !!document.getElementById("confirmFlip")?.checked,
+        triggers: {
+          flip: !!document.getElementById("triggerFlip")?.checked,
+          shake: !!document.getElementById("triggerShake")?.checked,
+          volDown3: !!document.getElementById("triggerVolDown3")?.checked,
+          volUp3: !!document.getElementById("triggerVolUp3")?.checked,
+          power2: !!document.getElementById("triggerPower2")?.checked,
+          volBoth: !!document.getElementById("triggerVolBoth")?.checked,
+          threeFinger: !!document.getElementById("triggerThreeFinger")?.checked,
+          pocket: !!document.getElementById("triggerPocket")?.checked
+        }
+      };
+      saveSecurityConfig(cfg);
+      applySecurityTriggers(cfg);
+      hideSecurityPanel();
+      showToast("🛡 Güvenlik ayarları kaydedildi - istediğin tetikleyiciler aktif");
+    };
+  }
+  if(wheelBtn){
+    wheelBtn.onclick = ()=>{ if(typeof openWheel === 'function') openWheel(); };
+  }
+  const perMsgSelect = document.getElementById("perMessageTimerSelect");
+  if(perMsgSelect){
+    perMsgSelect.addEventListener("change", ()=>{
+      if(perMsgSelect.value === "custom_wheel"){
+        if(typeof openWheel === 'function') openWheel();
+      }
+    });
+  }
+  const cfg = loadSecurityConfig();
+  applySecuritySettingsToUI(cfg);
+  applySecurityTriggers(cfg);
+}
+function showSecurityPanel(){
+  const panel = document.getElementById("securitySettingsPanel");
+  if(!panel) return;
+  const cfg = loadSecurityConfig();
+  applySecuritySettingsToUI(cfg);
+  panel.style.display = "flex";
+}
+function hideSecurityPanel(){
+  const panel = document.getElementById("securitySettingsPanel");
+  if(panel) panel.style.display = "none";
+}
+function applySecuritySettingsToUI(cfg){
+  const setVal = (id, val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
+  const setChk = (id, val)=>{ const el=document.getElementById(id); if(el) el.checked=!!val; };
+  setVal("skullActionSelect", cfg.skullAction);
+  setVal("redActionSelect", cfg.redAction);
+  setVal("flipActionSelect", cfg.flipAction);
+  setChk("confirmSkull", cfg.confirmSkull);
+  setChk("confirmRed", cfg.confirmRed);
+  setChk("confirmFlip", cfg.confirmFlip);
+  setChk("triggerFlip", cfg.triggers.flip);
+  setChk("triggerShake", cfg.triggers.shake);
+  setChk("triggerVolDown3", cfg.triggers.volDown3);
+  setChk("triggerVolUp3", cfg.triggers.volUp3);
+  setChk("triggerPower2", cfg.triggers.power2);
+  setChk("triggerVolBoth", cfg.triggers.volBoth);
+  setChk("triggerThreeFinger", cfg.triggers.threeFinger);
+  setChk("triggerPocket", cfg.triggers.pocket);
+  flipPanicEnabled = !!cfg.triggers.flip;
+  if(flipPanicEnabled) armFlipSensor(); else disarmFlipSensor();
+}
+let securityTriggersArmed = false;
+let volDownCount=0, volUpCount=0, volDownTimer=null, volUpTimer=null, lastPowerHide=0;
+function applySecurityTriggers(cfg){
+  if(securityTriggersArmed) disarmSecurityTriggers();
+  securityTriggersArmed = true;
+  if(cfg.triggers.shake){
+    window.addEventListener("devicemotion", handleShakeMotion, true);
+  }
+  if(cfg.triggers.volDown3 || cfg.triggers.volUp3 || cfg.triggers.volBoth){
+    window.addEventListener("keydown", handleVolumeKeys, true);
+  }
+  if(cfg.triggers.power2){
+    document.addEventListener("visibilitychange", handlePowerDouble, true);
+  }
+  if(cfg.triggers.threeFinger){
+    window.addEventListener("touchstart", handleThreeFinger, {passive:false});
+  }
+  if(cfg.triggers.pocket){
+    try{
+      if('AmbientLightSensor' in window){
+        const sensor = new AmbientLightSensor();
+        sensor.addEventListener("reading", ()=>{
+          if(sensor.illuminance < 5){
+            triggerSecurityAction("pocket");
+          }
+        });
+        sensor.start();
+      }
+    }catch(e){ console.log("pocket sensor not available"); }
+  }
+}
+function disarmSecurityTriggers(){
+  window.removeEventListener("devicemotion", handleShakeMotion, true);
+  window.removeEventListener("keydown", handleVolumeKeys, true);
+  document.removeEventListener("visibilitychange", handlePowerDouble, true);
+  window.removeEventListener("touchstart", handleThreeFinger, {passive:false});
+  securityTriggersArmed = false;
+}
+function handleShakeMotion(e){
+  const acc = e.accelerationIncludingGravity;
+  if(!acc) return;
+  const force = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+  if(force > 35){
+    triggerSecurityAction("shake");
+  }
+}
+function handleVolumeKeys(e){
+  const cfg = loadSecurityConfig();
+  if(e.key === "AudioVolumeDown" || e.key === "VolumeDown" || (e.key==="ArrowDown" && e.ctrlKey)){
+    if(cfg.triggers.volDown3){
+      volDownCount++;
+      clearTimeout(volDownTimer);
+      volDownTimer = setTimeout(()=>{ volDownCount=0; }, 2000);
+      if(volDownCount>=3){
+        volDownCount=0;
+        triggerSecurityAction("volDown3");
+      }
+    }
+  }
+  if(e.key === "AudioVolumeUp" || e.key === "VolumeUp" || (e.key==="ArrowUp" && e.ctrlKey)){
+    if(cfg.triggers.volUp3){
+      volUpCount++;
+      clearTimeout(volUpTimer);
+      volUpTimer = setTimeout(()=>{ volUpCount=0; }, 2000);
+      if(volUpCount>=3){
+        volUpCount=0;
+        triggerSecurityAction("volUp3");
+      }
+    }
+  }
+  if(cfg.triggers.volBoth){
+    if(e.key === "AudioVolumeDown" || e.key === "VolumeDown"){
+      const now = Date.now();
+      if(window._lastVolUp && now - window._lastVolUp < 800){
+        triggerSecurityAction("volBoth");
+      }
+    }
+    if(e.key === "AudioVolumeUp" || e.key === "VolumeUp"){
+      window._lastVolUp = Date.now();
+    }
+  }
+}
+function handlePowerDouble(){
+  if(document.hidden){
+    const now = Date.now();
+    if(now - lastPowerHide < 1500){
+      triggerSecurityAction("power2");
+    }
+    lastPowerHide = now;
+  }
+}
+function handleThreeFinger(e){
+  if(e.touches && e.touches.length >= 3){
+    e.preventDefault();
+    triggerSecurityAction("threeFinger");
+  }
+}
+function triggerSecurityAction(source){
+  const cfg = loadSecurityConfig();
+  console.log("Security trigger:", source, cfg);
+  document.body.classList.add("flip-blur-active");
+  showToast("🛡 " + source + " - tum ekran buğulandi");
+  try{ if(navigator.vibrate) navigator.vibrate([100,50,100]); }catch(e){}
+  setTimeout(()=>{
+    document.body.classList.remove("flip-blur-active");
+    const needConfirm = cfg.confirmRed;
+    const doAction = ()=>{
+      if(cfg.redAction === 'confirm_escape' || cfg.flipAction === 'skull'){
+        skullPanicFullDelete();
+      } else {
+        enhancedPanic();
+      }
+    };
+    if(needConfirm){
+      showPanicConfirm(source + " tetiklendi - panik atılsın mı?", doAction);
+    } else {
+      doAction();
+    }
+  }, 1200);
+}
+function showPanicConfirm(text, onConfirm){
+  const modal = document.getElementById("panicConfirmModal");
+  const txt = document.getElementById("panicConfirmText");
+  const ok = document.getElementById("panicConfirmOk");
+  const cancel = document.getElementById("panicConfirmCancel");
+  if(!modal) { onConfirm(); return; }
+  if(txt) txt.textContent = text;
+  modal.style.display = "flex";
+  const cleanup = ()=>{
+    modal.style.display = "none";
+    ok.onclick = null;
+    cancel.onclick = null;
+    modal.onclick = null;
+  };
+  ok.onclick = ()=>{ cleanup(); onConfirm(); };
+  cancel.onclick = ()=>{ cleanup(); };
+  modal.onclick = (e)=>{ if(e.target===modal) cleanup(); };
+}
 
 
 
@@ -964,60 +1219,7 @@ function showFakeNotification(realFrom){
 document.addEventListener('DOMContentLoaded', initFakeNotifications);
 
 // 4. SESLI MESAJ (yok olan)
-function initVoiceMessage(){
-  // UI: sendBtn yanina mic basili tut butonu ekle
-  const inputArea = document.getElementById('inputArea');
-  const bottomRow = document.querySelector('.inputBottomRow');
-  if(!bottomRow) return;
-  // voice button
-  let voiceBtn = document.getElementById('voiceRecordBtn');
-  if(!voiceBtn){
-    voiceBtn = document.createElement('button');
-    voiceBtn.id = 'voiceRecordBtn';
-    voiceBtn.textContent = '🎙';
-    voiceBtn.title = 'Basılı tut, sesli mesaj kaydet (yok olan)';
-    voiceBtn.style.cssText = 'width:44px;height:44px;border-radius:50%;background:#111;border:1px solid #333;color:#00ff88;font-size:18px;cursor:pointer;';
-    bottomRow.appendChild(voiceBtn);
-  }
-  voiceBtn.addEventListener('mousedown', startVoiceRecording);
-  voiceBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); startVoiceRecording(); });
-  voiceBtn.addEventListener('mouseup', stopVoiceRecording);
-  voiceBtn.addEventListener('mouseleave', stopVoiceRecording);
-  voiceBtn.addEventListener('touchend', (e)=>{ e.preventDefault(); stopVoiceRecording(); });
-}
-async function startVoiceRecording(){
-  if(isRecordingVoice) return;
-  try{
-    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-    mediaRecorder.ondataavailable = e=>{ if(e.data.size>0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = async ()=>{
-      const duration = Math.floor((Date.now() - voiceRecordStartTime)/1000);
-      if(duration < 1){ showToast('Çok kısa, en az 1 saniye konuş'); return; }
-      const blob = new Blob(audioChunks, {type:'audio/webm'});
-      const reader = new FileReader();
-      reader.onload = async ()=>{
-        const base64 = reader.result.split(',')[1];
-        const enc = await encryptText(base64, currentPassword);
-        const msgId = 'voice_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
-        const expireSec = parseInt(perMessageTimerSelect?.value || defaultExpire || '14400');
-        socket.emit('chat-voice', {msgId, enc, expireSec, duration, mediaType:'voice'});
-        // kendi ekrana ekle
-        addVoiceMessageToUI(msgId, base64, true, duration, expireSec);
-      };
-      reader.readAsDataURL(blob);
-      stream.getTracks().forEach(t=>t.stop());
-    };
-    mediaRecorder.start();
-    isRecordingVoice = true;
-    voiceRecordStartTime = Date.now();
-    document.getElementById('voiceRecordBtn').style.background = '#ff3b30';
-    document.getElementById('voiceRecordBtn').textContent = '⏹';
-    showToast('🎙 Kaydediliyor... bırakınca gönderilecek');
-    socket.emit('voice-start', {from: myRealUsername});
-  }catch(e){ showToast('Mikrofon izni gerekli'); console.error(e); }
-}
+// voice removed
 function stopVoiceRecording(){
   if(!isRecordingVoice) return;
   isRecordingVoice = false;
@@ -1325,3 +1527,17 @@ document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document
 
 // V19 CSS injection
 (function(){ const style=document.createElement('style'); style.textContent=` .screenshot-blur-active { filter: blur(12px) !important; pointer-events:none; } .voice-message .voice-bubble{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #333;border-radius:16px;padding:8px 12px;} .voice-wave span{display:inline-block;width:3px;height:12px;background:#00ff88;margin:0 1px;border-radius:2px;animation:wave 1s infinite;} @keyframes wave{0%,100%{height:8px}50%{height:20px}} .reactions{animation:fadeIn 0.3s} #reactionBar{animation:pop 0.2s} @keyframes pop{0%{transform:scale(0.5)}100%{transform:scale(1)}} `; document.head.appendChild(style); })();
+
+// V21 - emoji animation fix for all
+function ensureEmojiAnimations(){
+  const emojis = document.querySelectorAll(".flyEmoji");
+  emojis.forEach(em=>{
+    if(!em.dataset.effect || em.dataset.effect === ""){
+      em.dataset.effect = "bounce";
+    }
+    if(!em.style.animation){
+      em.style.animation = "emojiFloat 0.5s ease";
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(ensureEmojiAnimations, 500); });
