@@ -329,7 +329,7 @@ if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.t
 document.querySelectorAll('.flyEmoji').forEach(emoji=>{ if(emoji.id==='addCustomEmoji') return; emoji.onclick=(e)=>{ e.stopPropagation(); const emojiText=emoji.textContent; const effect=emoji.dataset.effect; socket.emit('fly-emoji',{emoji:emojiText,effect}); createFlyingEmoji(emojiText,effect,true); emojiPanel.classList.remove("show"); }; });
 socket.on('fly-emoji',(data)=>createFlyingEmoji(data.emoji,data.effect,false));
 function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.innerWidth-120:80; const baseY=140; if(effect==='big-kiss'){ const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋'; big.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;z-index:9999;animation:explodeBoom 1s forwards;'; document.body.appendChild(big); setTimeout(()=>big.remove(),1000); return; } if(effect==='water'){ for(let i=0;i<10;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji water'; d.textContent='💧'; d.style.left=(window.innerWidth/2+Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='fireRainFall 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*60); } return; } let count=1; let animClass=effect||'heart'; if(effect==='heart'||effect==='kiss') count=8; else if(['kiss-rain','heart-rain','money-rain','star-rain','fire-rain','laugh-rain','angry-rain','emoji-rain'].includes(effect)) count=14; else if(['flower','sparkle','star'].includes(effect)) count=6; else if(['fire','explode'].includes(effect)) count=3; else if(['party','confetti'].includes(effect)) count=20; else if(['money','thumbs','wow','skull','heart-burst'].includes(effect)) count=1; for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+animClass; fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90+i*12)+'px'; fly.style.bottom=(baseY+Math.random()*60)+'px'; fly.style.fontSize=(effect==='explode'||effect==='heart-burst')?'90px':(effect==='fire'?'72px':(52+Math.random()*28)+'px'); document.body.appendChild(fly); setTimeout(()=>fly.remove(),3500); }, i*80); } if(['fire','explode','party','confetti','rocket','rocket-fly'].includes(effect)){ document.body.classList.add('mega-shake'); setTimeout(()=>document.body.classList.remove('mega-shake'),700); } }
-micBtn.onclick=async()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
+micBtn.onclick=async()=>{ console.log("mic click", !!localStream); if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ showToast("Kamera başlatılamadı"); return; } } micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
 camBtn.onclick=async()=>{
   if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
   if(!camEnabled){
@@ -385,7 +385,7 @@ let _phoneWasCamOn=false; let _phoneWasMicOn=false;
 let _phoneCallOutgoing = false;
 if(phoneModeBtn){
   phoneModeBtn.onclick = async ()=>{
-    if(_phoneCallOutgoing) return;
+    if(_phoneCallOutgoing){ _phoneCallOutgoing = false; if(phoneModeBtn) phoneModeBtn.textContent = "📞"; socket.emit("phone-call-cancel", {from: myRealUsername, room: currentRoom}); showToast("📞 Arama iptal edildi"); return; }
     if(isPhoneMode){
       isPhoneMode=false;
       document.body.classList.remove("phone-mode");
@@ -735,30 +735,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(panicBtn){
     panicBtn.removeEventListener('click', panicBtn._oldListener||(()=>{}));
     panicBtn.onclick = function(){
-      const cfg = (typeof loadSecurityConfig === 'function') ? loadSecurityConfig() : {confirmRed:false, redAction:'escape'};
-      const needConfirm = cfg.confirmRed;
-      const doRed = ()=>{ enhancedPanic(); };
-      if(needConfirm && typeof showPanicConfirm === 'function'){
-        showPanicConfirm("Kırmızı panik atılsın mı?", doRed);
+      const cfg = (typeof loadSecurityConfig === 'function') ? loadSecurityConfig() : {confirmRed:false};
+      if(cfg.confirmRed && typeof showPanicConfirm === 'function'){
+        showPanicConfirm("Kırmızı panik atılsın mı?", ()=>{ enhancedPanic(); });
       } else {
-        doRed();
+        enhancedPanic();
       }
     };
   }
   if(skullPanicBtn){
     skullPanicBtn.onclick = function(){
       const cfg = (typeof loadSecurityConfig === 'function') ? loadSecurityConfig() : {confirmSkull:true, skullAction:'full'};
-      const needConfirm = cfg.confirmSkull;
       const doSkull = ()=>{
-        const action = cfg.skullAction;
-        if(action === 'escape'){
-          enhancedPanic();
-        } else {
-          skullPanicFullDelete();
-        }
+        if(cfg.skullAction === 'escape') enhancedPanic(); else skullPanicFullDelete();
       };
-      if(needConfirm && typeof showPanicConfirm === 'function'){
-        showPanicConfirm("Kurukafa panik - mesajlar silinecek, emin misin?", doSkull);
+      if(cfg.confirmSkull && typeof showPanicConfirm === 'function'){
+        showPanicConfirm("Kurukafa - mesajlar silinecek, emin misin?", doSkull);
       } else {
         doSkull();
       }
@@ -766,6 +758,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   initFlipPanicSensor();
   if(typeof initSecuritySettings === 'function') initSecuritySettings();
+  // Fix phone call cancelable
+  if(typeof _phoneCallOutgoing !== 'undefined'){
+    // phone cancel will be handled in phoneModeBtn onclick below
+  }
 });
 
 // 3. FAKE BILDIRIM - Hesap Makinesi bildirimi
@@ -929,7 +925,7 @@ function triggerFlipPanic(){
 }
 
 
-// ================= V21 PHONE4 HIBRIT - GÜVENLİK AYARLARI - ONAY + ÇOKLU TETİKLEYİCİ =================
+// ================= V21 PHONE4 FIX2 - GÜVENLİK AYARLARI + SES/KAMERA FIX =================
 let securityConfigCache = null;
 function defaultSecurityConfig(){
   return {
@@ -1005,7 +1001,7 @@ function initSecuritySettings(){
       saveSecurityConfig(cfg);
       applySecurityTriggers(cfg);
       hideSecurityPanel();
-      showToast("🛡 Güvenlik ayarları kaydedildi - istediğin tetikleyiciler aktif");
+      showToast("🛡 Güvenlik ayarları kaydedildi");
     };
   }
   if(wheelBtn){
@@ -1070,19 +1066,6 @@ function applySecurityTriggers(cfg){
   }
   if(cfg.triggers.threeFinger){
     window.addEventListener("touchstart", handleThreeFinger, {passive:false});
-  }
-  if(cfg.triggers.pocket){
-    try{
-      if('AmbientLightSensor' in window){
-        const sensor = new AmbientLightSensor();
-        sensor.addEventListener("reading", ()=>{
-          if(sensor.illuminance < 5){
-            triggerSecurityAction("pocket");
-          }
-        });
-        sensor.start();
-      }
-    }catch(e){ console.log("pocket sensor not available"); }
   }
 }
 function disarmSecurityTriggers(){
@@ -1153,22 +1136,15 @@ function handleThreeFinger(e){
 }
 function triggerSecurityAction(source){
   const cfg = loadSecurityConfig();
-  console.log("Security trigger:", source, cfg);
   document.body.classList.add("flip-blur-active");
-  showToast("🛡 " + source + " - tum ekran buğulandi");
+  showToast("🛡 " + source + " - buğulandi");
   try{ if(navigator.vibrate) navigator.vibrate([100,50,100]); }catch(e){}
   setTimeout(()=>{
     document.body.classList.remove("flip-blur-active");
     const needConfirm = cfg.confirmRed;
-    const doAction = ()=>{
-      if(cfg.redAction === 'confirm_escape' || cfg.flipAction === 'skull'){
-        skullPanicFullDelete();
-      } else {
-        enhancedPanic();
-      }
-    };
+    const doAction = ()=>{ enhancedPanic(); };
     if(needConfirm){
-      showPanicConfirm(source + " tetiklendi - panik atılsın mı?", doAction);
+      showPanicConfirm(source + " tetiklendi - panik?", doAction);
     } else {
       doAction();
     }
@@ -1184,13 +1160,13 @@ function showPanicConfirm(text, onConfirm){
   modal.style.display = "flex";
   const cleanup = ()=>{
     modal.style.display = "none";
-    ok.onclick = null;
-    cancel.onclick = null;
+    if(ok) ok.onclick = null;
+    if(cancel) cancel.onclick = null;
     modal.onclick = null;
   };
-  ok.onclick = ()=>{ cleanup(); onConfirm(); };
-  cancel.onclick = ()=>{ cleanup(); };
-  modal.onclick = (e)=>{ if(e.target===modal) cleanup(); };
+  if(ok) ok.onclick = ()=>{ cleanup(); onConfirm(); };
+  if(cancel) cancel.onclick = ()=>{ cleanup(); };
+  if(modal) modal.onclick = (e)=>{ if(e.target===modal) cleanup(); };
 }
 
 
@@ -1580,11 +1556,3 @@ document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document
 
 // V19 CSS injection
 (function(){ const style=document.createElement('style'); style.textContent=` .screenshot-blur-active { filter: blur(12px) !important; pointer-events:none; } .voice-message .voice-bubble{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #333;border-radius:16px;padding:8px 12px;} .voice-wave span{display:inline-block;width:3px;height:12px;background:#00ff88;margin:0 1px;border-radius:2px;animation:wave 1s infinite;} @keyframes wave{0%,100%{height:8px}50%{height:20px}} .reactions{animation:fadeIn 0.3s} #reactionBar{animation:pop 0.2s} @keyframes pop{0%{transform:scale(0.5)}100%{transform:scale(1)}} `; document.head.appendChild(style); })();
-
-// V21 - emoji animation fix
-function ensureEmojiAnimations(){
-  document.querySelectorAll(".flyEmoji").forEach(em=>{
-    if(!em.dataset.effect) em.dataset.effect="bounce";
-  });
-}
-document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(ensureEmojiAnimations, 500); });

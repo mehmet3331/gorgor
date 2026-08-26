@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>GORGOR V21 - PHONE4 HIBRIT FIX</title>
+<title>GORGOR V21 PHONE4 FIX2 - TUM OZELLIKLER</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="mobile_fix.css" />
 <script src="/socket.io/socket.io.js"></script>
@@ -33,7 +33,7 @@
   </div>
 </div>
 
-<div id="roomScreen" style="display:none;"><div style="position:absolute;top:10px;right:10px;background:#00ff88;color:#000;padding:2px 8px;border-radius:10px;font-size:10px;">V21 PHONE4 FIX</div>
+<div id="roomScreen" style="display:none;"><div style="position:absolute;top:10px;right:10px;background:#00ff88;color:#000;padding:2px 8px;border-radius:10px;font-size:10px;">V21 PHONE4 FIX2 - ses kamera duzeltildi</div>
   <h2>🔒 GORGOR</h2>
   <input id="roomName" placeholder="Oda adı" autocomplete="off" />
   <div id="fakeRoomsHint" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; font-size:12px;">
@@ -134,6 +134,8 @@
         <button id="panicConfirmOk" style="flex:1; height:44px; background:#ff0000; color:white; border:none; border-radius:8px; font-weight:bold;">Panik At</button>
       </div>
     </div>
+  </div><div class="statusBox" id="currentUserBox">-</div></div>
+    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="900">15 dk</option><option value="3600">1 saat</option><option value="14400" selected>4 saat</option><option value="86400">24 saat</option><option value="custom">⚙ Ayarla (Wheel)</option></select><button id="openWheelBtn" style="margin-top:8px;width:100%;height:32px;background:#111;border:1px solid #333;color:#ffcc00;border-radius:6px;cursor:pointer;font-size:11px;">⚙ Wheel ile Ayarla</button></div>
   </div>
 
   <button id="chatToggle">💬</button>
