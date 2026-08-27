@@ -258,7 +258,67 @@ async function encryptText(text,password){ const key=await deriveKey(password); 
 async function decryptText(b64,password){ try{ const key=await deriveKey(password); const combined=b64ToBuf(b64); const iv=combined.slice(0,12); const ct=combined.slice(12); const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct); return new TextDecoder().decode(pt); }catch(e){ return null; } }
 if(defaultSelfDestructSelect) defaultSelfDestructSelect.value="14400";
 if(micBtn) micBtn.textContent="🎤"; if(camBtn) camBtn.textContent="📹";
-async function startCamera(height=720, facingMode=currentFacingMode){ try{ if(localStream){ localStream.getVideoTracks().forEach(t=>t.stop()); } localStream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}}, audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true} }); myVideo.srcObject=localStream; myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)"; localStream.getVideoTracks().forEach(t=>t.enabled=false); localStream.getAudioTracks().forEach(t=>t.enabled=false); micEnabled=false; camEnabled=false; if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(camBtn){ camBtn.classList.add("offIcon"); } return true; }catch(err){ console.log("kamera hata",err); return false; } }
+async function startCamera(height=720, facingMode=currentFacingMode){
+  // Preserve current enabled states
+  const prevMicEnabled = (typeof micEnabled !== 'undefined') ? micEnabled : false;
+  const prevCamEnabled = (typeof camEnabled !== 'undefined') ? camEnabled : false;
+  const hadStream = !!localStream;
+  try{
+    if(localStream){
+      // Stop only video tracks, keep audio track if mic was on? Actually stop all and recreate
+      localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} });
+    }
+    localStream=await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}},
+      audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}
+    });
+    myVideo.srcObject=localStream;
+    myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)";
+    
+    // If this is first time (no previous stream), keep disabled for privacy
+    // If had previous stream, restore previous enabled states
+    if(!hadStream){
+      localStream.getVideoTracks().forEach(t=>t.enabled=false);
+      localStream.getAudioTracks().forEach(t=>t.enabled=false);
+      micEnabled=false;
+      camEnabled=false;
+      if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+      if(camBtn){ camBtn.classList.add("offIcon"); }
+    } else {
+      // Restore previous states - FIX for kamera kapanma
+      localStream.getVideoTracks().forEach(t=>t.enabled=prevCamEnabled);
+      localStream.getAudioTracks().forEach(t=>t.enabled=prevMicEnabled);
+      micEnabled=prevMicEnabled;
+      camEnabled=prevCamEnabled;
+      if(micBtn){
+        if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+      }
+      if(camBtn){
+        if(camEnabled){ camBtn.classList.remove("offIcon"); } else { camBtn.classList.add("offIcon"); }
+      }
+      // Update peer connection with new tracks if in call
+      if(typeof peer !== 'undefined' && peer && peer._pc){
+        try{
+          const videoTrack = localStream.getVideoTracks()[0];
+          const audioTrack = localStream.getAudioTracks()[0];
+          const senders = peer._pc.getSenders();
+          if(videoTrack){
+            const vSender = senders.find(s=>s.track && s.track.kind==='video');
+            if(vSender) vSender.replaceTrack(videoTrack);
+          }
+          if(audioTrack){
+            const aSender = senders.find(s=>s.track && s.track.kind==='audio');
+            if(aSender) aSender.replaceTrack(audioTrack);
+          }
+        }catch(e){ console.log("replaceTrack hata", e); }
+      }
+    }
+    return true;
+  }catch(err){
+    console.log("kamera hata",err);
+    return false;
+  }
+}
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=>socket.emit("ping-check",Date.now()),3000); }
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
 
@@ -315,10 +375,8 @@ sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let 
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{
   addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt);
-  // Mesaj bildirimi yanıp sönme - yeşil kırmızı
   const isMine = (data.realUsername||data.username) === myRealUsername || data.username === myUsername;
-  const chatPanel = document.getElementById("chatPanel");
-  const isChatOpen = document.body.classList.contains("chat-open") || (chatPanel && chatPanel.style.display === "flex");
+  const isChatOpen = document.body.classList.contains("chat-open");
   if(!isMine && !isChatOpen){
     if(typeof triggerNewMessageBlink === 'function') triggerNewMessageBlink();
   }
@@ -326,8 +384,7 @@ socket.on("chat-message", data=>{
 socket.on("chat-media", data=>{
   addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username,data.sentAt);
   const isMine = (data.realUsername||data.username) === myRealUsername || data.username === myUsername;
-  const chatPanel = document.getElementById("chatPanel");
-  const isChatOpen = document.body.classList.contains("chat-open") || (chatPanel && chatPanel.style.display === "flex");
+  const isChatOpen = document.body.classList.contains("chat-open");
   if(!isMine && !isChatOpen){
     if(typeof triggerNewMessageBlink === 'function') triggerNewMessageBlink();
   }
@@ -1610,7 +1667,7 @@ document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document
 (function(){ const style=document.createElement('style'); style.textContent=` .screenshot-blur-active { filter: blur(12px) !important; pointer-events:none; } .voice-message .voice-bubble{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #333;border-radius:16px;padding:8px 12px;} .voice-wave span{display:inline-block;width:3px;height:12px;background:#00ff88;margin:0 1px;border-radius:2px;animation:wave 1s infinite;} @keyframes wave{0%,100%{height:8px}50%{height:20px}} .reactions{animation:fadeIn 0.3s} #reactionBar{animation:pop 0.2s} @keyframes pop{0%{transform:scale(0.5)}100%{transform:scale(1)}} `; document.head.appendChild(style); })();
 
 
-// Mesaj bildirimi yanıp sönme - yeşil kırmızı
+// Mesaj bildirimi yanıp sönme - kırmızı beyaz cok belli
 function triggerNewMessageBlink(){
   const chatToggle = document.getElementById("chatToggle");
   const floatingPill = document.getElementById("floatingPill");
@@ -1618,19 +1675,15 @@ function triggerNewMessageBlink(){
   if(chatToggle) chatToggle.classList.add("hasNewMessage");
   if(floatingPill) floatingPill.classList.add("hasNewMessage");
   if(left) left.classList.add("hasNewMessage");
-  // 5 saniye sonra dur veya chat açılınca dur
   setTimeout(()=>{
     if(chatToggle) chatToggle.classList.remove("hasNewMessage");
     if(floatingPill) floatingPill.classList.remove("hasNewMessage");
     if(left) left.classList.remove("hasNewMessage");
   }, 8000);
 }
-// Chat açılınca blink'i durdur
 document.addEventListener('DOMContentLoaded', ()=>{
   const chatToggle = document.getElementById("chatToggle");
-  const chatPanel = document.getElementById("chatPanel");
   if(chatToggle){
-    const origToggle = chatToggle.onclick;
     chatToggle.addEventListener('click', ()=>{
       chatToggle.classList.remove("hasNewMessage");
       const fp = document.getElementById("floatingPill");

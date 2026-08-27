@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>GORGOR V20 - 25 TEMMUZ STABIL</title>
+<title>GORGOR V21 • UYARLANMIS • FINAL - Kamera Fix + Kirmizi Beyaz Bildirim</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="mobile_fix.css" />
 <script src="/socket.io/socket.io.js"></script>
@@ -51,10 +51,11 @@
   <video id="remoteVideo" autoplay playsinline></video>
   <div id="floatingPill">
     <div id="floatingPillLeft">
+      <button id="backBtn" title="Geri" style="background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer; margin-right:6px;">←</button>
       <span id="opponentDot" class="onlineDot offline"></span>
       <span id="opponentNameDisplay" class="opponentName">-</span>
-      <span id="opponentStatusText" class="opponentStatus">Bekleniyor</span>
-      <select id="privacyModeSelect" title="Güvenlik Modu" style="margin-left:4px; background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 6px; height:22px;">
+      <span id="opponentStatusText" class="opponentStatus" style="font-size:10px; color:#888; margin-left:4px;">son görülme -</span>
+      <select id="privacyModeSelect" title="Güvenlik Modu" style="margin-left:6px; background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 6px; height:22px;">
         <option value="private" selected>🔒 Özel</option>
         <option value="general">🔓 Genel</option>
       </select>
@@ -70,18 +71,17 @@
   </div>
 
   <div id="leftStackContainer" style="position:absolute; left:12px; top:60px; display:flex; flex-direction:column; gap:8px; z-index:25;">
-    <button id="micBtn" title="Mikrofon" style="width:36px; height:36px; background:#222; border:1px solid #444; border-radius:50%; color:#fff; font-size:16px; cursor:pointer;">🎤</button>
-    <button id="panicBtn" title="Panik" style="width:36px; height:36px; background:#ff0000 !important; border:none; border-radius:50%;">🚨</button>
-    <button id="skullPanicBtn" title="Tam Yok Et" style="width:36px; height:36px; background:#111 !important; border:1px solid #333 !important; border-radius:50%;">💀</button>
+    <button id="micBtn" title="Mikrofon" style="width:36px; height:36px; background:#222; border:1px solid #444; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🎤</button>
+    <button id="panicBtn" title="Panik" style="width:36px; height:36px; background:#ff0000 !important; border:none; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🚨</button>
+    <button id="skullPanicBtn" title="Tam Yok Et" style="width:36px; height:36px; background:#111 !important; border:1px solid #333 !important; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">💀</button>
   </div>
 
   <div id="myVideoContainer">
     <video id="myVideo" autoplay muted playsinline></video>
-    <button id="switchCameraBtn" class="cameraOverlayBtn">🔄</button>
-    <button id="fullscreenBtn" class="cameraOverlayBtn">⛶</button>
-    <select id="qualitySelect" class="qualitySelect"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
+    <button id="switchCameraBtn" class="cameraOverlayBtn" style="position:absolute; bottom:4px; left:4px; top:auto; right:auto; width:20px; height:20px; background:rgba(0,0,0,0.6); border:1px solid #444; border-radius:50%; font-size:10px; z-index:11;">🔄</button>
+    <button id="fullscreenBtn" class="cameraOverlayBtn" style="position:absolute; top:4px; right:4px; width:20px; height:20px; background:rgba(0,0,0,0.6); border:1px solid #444; border-radius:50%; font-size:10px; z-index:11;">⛶</button>
+    <select id="qualitySelect" class="qualitySelect" style="position:absolute; bottom:4px; right:4px; width:44px; height:18px; font-size:8px; background:rgba(0,0,0,0.75); color:#fff; border:1px solid #444; border-radius:10px; padding:0 2px; text-align:center; z-index:10;"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option></select>
   </div>
-
   <div id="myVideoUnderBar" style="position:absolute; top:58px; right:12px; width:100px; display:flex; flex-direction:column; gap:6px; z-index:25; margin-top:142px;">
     <button id="lightModeBtn" title="Işık" style="width:100%; height:26px; background:#222; border:1px solid #444; color:#ffcc00; border-radius:14px; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.5);">💡</button>
     <button id="securitySettingsBtn" title="Güvenlik" style="width:100%; height:26px; background:#1a1a1a; border:1px solid #444; color:#fff; border-radius:14px; font-size:11px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.5);">🛡</button>
@@ -90,7 +90,7 @@
   <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯</p></div>
   <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
 
-  <div id="settingsContainer" style="position:absolute; left:12px; top:190px; display:flex; flex-direction:column; gap:6px; z-index:20;">
+  <div id="settingsContainer" style="position:absolute; left:12px; top:190px; display:flex; flex-direction:column; gap:6px; z-index:20; background:rgba(0,0,0,0.6); border:1px solid #222; border-radius:12px; padding:6px;">
     <button id="settingsBtn">⚙</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
@@ -123,7 +123,6 @@
           <label><input type="checkbox" id="triggerThreeFinger"> 👆 3 Parmak</label>
           <label><input type="checkbox" id="triggerPocket"> 👖 Cebe koyma</label>
         </div>
-        <p style="font-size:9px; color:#888; margin-top:8px;">İstediğini aç, hepsi aynı anda çalışır</p>
       </div>
       <button id="saveSecuritySettings">Kaydet</button>
     </div>
@@ -138,8 +137,6 @@
         <button id="panicConfirmOk" style="flex:1; height:44px; background:#ff0000; color:white; border:none; border-radius:8px; font-weight:bold;">Panik At</button>
       </div>
     </div>
-  </div><div class="statusBox" id="currentUserBox">-</div></div>
-    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="900">15 dk</option><option value="3600">1 saat</option><option value="14400" selected>4 saat</option><option value="86400">24 saat</option><option value="custom">⚙ Ayarla (Wheel)</option></select><button id="openWheelBtn" style="margin-top:8px;width:100%;height:32px;background:#111;border:1px solid #333;color:#ffcc00;border-radius:6px;cursor:pointer;font-size:11px;">⚙ Wheel ile Ayarla</button></div>
   </div>
 
   <button id="chatToggle">💬</button>
