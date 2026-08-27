@@ -313,8 +313,25 @@ async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal,sentAt)
 function getExpireFromSelect(){ let val=perMessageTimerSelect.value; if(val==="default") return defaultExpire; if(val==="custom"){ let custom=prompt(`Manuel süre saniye:`); if(!custom) return defaultExpire; let num=parseInt(custom.replace(/[^0-9]/g,'')); if(isNaN(num)||num<=0) return defaultExpire; if(num>MAX_SEC) num=MAX_SEC; return num; } return Math.min(parseInt(val),MAX_SEC); }
 sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); input.value=""; socket.emit('typing',false); isTyping=false; };
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
-socket.on("chat-message", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt); });
-socket.on("chat-media", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username,data.sentAt); });
+socket.on("chat-message", data=>{
+  addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt);
+  // Mesaj bildirimi yanıp sönme - yeşil kırmızı
+  const isMine = (data.realUsername||data.username) === myRealUsername || data.username === myUsername;
+  const chatPanel = document.getElementById("chatPanel");
+  const isChatOpen = document.body.classList.contains("chat-open") || (chatPanel && chatPanel.style.display === "flex");
+  if(!isMine && !isChatOpen){
+    if(typeof triggerNewMessageBlink === 'function') triggerNewMessageBlink();
+  }
+});
+socket.on("chat-media", data=>{
+  addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username,data.sentAt);
+  const isMine = (data.realUsername||data.username) === myRealUsername || data.username === myUsername;
+  const chatPanel = document.getElementById("chatPanel");
+  const isChatOpen = document.body.classList.contains("chat-open") || (chatPanel && chatPanel.style.display === "flex");
+  if(!isMine && !isChatOpen){
+    if(typeof triggerNewMessageBlink === 'function') triggerNewMessageBlink();
+  }
+});
 socket.on("pending-messages", async(list)=>{ for(const m of list){ const plain=await decryptText(m.enc,currentPassword); if(!plain) continue; const isMine=m.username===myUsername; const sent=m.expireAt?(m.expireAt-m.expireSec*1000):Date.now(); const clock=formatClock(new Date(sent)); if(m.opened&&m.deleteAt){ const remaining=Math.max(1,Math.floor((m.deleteAt-Date.now())/1000)); if(remaining<=0) continue; const div=document.createElement("div"); div.className=isMine?"myMessage":"otherMessage"; div.id=m.msgId; div._clock=clock; div._expireSec=m.expireSec; const initial=(m.realUsername||"V").trim().charAt(0).toUpperCase(); const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); if(m.type==="text"){ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span><div class="msgText">${linked}</div><span class="ticks double"> ✓✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } else if(m.type==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks double"; tick.textContent=" ✓✓"; bubble.appendChild(tick); } messages.appendChild(div); startSelfDestruct(div,m.msgId,remaining,m.deleteAt); startExpireTimer(m.msgId, m.deleteAt, m.expireSec); if(isMine) sentMessages.set(m.msgId,div); }else{ if(isMine){ const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId; div._expireSec=m.expireSec; div._clock=clock; const initial=(m.realUsername||"Y").charAt(0).toUpperCase(); if(m.type==="text"){ const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(m.expireSec)}</span><div class="msgText">${linked}</div><span class="ticks single"> ✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(m.expireSec)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } const tick=document.createElement("span"); tick.className="ticks single"; tick.textContent=" ✓"; bubble.appendChild(tick); } messages.appendChild(div); sentMessages.set(m.msgId,div); startSelfDestruct(div,m.msgId,m.expireSec,Date.now()+m.expireSec*1000); startExpireTimer(m.msgId, Date.now()+m.expireSec*1000, m.expireSec); }else{ addLockedMessage(m.msgId,m.expireSec,m.enc,m.type,m.realUsername,sent); } } } messages.scrollTop=messages.scrollHeight; });
 
 socket.on("message-opened",({msgId,deleteAt,expireSec})=>{ const div=document.getElementById(msgId)||sentMessages.get(msgId); if(!div) return; if(sentMessages.has(msgId)){ const info=div.querySelector(".expireInfo"); const clock=div._clock||formatClock(new Date()); if(info){ info.textContent=`${clock} • ⏰ ${formatTimeShort(expireSec)}`; info.style.color="#00ff88"; } const ticks=div.querySelector(".ticks"); if(ticks){ ticks.textContent=" ✓✓"; ticks.style.color="#00ff88"; ticks.className="ticks double read"; } } });
@@ -1591,3 +1608,35 @@ document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document
 
 // V19 CSS injection
 (function(){ const style=document.createElement('style'); style.textContent=` .screenshot-blur-active { filter: blur(12px) !important; pointer-events:none; } .voice-message .voice-bubble{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #333;border-radius:16px;padding:8px 12px;} .voice-wave span{display:inline-block;width:3px;height:12px;background:#00ff88;margin:0 1px;border-radius:2px;animation:wave 1s infinite;} @keyframes wave{0%,100%{height:8px}50%{height:20px}} .reactions{animation:fadeIn 0.3s} #reactionBar{animation:pop 0.2s} @keyframes pop{0%{transform:scale(0.5)}100%{transform:scale(1)}} `; document.head.appendChild(style); })();
+
+
+// Mesaj bildirimi yanıp sönme - yeşil kırmızı
+function triggerNewMessageBlink(){
+  const chatToggle = document.getElementById("chatToggle");
+  const floatingPill = document.getElementById("floatingPill");
+  const left = document.getElementById("floatingPillLeft");
+  if(chatToggle) chatToggle.classList.add("hasNewMessage");
+  if(floatingPill) floatingPill.classList.add("hasNewMessage");
+  if(left) left.classList.add("hasNewMessage");
+  // 5 saniye sonra dur veya chat açılınca dur
+  setTimeout(()=>{
+    if(chatToggle) chatToggle.classList.remove("hasNewMessage");
+    if(floatingPill) floatingPill.classList.remove("hasNewMessage");
+    if(left) left.classList.remove("hasNewMessage");
+  }, 8000);
+}
+// Chat açılınca blink'i durdur
+document.addEventListener('DOMContentLoaded', ()=>{
+  const chatToggle = document.getElementById("chatToggle");
+  const chatPanel = document.getElementById("chatPanel");
+  if(chatToggle){
+    const origToggle = chatToggle.onclick;
+    chatToggle.addEventListener('click', ()=>{
+      chatToggle.classList.remove("hasNewMessage");
+      const fp = document.getElementById("floatingPill");
+      if(fp) fp.classList.remove("hasNewMessage");
+      const left = document.getElementById("floatingPillLeft");
+      if(left) left.classList.remove("hasNewMessage");
+    });
+  }
+});
