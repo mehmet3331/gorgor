@@ -732,6 +732,12 @@ function enhancedPanic(){
 }
 // panicBtn'i gelistirilmis panik ile degistir
 document.addEventListener('DOMContentLoaded', ()=>{
+  // FIX: acilista modal gizli olsun - panik atmasin
+  const panicModal = document.getElementById("panicConfirmModal");
+  if(panicModal){ panicModal.style.display = "none"; panicModal.classList.remove("show"); }
+  const secPanel = document.getElementById("securitySettingsPanel");
+  if(secPanel){ secPanel.style.display = "none"; secPanel.classList.remove("show"); }
+
   if(panicBtn){
     panicBtn.removeEventListener('click', panicBtn._oldListener||(()=>{}));
     panicBtn.onclick = function(){
@@ -758,6 +764,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   initFlipPanicSensor();
   if(typeof initSecuritySettings === 'function') initSecuritySettings();
+  if(typeof ensureEmojiAnimations === 'function') { setTimeout(ensureEmojiAnimations, 500); setInterval(ensureEmojiAnimations, 3000); }
+  if(typeof updateLastSeen === 'function') { updateLastSeen(); setInterval(updateLastSeen, 60000); }
 });
 
 // 3. FAKE BILDIRIM - Hesap Makinesi bildirimi
@@ -921,38 +929,280 @@ function triggerFlipPanic(){
 }
 
 
-// V21 PHONE4 FIX3 - 720p icerde kucuk punto + guvenlik paneli
+// ================= V21 FINAL - UYARLANMIS - Instagram DM - TUM OZELLIKLER + NO STARTUP PANIC =================
 let securityConfigCache = null;
 function defaultSecurityConfig(){
-  return {skullAction:'full',redAction:'escape',flipAction:'red',confirmSkull:true,confirmRed:false,confirmFlip:false,triggers:{flip:true,shake:false,volDown3:false,volUp3:false,power2:false,volBoth:false,threeFinger:false,pocket:false}};
+  return {
+    skullAction: 'full',
+    redAction: 'escape',
+    flipAction: 'red',
+    confirmSkull: true,
+    confirmRed: false,
+    confirmFlip: false,
+    triggers: {
+      flip: true,
+      shake: false,
+      volDown3: false,
+      volUp3: false,
+      power2: false,
+      volBoth: false,
+      threeFinger: false,
+      pocket: false
+    }
+  };
 }
 function loadSecurityConfig(){
-  try{const saved=localStorage.getItem("gorgor_security_config");if(saved){const parsed=JSON.parse(saved);return{...defaultSecurityConfig(),...parsed,triggers:{...defaultSecurityConfig().triggers,...(parsed.triggers||{})}};}}catch(e){}
+  try{
+    const saved = localStorage.getItem("gorgor_security_config");
+    if(saved){
+      const parsed = JSON.parse(saved);
+      return {...defaultSecurityConfig(), ...parsed, triggers:{...defaultSecurityConfig().triggers, ...(parsed.triggers||{})}};
+    }
+  }catch(e){}
   return defaultSecurityConfig();
 }
-function saveSecurityConfig(cfg){try{localStorage.setItem("gorgor_security_config",JSON.stringify(cfg));securityConfigCache=cfg;}catch(e){}}
-function initSecuritySettings(){
-  const panel=document.getElementById("securitySettingsPanel");const btn=document.getElementById("securitySettingsBtn");const closeBtn=document.getElementById("closeSecurityPanel");const saveBtn=document.getElementById("saveSecuritySettings");const wheelBtn=document.getElementById("perMessageWheelBtn");
-  if(btn&&panel){btn.onclick=()=>{showSecurityPanel();};}
-  if(closeBtn){closeBtn.onclick=()=>{hideSecurityPanel();};}
-  if(panel){panel.addEventListener("click",(e)=>{if(e.target===panel) hideSecurityPanel();});}
-  if(saveBtn){saveBtn.onclick=()=>{const cfg={skullAction:document.getElementById("skullActionSelect")?.value||'full',redAction:document.getElementById("redActionSelect")?.value||'escape',flipAction:document.getElementById("flipActionSelect")?.value||'red',confirmSkull:!!document.getElementById("confirmSkull")?.checked,confirmRed:!!document.getElementById("confirmRed")?.checked,confirmFlip:!!document.getElementById("confirmFlip")?.checked,triggers:{flip:!!document.getElementById("triggerFlip")?.checked,shake:!!document.getElementById("triggerShake")?.checked,volDown3:!!document.getElementById("triggerVolDown3")?.checked,volUp3:!!document.getElementById("triggerVolUp3")?.checked,power2:!!document.getElementById("triggerPower2")?.checked,volBoth:!!document.getElementById("triggerVolBoth")?.checked,threeFinger:!!document.getElementById("triggerThreeFinger")?.checked,pocket:!!document.getElementById("triggerPocket")?.checked}};saveSecurityConfig(cfg);applySecurityTriggers(cfg);hideSecurityPanel();showToast("🛡 Kaydedildi");};}
-  if(wheelBtn){wheelBtn.onclick=()=>{if(typeof openWheel==='function') openWheel();};}
-  const perMsgSelect=document.getElementById("perMessageTimerSelect");if(perMsgSelect){perMsgSelect.addEventListener("change",()=>{if(perMsgSelect.value==="custom_wheel"){if(typeof openWheel==='function') openWheel();}});}
-  const cfg=loadSecurityConfig();applySecuritySettingsToUI(cfg);applySecurityTriggers(cfg);
+function saveSecurityConfig(cfg){
+  try{
+    localStorage.setItem("gorgor_security_config", JSON.stringify(cfg));
+    securityConfigCache = cfg;
+  }catch(e){}
 }
-function showSecurityPanel(){const panel=document.getElementById("securitySettingsPanel");if(!panel) return;const cfg=loadSecurityConfig();applySecuritySettingsToUI(cfg);panel.style.display="flex";}
-function hideSecurityPanel(){const panel=document.getElementById("securitySettingsPanel");if(panel) panel.style.display="none";}
-function applySecuritySettingsToUI(cfg){const setVal=(id,val)=>{const el=document.getElementById(id);if(el) el.value=val;};const setChk=(id,val)=>{const el=document.getElementById(id);if(el) el.checked=!!val;};setVal("skullActionSelect",cfg.skullAction);setVal("redActionSelect",cfg.redAction);setVal("flipActionSelect",cfg.flipAction);setChk("confirmSkull",cfg.confirmSkull);setChk("confirmRed",cfg.confirmRed);setChk("confirmFlip",cfg.confirmFlip);setChk("triggerFlip",cfg.triggers.flip);setChk("triggerShake",cfg.triggers.shake);setChk("triggerVolDown3",cfg.triggers.volDown3);setChk("triggerVolUp3",cfg.triggers.volUp3);setChk("triggerPower2",cfg.triggers.power2);setChk("triggerVolBoth",cfg.triggers.volBoth);setChk("triggerThreeFinger",cfg.triggers.threeFinger);setChk("triggerPocket",cfg.triggers.pocket);flipPanicEnabled=!!cfg.triggers.flip;if(flipPanicEnabled) armFlipSensor(); else disarmFlipSensor();}
-let securityTriggersArmed=false;let volDownCount=0,volUpCount=0,volDownTimer=null,volUpTimer=null,lastPowerHide=0;
-function applySecurityTriggers(cfg){if(securityTriggersArmed) disarmSecurityTriggers();securityTriggersArmed=true;if(cfg.triggers.shake){window.addEventListener("devicemotion",handleShakeMotion,true);}if(cfg.triggers.volDown3||cfg.triggers.volUp3||cfg.triggers.volBoth){window.addEventListener("keydown",handleVolumeKeys,true);}if(cfg.triggers.power2){document.addEventListener("visibilitychange",handlePowerDouble,true);}if(cfg.triggers.threeFinger){window.addEventListener("touchstart",handleThreeFinger,{passive:false});}}
-function disarmSecurityTriggers(){window.removeEventListener("devicemotion",handleShakeMotion,true);window.removeEventListener("keydown",handleVolumeKeys,true);document.removeEventListener("visibilitychange",handlePowerDouble,true);window.removeEventListener("touchstart",handleThreeFinger,{passive:false});securityTriggersArmed=false;}
-function handleShakeMotion(e){const acc=e.accelerationIncludingGravity;if(!acc) return;const force=Math.abs(acc.x)+Math.abs(acc.y)+Math.abs(acc.z);if(force>35){triggerSecurityAction("shake");}}
-function handleVolumeKeys(e){const cfg=loadSecurityConfig();if(e.key==="AudioVolumeDown"||e.key==="VolumeDown"||(e.key==="ArrowDown"&&e.ctrlKey)){if(cfg.triggers.volDown3){volDownCount++;clearTimeout(volDownTimer);volDownTimer=setTimeout(()=>{volDownCount=0;},2000);if(volDownCount>=3){volDownCount=0;triggerSecurityAction("volDown3");}}}if(e.key==="AudioVolumeUp"||e.key==="VolumeUp"||(e.key==="ArrowUp"&&e.ctrlKey)){if(cfg.triggers.volUp3){volUpCount++;clearTimeout(volUpTimer);volUpTimer=setTimeout(()=>{volUpCount=0;},2000);if(volUpCount>=3){volUpCount=0;triggerSecurityAction("volUp3");}}}if(cfg.triggers.volBoth){if(e.key==="AudioVolumeDown"||e.key==="VolumeDown"){const now=Date.now();if(window._lastVolUp&&now-window._lastVolUp<800){triggerSecurityAction("volBoth");}}if(e.key==="AudioVolumeUp"||e.key==="VolumeUp"){window._lastVolUp=Date.now();}}}
-function handlePowerDouble(){if(document.hidden){const now=Date.now();if(now-lastPowerHide<1500){triggerSecurityAction("power2");}lastPowerHide=now;}}
-function handleThreeFinger(e){if(e.touches&&e.touches.length>=3){e.preventDefault();triggerSecurityAction("threeFinger");}}
-function triggerSecurityAction(source){const cfg=loadSecurityConfig();document.body.classList.add("flip-blur-active");showToast("🛡 "+source+" - buğulandi");try{if(navigator.vibrate) navigator.vibrate([100,50,100]);}catch(e){}setTimeout(()=>{document.body.classList.remove("flip-blur-active");const needConfirm=cfg.confirmRed;const doAction=()=>{enhancedPanic();};if(needConfirm){showPanicConfirm(source+" tetiklendi - panik?",doAction);}else{doAction();}},1200);}
-function showPanicConfirm(text,onConfirm){const modal=document.getElementById("panicConfirmModal");const txt=document.getElementById("panicConfirmText");const ok=document.getElementById("panicConfirmOk");const cancel=document.getElementById("panicConfirmCancel");if(!modal){onConfirm();return;}if(txt) txt.textContent=text;modal.style.display="flex";const cleanup=()=>{modal.style.display="none";if(ok) ok.onclick=null;if(cancel) cancel.onclick=null;modal.onclick=null;};if(ok) ok.onclick=()=>{cleanup();onConfirm();};if(cancel) cancel.onclick=()=>{cleanup();};if(modal) modal.onclick=(e)=>{if(e.target===modal) cleanup();};}
+function initSecuritySettings(){
+  const panel = document.getElementById("securitySettingsPanel");
+  const btn = document.getElementById("securitySettingsBtn");
+  const closeBtn = document.getElementById("closeSecurityPanel");
+  const saveBtn = document.getElementById("saveSecuritySettings");
+  const wheelBtn = document.getElementById("perMessageWheelBtn");
+  if(btn && panel){
+    btn.onclick = ()=>{ showSecurityPanel(); };
+  }
+  if(closeBtn){
+    closeBtn.onclick = ()=>{ hideSecurityPanel(); };
+  }
+  if(panel){
+    panel.addEventListener("click", (e)=>{ if(e.target===panel) hideSecurityPanel(); });
+  }
+  if(saveBtn){
+    saveBtn.onclick = ()=>{
+      const cfg = {
+        skullAction: document.getElementById("skullActionSelect")?.value || 'full',
+        redAction: document.getElementById("redActionSelect")?.value || 'escape',
+        flipAction: document.getElementById("flipActionSelect")?.value || 'red',
+        confirmSkull: !!document.getElementById("confirmSkull")?.checked,
+        confirmRed: !!document.getElementById("confirmRed")?.checked,
+        confirmFlip: !!document.getElementById("confirmFlip")?.checked,
+        triggers: {
+          flip: !!document.getElementById("triggerFlip")?.checked,
+          shake: !!document.getElementById("triggerShake")?.checked,
+          volDown3: !!document.getElementById("triggerVolDown3")?.checked,
+          volUp3: !!document.getElementById("triggerVolUp3")?.checked,
+          power2: !!document.getElementById("triggerPower2")?.checked,
+          volBoth: !!document.getElementById("triggerVolBoth")?.checked,
+          threeFinger: !!document.getElementById("triggerThreeFinger")?.checked,
+          pocket: !!document.getElementById("triggerPocket")?.checked
+        }
+      };
+      saveSecurityConfig(cfg);
+      applySecurityTriggers(cfg);
+      hideSecurityPanel();
+      showToast("🛡 Güvenlik ayarları kaydedildi");
+    };
+  }
+  if(wheelBtn){
+    wheelBtn.onclick = ()=>{ if(typeof openWheel === 'function') openWheel(); };
+  }
+  const perMsgSelect = document.getElementById("perMessageTimerSelect");
+  if(perMsgSelect){
+    perMsgSelect.addEventListener("change", ()=>{
+      if(perMsgSelect.value === "custom_wheel"){
+        if(typeof openWheel === 'function') openWheel();
+      }
+    });
+  }
+  const cfg = loadSecurityConfig();
+  applySecuritySettingsToUI(cfg);
+  applySecurityTriggers(cfg);
+  // FIX: acilista panik modal cikmasin - kesin gizle
+  setTimeout(()=>{
+    const m = document.getElementById("panicConfirmModal");
+    if(m){ m.style.display = "none"; m.classList.remove("show"); }
+    const s = document.getElementById("securitySettingsPanel");
+    if(s){ s.style.display = "none"; s.classList.remove("show"); }
+  }, 100);
+}
+function showSecurityPanel(){
+  const panel = document.getElementById("securitySettingsPanel");
+  if(!panel) return;
+  const cfg = loadSecurityConfig();
+  applySecuritySettingsToUI(cfg);
+  panel.style.display = "flex";
+  panel.classList.add("show");
+}
+function hideSecurityPanel(){
+  const panel = document.getElementById("securitySettingsPanel");
+  if(panel){
+    panel.style.display = "none";
+    panel.classList.remove("show");
+  }
+}
+function applySecuritySettingsToUI(cfg){
+  const setVal = (id, val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
+  const setChk = (id, val)=>{ const el=document.getElementById(id); if(el) el.checked=!!val; };
+  setVal("skullActionSelect", cfg.skullAction);
+  setVal("redActionSelect", cfg.redAction);
+  setVal("flipActionSelect", cfg.flipAction);
+  setChk("confirmSkull", cfg.confirmSkull);
+  setChk("confirmRed", cfg.confirmRed);
+  setChk("confirmFlip", cfg.confirmFlip);
+  setChk("triggerFlip", cfg.triggers.flip);
+  setChk("triggerShake", cfg.triggers.shake);
+  setChk("triggerVolDown3", cfg.triggers.volDown3);
+  setChk("triggerVolUp3", cfg.triggers.volUp3);
+  setChk("triggerPower2", cfg.triggers.power2);
+  setChk("triggerVolBoth", cfg.triggers.volBoth);
+  setChk("triggerThreeFinger", cfg.triggers.threeFinger);
+  setChk("triggerPocket", cfg.triggers.pocket);
+  flipPanicEnabled = !!cfg.triggers.flip;
+  if(flipPanicEnabled) armFlipSensor(); else disarmFlipSensor();
+}
+let securityTriggersArmed = false;
+let volDownCount=0, volUpCount=0, volDownTimer=null, volUpTimer=null, lastPowerHide=0;
+function applySecurityTriggers(cfg){
+  if(securityTriggersArmed) disarmSecurityTriggers();
+  securityTriggersArmed = true;
+  if(cfg.triggers.shake){
+    window.addEventListener("devicemotion", handleShakeMotion, true);
+  }
+  if(cfg.triggers.volDown3 || cfg.triggers.volUp3 || cfg.triggers.volBoth){
+    window.addEventListener("keydown", handleVolumeKeys, true);
+  }
+  if(cfg.triggers.power2){
+    document.addEventListener("visibilitychange", handlePowerDouble, true);
+  }
+  if(cfg.triggers.threeFinger){
+    window.addEventListener("touchstart", handleThreeFinger, {passive:false});
+  }
+}
+function disarmSecurityTriggers(){
+  window.removeEventListener("devicemotion", handleShakeMotion, true);
+  window.removeEventListener("keydown", handleVolumeKeys, true);
+  document.removeEventListener("visibilitychange", handlePowerDouble, true);
+  window.removeEventListener("touchstart", handleThreeFinger, {passive:false});
+  securityTriggersArmed = false;
+}
+function handleShakeMotion(e){
+  const acc = e.accelerationIncludingGravity;
+  if(!acc) return;
+  const force = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+  if(force > 35){
+    triggerSecurityAction("shake");
+  }
+}
+function handleVolumeKeys(e){
+  const cfg = loadSecurityConfig();
+  if(e.key === "AudioVolumeDown" || e.key === "VolumeDown" || (e.key==="ArrowDown" && e.ctrlKey)){
+    if(cfg.triggers.volDown3){
+      volDownCount++;
+      clearTimeout(volDownTimer);
+      volDownTimer = setTimeout(()=>{ volDownCount=0; }, 2000);
+      if(volDownCount>=3){
+        volDownCount=0;
+        triggerSecurityAction("volDown3");
+      }
+    }
+  }
+  if(e.key === "AudioVolumeUp" || e.key === "VolumeUp" || (e.key==="ArrowUp" && e.ctrlKey)){
+    if(cfg.triggers.volUp3){
+      volUpCount++;
+      clearTimeout(volUpTimer);
+      volUpTimer = setTimeout(()=>{ volUpCount=0; }, 2000);
+      if(volUpCount>=3){
+        volUpCount=0;
+        triggerSecurityAction("volUp3");
+      }
+    }
+  }
+  if(cfg.triggers.volBoth){
+    if(e.key === "AudioVolumeDown" || e.key === "VolumeDown"){
+      const now = Date.now();
+      if(window._lastVolUp && now - window._lastVolUp < 800){
+        triggerSecurityAction("volBoth");
+      }
+    }
+    if(e.key === "AudioVolumeUp" || e.key === "VolumeUp"){
+      window._lastVolUp = Date.now();
+    }
+  }
+}
+function handlePowerDouble(){
+  if(document.hidden){
+    const now = Date.now();
+    if(now - lastPowerHide < 1500){
+      triggerSecurityAction("power2");
+    }
+    lastPowerHide = now;
+  }
+}
+function handleThreeFinger(e){
+  if(e.touches && e.touches.length >= 3){
+    e.preventDefault();
+    triggerSecurityAction("threeFinger");
+  }
+}
+function triggerSecurityAction(source){
+  const cfg = loadSecurityConfig();
+  document.body.classList.add("flip-blur-active");
+  showToast("🛡 " + source + " - buğulandi");
+  try{ if(navigator.vibrate) navigator.vibrate([100,50,100]); }catch(e){}
+  setTimeout(()=>{
+    document.body.classList.remove("flip-blur-active");
+    const needConfirm = cfg.confirmRed;
+    const doAction = ()=>{ enhancedPanic(); };
+    if(needConfirm){
+      showPanicConfirm(source + " tetiklendi - panik?", doAction);
+    } else {
+      doAction();
+    }
+  }, 1200);
+}
+function showPanicConfirm(text, onConfirm){
+  const modal = document.getElementById("panicConfirmModal");
+  const txt = document.getElementById("panicConfirmText");
+  const ok = document.getElementById("panicConfirmOk");
+  const cancel = document.getElementById("panicConfirmCancel");
+  if(!modal) { onConfirm(); return; }
+  if(txt) txt.textContent = text;
+  modal.style.display = "flex";
+  modal.classList.add("show");
+  const cleanup = ()=>{
+    modal.style.display = "none";
+    modal.classList.remove("show");
+    if(ok) ok.onclick = null;
+    if(cancel) cancel.onclick = null;
+    modal.onclick = null;
+  };
+  if(ok) ok.onclick = ()=>{ cleanup(); onConfirm(); };
+  if(cancel) cancel.onclick = ()=>{ cleanup(); };
+  if(modal) modal.onclick = (e)=>{ if(e.target===modal) cleanup(); };
+}
+
+// Emoji animations - hepsi hareketli
+function ensureEmojiAnimations(){
+  document.querySelectorAll(".flyEmoji").forEach(em=>{
+    if(!em.dataset.effect) em.dataset.effect="bounce";
+    em.style.animation = "emojiFloat 0.6s ease-out, emojiBounce 1.2s infinite";
+  });
+}
+
+// Last seen instead of oda1
+function updateLastSeen(){
+  const el = document.getElementById("opponentStatusText");
+  if(el){
+    const now = new Date();
+    const time = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
+    el.textContent = "son görülme "+time;
+  }
+}
 
 
 
