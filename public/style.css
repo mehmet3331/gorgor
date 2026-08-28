@@ -387,7 +387,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #wheelModal .wheelBox{width:320px; background:#111; border:1px solid #333; border-radius:16px; padding:16px;}
 
 
-/* EXTRA - 12 saat + ses alta + privacy ortali - 300 kod silmeden sadece ekleme */
+/* EXTRA - 12 saat + ses alta + privacy ortali + kamera biraz asagi - 300 kod silmeden sadece ekleme */
 #floatingPillLeft{flex-direction:column !important; gap:2px !important; align-items:flex-start !important;}
 #floatingPillLeft > div:first-child{display:flex !important; align-items:center !important; gap:4px !important;}
 #privacyModeSelect{margin-left:18px !important; transform:translateX(8px) !important;}
@@ -399,3 +399,17 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #settingsContainer{top:210px !important;}
 #wheelPersistModal{position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100001; display:none; align-items:center; justify-content:center;}
 #wheelPersistModal.show{display:flex !important;}
+
+/* KAMERA BIRAZ ASAGI - arkada kaliyor fix - hicbir ozellik bozulmadan */
+#myVideoContainer{
+  top:78px !important;
+  right:12px !important;
+  width:100px !important;
+  height:130px !important;
+}
+#myVideoUnderBar{
+  top:78px !important;
+  margin-top:142px !important;
+  right:12px !important;
+  width:100px !important;
+}
