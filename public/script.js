@@ -76,7 +76,7 @@ let micEnabled = true; let camEnabled = true;
 let currentQuality = 720; let currentFacingMode = "user"; let pingTimer = null; let currentMediaData = null;
 let typingTimer; let isTyping = false; let messageIdCounter = 0;
 const sentMessages = new Map();
-let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "14400");
+let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "43200");
 let activeTimers = new Map();
 let offlineTimer = null;
 const FOURTEEN_MIN = 14*60*1000;
@@ -256,68 +256,44 @@ function bufToB64(buf){ const bytes=new Uint8Array(buf); let binary=""; const ch
 function b64ToBuf(b64){ const binary=atob(b64); const bytes=new Uint8Array(binary.length); for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i); return bytes; }
 async function encryptText(text,password){ const key=await deriveKey(password); const iv=crypto.getRandomValues(new Uint8Array(12)); const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(text)); const combined=new Uint8Array(iv.length+ct.byteLength); combined.set(iv,0); combined.set(new Uint8Array(ct),iv.length); return bufToB64(combined); }
 async function decryptText(b64,password){ try{ const key=await deriveKey(password); const combined=b64ToBuf(b64); const iv=combined.slice(0,12); const ct=combined.slice(12); const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct); return new TextDecoder().decode(pt); }catch(e){ return null; } }
-if(defaultSelfDestructSelect) defaultSelfDestructSelect.value="14400";
+if(defaultSelfDestructSelect) defaultSelfDestructSelect.value="43200";
 if(micBtn) micBtn.textContent="🎤"; if(camBtn) camBtn.textContent="📹";
 async function startCamera(height=720, facingMode=currentFacingMode){
-  // Preserve current enabled states
   const prevMicEnabled = (typeof micEnabled !== 'undefined') ? micEnabled : false;
   const prevCamEnabled = (typeof camEnabled !== 'undefined') ? camEnabled : false;
   const hadStream = !!localStream;
   try{
-    if(localStream){
-      // Stop only video tracks, keep audio track if mic was on? Actually stop all and recreate
-      localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} });
-    }
+    if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }
     localStream=await navigator.mediaDevices.getUserMedia({
       video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}},
       audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}
     });
     myVideo.srcObject=localStream;
     myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)";
-    
-    // If this is first time (no previous stream), keep disabled for privacy
-    // If had previous stream, restore previous enabled states
     if(!hadStream){
       localStream.getVideoTracks().forEach(t=>t.enabled=false);
       localStream.getAudioTracks().forEach(t=>t.enabled=false);
-      micEnabled=false;
-      camEnabled=false;
+      micEnabled=false; camEnabled=false;
       if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
       if(camBtn){ camBtn.classList.add("offIcon"); }
     } else {
-      // Restore previous states - FIX for kamera kapanma
       localStream.getVideoTracks().forEach(t=>t.enabled=prevCamEnabled);
       localStream.getAudioTracks().forEach(t=>t.enabled=prevMicEnabled);
-      micEnabled=prevMicEnabled;
-      camEnabled=prevCamEnabled;
-      if(micBtn){
-        if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
-      }
-      if(camBtn){
-        if(camEnabled){ camBtn.classList.remove("offIcon"); } else { camBtn.classList.add("offIcon"); }
-      }
-      // Update peer connection with new tracks if in call
+      micEnabled=prevMicEnabled; camEnabled=prevCamEnabled;
+      if(micBtn){ if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } }
+      if(camBtn){ if(camEnabled){ camBtn.classList.remove("offIcon"); } else { camBtn.classList.add("offIcon"); } }
       if(typeof peer !== 'undefined' && peer && peer._pc){
         try{
           const videoTrack = localStream.getVideoTracks()[0];
           const audioTrack = localStream.getAudioTracks()[0];
           const senders = peer._pc.getSenders();
-          if(videoTrack){
-            const vSender = senders.find(s=>s.track && s.track.kind==='video');
-            if(vSender) vSender.replaceTrack(videoTrack);
-          }
-          if(audioTrack){
-            const aSender = senders.find(s=>s.track && s.track.kind==='audio');
-            if(aSender) aSender.replaceTrack(audioTrack);
-          }
+          if(videoTrack){ const vSender = senders.find(s=>s.track && s.track.kind==='video'); if(vSender) vSender.replaceTrack(videoTrack); }
+          if(audioTrack){ const aSender = senders.find(s=>s.track && s.track.kind==='audio'); if(aSender) aSender.replaceTrack(audioTrack); }
         }catch(e){ console.log("replaceTrack hata", e); }
       }
     }
     return true;
-  }catch(err){
-    console.log("kamera hata",err);
-    return false;
-  }
+  }catch(err){ console.log("kamera hata",err); return false; }
 }
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=>socket.emit("ping-check",Date.now()),3000); }
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
@@ -373,22 +349,8 @@ async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal,sentAt)
 function getExpireFromSelect(){ let val=perMessageTimerSelect.value; if(val==="default") return defaultExpire; if(val==="custom"){ let custom=prompt(`Manuel süre saniye:`); if(!custom) return defaultExpire; let num=parseInt(custom.replace(/[^0-9]/g,'')); if(isNaN(num)||num<=0) return defaultExpire; if(num>MAX_SEC) num=MAX_SEC; return num; } return Math.min(parseInt(val),MAX_SEC); }
 sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); input.value=""; socket.emit('typing',false); isTyping=false; };
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
-socket.on("chat-message", data=>{
-  addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt);
-  const isMine = (data.realUsername||data.username) === myRealUsername || data.username === myUsername;
-  const isChatOpen = document.body.classList.contains("chat-open");
-  if(!isMine && !isChatOpen){
-    if(typeof triggerNewMessageBlink === 'function') triggerNewMessageBlink();
-  }
-});
-socket.on("chat-media", data=>{
-  addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username,data.sentAt);
-  const isMine = (data.realUsername||data.username) === myRealUsername || data.username === myUsername;
-  const isChatOpen = document.body.classList.contains("chat-open");
-  if(!isMine && !isChatOpen){
-    if(typeof triggerNewMessageBlink === 'function') triggerNewMessageBlink();
-  }
-});
+socket.on("chat-message", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt); });
+socket.on("chat-media", data=>{ addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username,data.sentAt); });
 socket.on("pending-messages", async(list)=>{ for(const m of list){ const plain=await decryptText(m.enc,currentPassword); if(!plain) continue; const isMine=m.username===myUsername; const sent=m.expireAt?(m.expireAt-m.expireSec*1000):Date.now(); const clock=formatClock(new Date(sent)); if(m.opened&&m.deleteAt){ const remaining=Math.max(1,Math.floor((m.deleteAt-Date.now())/1000)); if(remaining<=0) continue; const div=document.createElement("div"); div.className=isMine?"myMessage":"otherMessage"; div.id=m.msgId; div._clock=clock; div._expireSec=m.expireSec; const initial=(m.realUsername||"V").trim().charAt(0).toUpperCase(); const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); if(m.type==="text"){ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span><div class="msgText">${linked}</div><span class="ticks double"> ✓✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } else if(m.type==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks double"; tick.textContent=" ✓✓"; bubble.appendChild(tick); } messages.appendChild(div); startSelfDestruct(div,m.msgId,remaining,m.deleteAt); startExpireTimer(m.msgId, m.deleteAt, m.expireSec); if(isMine) sentMessages.set(m.msgId,div); }else{ if(isMine){ const div=document.createElement("div"); div.className="myMessage"; div.id=m.msgId; div._expireSec=m.expireSec; div._clock=clock; const initial=(m.realUsername||"Y").charAt(0).toUpperCase(); if(m.type==="text"){ const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(m.expireSec)}</span><div class="msgText">${linked}</div><span class="ticks single"> ✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(m.expireSec)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(m.type==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } const tick=document.createElement("span"); tick.className="ticks single"; tick.textContent=" ✓"; bubble.appendChild(tick); } messages.appendChild(div); sentMessages.set(m.msgId,div); startSelfDestruct(div,m.msgId,m.expireSec,Date.now()+m.expireSec*1000); startExpireTimer(m.msgId, Date.now()+m.expireSec*1000, m.expireSec); }else{ addLockedMessage(m.msgId,m.expireSec,m.enc,m.type,m.realUsername,sent); } } } messages.scrollTop=messages.scrollHeight; });
 
 socket.on("message-opened",({msgId,deleteAt,expireSec})=>{ const div=document.getElementById(msgId)||sentMessages.get(msgId); if(!div) return; if(sentMessages.has(msgId)){ const info=div.querySelector(".expireInfo"); const clock=div._clock||formatClock(new Date()); if(info){ info.textContent=`${clock} • ⏰ ${formatTimeShort(expireSec)}`; info.style.color="#00ff88"; } const ticks=div.querySelector(".ticks"); if(ticks){ ticks.textContent=" ✓✓"; ticks.style.color="#00ff88"; ticks.className="ticks double read"; } } });
@@ -838,6 +800,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   initFlipPanicSensor();
   if(typeof initSecuritySettings === 'function') initSecuritySettings();
+  if(typeof initWheelPersistFeature === 'function') initWheelPersistFeature();
   if(typeof ensureEmojiAnimations === 'function') { setTimeout(ensureEmojiAnimations, 500); setInterval(ensureEmojiAnimations, 3000); }
   if(typeof updateLastSeen === 'function') { updateLastSeen(); setInterval(updateLastSeen, 60000); }
 });
@@ -1665,31 +1628,3 @@ document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document
 
 // V19 CSS injection
 (function(){ const style=document.createElement('style'); style.textContent=` .screenshot-blur-active { filter: blur(12px) !important; pointer-events:none; } .voice-message .voice-bubble{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #333;border-radius:16px;padding:8px 12px;} .voice-wave span{display:inline-block;width:3px;height:12px;background:#00ff88;margin:0 1px;border-radius:2px;animation:wave 1s infinite;} @keyframes wave{0%,100%{height:8px}50%{height:20px}} .reactions{animation:fadeIn 0.3s} #reactionBar{animation:pop 0.2s} @keyframes pop{0%{transform:scale(0.5)}100%{transform:scale(1)}} `; document.head.appendChild(style); })();
-
-
-// Mesaj bildirimi yanıp sönme - kırmızı beyaz cok belli
-function triggerNewMessageBlink(){
-  const chatToggle = document.getElementById("chatToggle");
-  const floatingPill = document.getElementById("floatingPill");
-  const left = document.getElementById("floatingPillLeft");
-  if(chatToggle) chatToggle.classList.add("hasNewMessage");
-  if(floatingPill) floatingPill.classList.add("hasNewMessage");
-  if(left) left.classList.add("hasNewMessage");
-  setTimeout(()=>{
-    if(chatToggle) chatToggle.classList.remove("hasNewMessage");
-    if(floatingPill) floatingPill.classList.remove("hasNewMessage");
-    if(left) left.classList.remove("hasNewMessage");
-  }, 8000);
-}
-document.addEventListener('DOMContentLoaded', ()=>{
-  const chatToggle = document.getElementById("chatToggle");
-  if(chatToggle){
-    chatToggle.addEventListener('click', ()=>{
-      chatToggle.classList.remove("hasNewMessage");
-      const fp = document.getElementById("floatingPill");
-      if(fp) fp.classList.remove("hasNewMessage");
-      const left = document.getElementById("floatingPillLeft");
-      if(left) left.classList.remove("hasNewMessage");
-    });
-  }
-});

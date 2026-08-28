@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>GORGOR V21 • UYARLANMIS • FINAL - Kamera Fix + Kirmizi Beyaz Bildirim</title>
+<title>GORGOR V21 FINAL - 12 SAAT VARSAYILAN + WHEEL KALICI SORMA + SES ALTTA</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="mobile_fix.css" />
 <script src="/socket.io/socket.io.js"></script>
@@ -49,20 +49,23 @@
 
 <div id="mainScreen" style="display:none;">
   <video id="remoteVideo" autoplay playsinline></video>
-  <div id="floatingPill">
-    <div id="floatingPillLeft">
-      <button id="backBtn" title="Geri" style="background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer; margin-right:6px;">←</button>
-      <span id="opponentDot" class="onlineDot offline"></span>
-      <span id="opponentNameDisplay" class="opponentName">-</span>
-      <span id="opponentStatusText" class="opponentStatus" style="font-size:10px; color:#888; margin-left:4px;">son görülme -</span>
-      <select id="privacyModeSelect" title="Güvenlik Modu" style="margin-left:6px; background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 6px; height:22px;">
-        <option value="private" selected>🔒 Özel</option>
-        <option value="general">🔓 Genel</option>
-      </select>
-    </div>
-    <div id="floatingPillCenter">
-      <button id="soundBtn" title="Ses">🔊</button>
-      <input id="volumeSlider" type="range" min="0" max="1" step="0.05" value="0.1" />
+    <div id="floatingPill">
+    <div id="floatingPillLeft" style="display:flex; flex-direction:column; gap:2px;">
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span id="opponentDot" class="onlineDot offline"></span>
+        <span id="opponentNameDisplay" class="opponentName">-</span>
+        <span id="opponentStatusText" class="opponentStatus" style="font-size:9px; color:#888;">son görülme -</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; margin-left:18px;">
+        <select id="privacyModeSelect" title="Güvenlik Modu" style="background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 8px; height:22px; margin-left:8px;">
+          <option value="private" selected>🔒 Özel</option>
+          <option value="general">🔓 Genel</option>
+        </select>
+      </div>
+      <div id="soundUnderPrivacy" style="display:flex; align-items:center; gap:4px; margin-left:18px; margin-top:2px;">
+        <button id="soundBtn" title="Ses" style="background:transparent; border:none; color:#aaa; font-size:12px; cursor:pointer;">🔊</button>
+        <input id="volumeSlider" type="range" min="0" max="1" step="0.05" value="0.1" style="width:70px; height:3px;" />
+      </div>
     </div>
     <div id="floatingPillRight">
       <button id="phoneModeBtn" title="Telefon Modu">📞</button>
@@ -70,10 +73,10 @@
     </div>
   </div>
 
-  <div id="leftStackContainer" style="position:absolute; left:12px; top:60px; display:flex; flex-direction:column; gap:8px; z-index:25;">
-    <button id="micBtn" title="Mikrofon" style="width:36px; height:36px; background:#222; border:1px solid #444; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🎤</button>
-    <button id="panicBtn" title="Panik" style="width:36px; height:36px; background:#ff0000 !important; border:none; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🚨</button>
-    <button id="skullPanicBtn" title="Tam Yok Et" style="width:36px; height:36px; background:#111 !important; border:1px solid #333 !important; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">💀</button>
+  <div id="leftStackContainer" style="position:absolute; left:12px; top:75px; display:flex; flex-direction:column; gap:8px; z-index:25;">
+    <button id="micBtn" title="Mikrofon" style="width:36px; height:36px; background:#222; border:1px solid #444; border-radius:50%; color:#fff; font-size:16px; cursor:pointer;">🎤</button>
+    <button id="panicBtn" title="Panik" style="width:36px; height:36px; background:#ff0000 !important; border:none; border-radius:50%;">🚨</button>
+    <button id="skullPanicBtn" title="Tam Yok Et" style="width:36px; height:36px; background:#111 !important; border:1px solid #333 !important; border-radius:50%;">💀</button>
   </div>
 
   <div id="myVideoContainer">
@@ -90,7 +93,7 @@
   <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯</p></div>
   <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
 
-  <div id="settingsContainer" style="position:absolute; left:12px; top:190px; display:flex; flex-direction:column; gap:6px; z-index:20; background:rgba(0,0,0,0.6); border:1px solid #222; border-radius:12px; padding:6px;">
+  <div id="settingsContainer" style="position:absolute; left:12px; top:190px; display:flex; flex-direction:column; gap:6px; z-index:20;">
     <button id="settingsBtn">⚙</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
@@ -123,6 +126,7 @@
           <label><input type="checkbox" id="triggerThreeFinger"> 👆 3 Parmak</label>
           <label><input type="checkbox" id="triggerPocket"> 👖 Cebe koyma</label>
         </div>
+        <p style="font-size:9px; color:#888; margin-top:8px;">İstediğini aç, hepsi aynı anda çalışır</p>
       </div>
       <button id="saveSecuritySettings">Kaydet</button>
     </div>
@@ -137,6 +141,8 @@
         <button id="panicConfirmOk" style="flex:1; height:44px; background:#ff0000; color:white; border:none; border-radius:8px; font-weight:bold;">Panik At</button>
       </div>
     </div>
+  </div><div class="statusBox" id="currentUserBox">-</div></div>
+    <div id="secretSettings"><label>Varsayılan yok olma:</label><select id="defaultSelfDestructSelect"><option value="300">5 dk</option><option value="900">15 dk</option><option value="3600">1 saat</option><option value="14400">4 saat</option><option value="86400">24 saat</option><option value="custom">⚙ Ayarla (Wheel)</option></select><button id="openWheelBtn" style="margin-top:8px;width:100%;height:32px;background:#111;border:1px solid #333;color:#ffcc00;border-radius:6px;cursor:pointer;font-size:11px;">⚙ Wheel ile Ayarla</button></div>
   </div>
 
   <button id="chatToggle">💬</button>
@@ -148,7 +154,7 @@
         <select id="perMessageTimerSelect" style="flex:1;">
           <option value="300">5 dakika</option>
           <option value="3600">1 saat</option>
-          <option value="14400" selected>4 saat (varsayılan)</option>
+          <option value="43200" selected>12 saat (varsayılan)</option>
           <option value="86400">1 gün</option>
           <option value="custom_wheel">⚙ Wheel ile özel</option>
         </select>
@@ -269,16 +275,17 @@ function calcEqual(){
 </div>
 
 <script>
-(function(){
+  (function(){
   const overlay = document.getElementById("wheelOverlay");
   const hourInput = document.getElementById("wheelHour");
   const minuteInput = document.getElementById("wheelMinute");
   const okBtn = document.getElementById("wheelOk");
   const cancelBtn = document.getElementById("wheelCancel");
   const openBtn = document.getElementById("openWheelBtn");
-  const selectEl = document.getElementById("defaultSelfDestructSelect");
+  const selectEl = document.getElementById("perMessageTimerSelect") || document.getElementById("defaultSelfDestructSelect");
   function openWheelFix(){
-    const def = parseInt(localStorage.getItem("gorgor_default_expire")||"14400");
+    const persistent = localStorage.getItem("gorgor_persistent_default");
+    const def = parseInt(persistent || localStorage.getItem("gorgor_default_expire")||"43200");
     const h = Math.floor(def/3600);
     const m = Math.floor((def%3600)/60);
     if(hourInput) hourInput.value = h;
@@ -294,25 +301,50 @@ function calcEqual(){
   function saveFix(){
     const h=parseInt(hourInput.value)||0; const m=parseInt(minuteInput.value)||0;
     let sec=h*3600+m*60; if(sec<60) sec=60; if(sec>86400) sec=86400;
-    localStorage.setItem("gorgor_default_expire", sec.toString());
-    if(selectEl){
-      let customOpt=selectEl.querySelector('option[value="custom_display"]');
-      if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; selectEl.appendChild(customOpt); }
-      customOpt.textContent=h+"sa "+m+"dk (wheel)"; customOpt.selected=true;
-    }
     closeWheelFix();
+    // Wheel kalıcı sorma özelliği - 12 saat varsayılan + persist modal
+    if(typeof showWheelPersistAsk === 'function'){
+      showWheelPersistAsk(sec);
+    } else {
+      // Fallback eski davranış
+      localStorage.setItem("gorgor_default_expire", sec.toString());
+      if(selectEl){
+        let customOpt=selectEl.querySelector('option[value="custom_display"]');
+        if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; selectEl.appendChild(customOpt); }
+        customOpt.textContent=h+"sa "+m+"dk (wheel)"; customOpt.selected=true;
+      }
+    }
   }
   window.wheelStep = stepFix;
   window.setWheelQuick = quickFix;
   window.openWheel = openWheelFix;
   window.closeWheel = closeWheelFix;
   if(openBtn){ openBtn.onclick = function(e){ e.preventDefault(); e.stopPropagation(); openWheelFix(); }; }
-  if(selectEl){ selectEl.addEventListener("change", function(){ if(this.value==="custom"){ openWheelFix(); } }); }
+  if(selectEl){ 
+    selectEl.addEventListener("change", function(){ 
+      if(this.value==="custom" || this.value==="custom_wheel"){ 
+        openWheelFix(); 
+      } 
+    }); 
+  }
   if(okBtn){ okBtn.onclick = saveFix; }
   if(cancelBtn){ cancelBtn.onclick = closeWheelFix; }
   if(overlay){ overlay.addEventListener("click", function(e){ if(e.target===overlay){ closeWheelFix(); } }); }
 })();
 </script>
+
+
+  <div id="wheelPersistModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100001; align-items:center; justify-content:center;">
+    <div style="width:300px; background:#111; border:1px solid #333; border-radius:16px; padding:20px; text-align:center;">
+      <div style="font-size:32px; margin-bottom:12px;">⏰</div>
+      <div id="wheelPersistText" style="font-size:13px; color:#fff; margin-bottom:6px; line-height:1.4;">Bundan sonraki girişlerde de 5 saat sürenin sürekli sabit kalmasını istiyor musunuz?</div>
+      <div style="font-size:10px; color:#888; margin-bottom:16px;">Evet dersen her girişte bu süre varsayılan olacak, hayır dersen sadece bu seferlik ve sonrası 12 saat varsayılana dönecek.</div>
+      <div style="display:flex; gap:10px;">
+        <button id="wheelPersistNo" style="flex:1; height:42px; background:#222; color:#fff; border:1px solid #333; border-radius:10px; font-size:12px; cursor:pointer;">Hayır, 12 saat kalsın</button>
+        <button id="wheelPersistYes" style="flex:1; height:42px; background:#00c853; color:#000; border:none; border-radius:10px; font-weight:bold; font-size:12px; cursor:pointer;">Evet, kalıcı olsun</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>
