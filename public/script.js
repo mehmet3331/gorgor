@@ -209,9 +209,22 @@ function formatLastSeen(ts){
 }
 
 function updateOpponentDisplay(name,status){ 
+  // Guard: kendi adınsa karşı taraf değil, güncelleme yapma
+  if(name && (name === myRealUsername || name === myUsername)) return;
+  if(!name && opponentUsername && (opponentUsername === myRealUsername || opponentUsername === myUsername)) return;
   opponentUsername=name||opponentUsername; 
+  // Ekstra guard: opponentUsername kendi adın olmuşsa temizle
+  if(opponentUsername === myRealUsername || opponentUsername === myUsername){
+    opponentUsername = "";
+    return;
+  }
   opponentStatus=status||opponentStatus; 
-  if(opponentNameDisplay){ opponentNameDisplay.textContent=opponentUsername||"-"; } 
+  if(opponentNameDisplay){ 
+    // Sadece karşı tarafın adı, kendi adın değil
+    if(opponentUsername && opponentUsername !== myRealUsername && opponentUsername !== myUsername){
+      opponentNameDisplay.textContent=opponentUsername; 
+    }
+  } 
   if(opponentDot){ opponentDot.className="onlineDot "+(opponentStatus==="varım"||opponentStatus==="online"?"online":"offline"); } 
   if(opponentStatusText){ 
     if(opponentStatus==="varım"||opponentStatus==="online"){ 
@@ -222,16 +235,27 @@ function updateOpponentDisplay(name,status){
     } else { 
       const ts = lastSeenTimes[opponentUsername] || lastSeenTimes[name] || null;
       if(ts){
-        opponentStatusText.textContent=`dışarda • ${formatLastSeen(ts)}`;
+        // Son görülme saatini gerçek saat olarak göster: 22:42 gibi
+        const d = new Date(ts);
+        const hh = String(d.getHours()).padStart(2,'0');
+        const mm = String(d.getMinutes()).padStart(2,'0');
+        const clock = `${hh}:${mm}`;
+        const rel = formatLastSeen(ts);
+        // Eğer az önce ise "son görülme az önce" değil "son görülme 22:42" + relative
+        if(rel === "az önce"){
+          opponentStatusText.textContent=`son görülme ${clock}`;
+        } else {
+          opponentStatusText.textContent=`son görülme ${clock} • ${rel}`;
+        }
       } else {
-        opponentStatusText.textContent="dışarda";
+        opponentStatusText.textContent="son görülme -";
       }
-      opponentStatusText.style.color="rgba(255,255,255,0.5)"; 
+      opponentStatusText.style.color="#888"; 
       if(typeof stopWaitingDots==="function") stopWaitingDots();
     } 
   } 
   const phoneNameDisplay=document.getElementById("phoneNameDisplay"); 
-  if(phoneNameDisplay && opponentUsername){ phoneNameDisplay.textContent=opponentUsername; } 
+  if(phoneNameDisplay && opponentUsername && opponentUsername !== myRealUsername){ phoneNameDisplay.textContent=opponentUsername; } 
 }
 roomName.addEventListener("input",()=>{ const v=normalize(roomName.value); if(v.length>0){ if(fakeRoomsHint) fakeRoomsHint.style.display="block"; } else { if(fakeRoomsHint) fakeRoomsHint.style.display="none"; } if(v===REAL_ROOM || v.length>=2){ userName.style.display="block"; userListBox.style.display="block"; } else { userName.style.display="none"; userListBox.style.display="none"; } });
 
