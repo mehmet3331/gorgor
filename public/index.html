@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>GORGOR V21 FINAL - 12 SAAT + WHEEL KALICI + SES ALTTA</title>
+<title>GORGOR V21 FINAL - Fix kamera + blink + guvenlik + 12 saat + wheel kalici + ses alta + opponent fix - Fix kamera + blink + guvenlik</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="mobile_fix.css" />
 <script src="/socket.io/socket.io.js"></script>
 <script src="./simplepeer.min.js"></script>
 <style>
+/* V18.10 extra mobile fix inline fallback */
 @media (max-width: 480px){
   #floatingPillLeft{ gap:4px; }
   #privacyModeSelect{ margin-left:2px !important; font-size:8px !important; padding:1px 3px !important; height:16px !important; }
@@ -32,7 +33,7 @@
   </div>
 </div>
 
-<div id="roomScreen" style="display:none;"><div style="position:absolute;top:10px;right:10px;background:#00ff88;color:#000;padding:2px 8px;border-radius:10px;font-size:10px;">V21 FINAL 12 SAAT + WHEEL KALICI</div>
+<div id="roomScreen" style="display:none;"><div style="position:absolute;top:10px;right:10px;background:#00ff88;color:#000;padding:2px 8px;border-radius:10px;font-size:10px;">V20 25 TEMMUZ STABIL</div>
   <h2>🔒 GORGOR</h2>
   <input id="roomName" placeholder="Oda adı" autocomplete="off" />
   <div id="fakeRoomsHint" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; font-size:12px;">
@@ -52,8 +53,8 @@
     <div id="floatingPillLeft" style="display:flex; flex-direction:column; gap:2px;">
       <div style="display:flex; align-items:center; gap:4px;">
         <span id="opponentDot" class="onlineDot offline"></span>
-        <span id="opponentNameDisplay" class="opponentName">varım</span>
-        <span id="opponentStatusText" class="opponentStatus" style="font-size:9px; color:#888;">dışarda - az önce</span>
+        <span id="opponentNameDisplay" class="opponentName">-</span>
+        <span id="opponentStatusText" class="opponentStatus" style="font-size:10px; color:#888; margin-left:4px;">son görülme -</span>
       </div>
       <div style="display:flex; align-items:center; gap:6px; margin-left:18px;">
         <select id="privacyModeSelect" title="Güvenlik Modu" style="background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 8px; height:22px; margin-left:8px; transform:translateX(8px);">
@@ -72,7 +73,7 @@
     </div>
   </div>
 
-  <div id="leftStackContainer" style="position:absolute; left:12px; top:85px; display:flex; flex-direction:column; gap:8px; z-index:25;">
+  <div id="leftStackContainer" style="position:absolute; left:12px; top:60px; display:flex; flex-direction:column; gap:8px; z-index:25;">
     <button id="micBtn" title="Mikrofon" style="width:36px; height:36px; background:#222; border:1px solid #444; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🎤</button>
     <button id="panicBtn" title="Panik" style="width:36px; height:36px; background:#ff0000 !important; border:none; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🚨</button>
     <button id="skullPanicBtn" title="Tam Yok Et" style="width:36px; height:36px; background:#111 !important; border:1px solid #333 !important; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">💀</button>
@@ -92,7 +93,7 @@
   <div id="candleContainer"><div class="candle"><div class="wick"></div><div class="flame"></div><div class="wax"></div></div><p>Karşı taraf yok<br/>Mum yanıyor 🕯</p></div>
   <div id="phoneCallUI" style="display:none;"><div class="phoneAvatar">👤</div><div class="phoneName" id="phoneNameDisplay">-</div><div class="phoneStatus">Telefon modu</div><div class="phoneWave"><span></span><span></span></div></div>
 
-  <div id="settingsContainer" style="position:absolute; left:12px; top:210px; display:flex; flex-direction:column; gap:6px; z-index:20; background:rgba(0,0,0,0.6); border:1px solid #222; border-radius:12px; padding:6px;">
+  <div id="settingsContainer" style="position:absolute; left:12px; top:190px; display:flex; flex-direction:column; gap:6px; z-index:20; background:rgba(0,0,0,0.6); border:1px solid #222; border-radius:12px; padding:6px;">
     <button id="settingsBtn">⚙</button>
     <button id="changePasswordBtn" title="Şifre">🔑</button>
     <div id="statusBar"><div class="statusBox"><span id="pingValue">-- ms</span> | <span id="connectionQuality">Bağlanıyor</span></div><div class="statusBox" id="currentUserBox">-</div></div>
@@ -142,14 +143,15 @@
   </div>
 
   <button id="chatToggle">💬</button>
+
   <div id="chatPanel">
     <div id="messages"></div>
     <div id="inputArea">
-      <div class="inputTopRow" style="display:flex; gap:8px; align-items:center;">
+            <div class="inputTopRow" style="display:flex; gap:8px; align-items:center;">
         <select id="perMessageTimerSelect" style="flex:1;">
           <option value="300">5 dakika</option>
-          <option value="900">15 dakika</option>
           <option value="3600">1 saat</option>
+          <option value="43200" selected>12 saat (varsayılan)</option>
           <option value="14400">4 saat</option>
           <option value="43200" selected>12 saat (varsayılan)</option>
           <option value="86400">1 gün</option>
@@ -159,19 +161,62 @@
         <button id="nudgeBtn" title="Titreşim" style="width:36px; height:28px; background:#1a1a1a; border:1px solid #333; border-radius:8px; font-size:14px; cursor:pointer;">👉</button>
       </div>
       <div class="inputBottomRow">
-        <button id="attachMenuBtn">📎</button>
-        <input id="messageInput" placeholder="Mesaj..." />
+        <div style="position:relative;">
+          <button id="attachMenuBtn">⋯</button>
+          <div id="attachMenu">
+            <button id="cameraBtn">📷 Kameradan Çek</button>
+            <button id="mediaBtn">🖼 Galeriden Seç (20MB)</button>
+            <button id="drawBtn">✏ Çizim</button>
+            <button id="locationBtn">📍 Konum</button>
+          </div>
+        </div>
+        <input id="messageInput" placeholder="Mesaj..." autocomplete="off" />
         <button id="sendBtn">Gönder</button>
       </div>
-      <div id="emojiTray" style="display:none;">
-        <span class="flyEmoji" data-effect="heart">❤️</span>
-        <span class="flyEmoji" data-effect="fire">🔥</span>
-        <span class="flyEmoji" data-effect="skull">💀</span>
-        <span id="addCustomEmoji" class="flyEmoji">➕</span> 
-      </div>
-      <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" />
-      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" />
     </div>
+    <div id="emojiPanel">
+<span class="flyEmoji" data-effect="heart">❤</span>
+<span class="flyEmoji" data-effect="kiss">💋</span>
+<span class="flyEmoji" data-effect="skull">💀</span>
+<span class="flyEmoji" data-effect="kiss-rain">😘</span>
+<span class="flyEmoji" data-effect="kiss-rain">😍</span>
+<span class="flyEmoji" data-effect="water">💦</span>
+<span class="flyEmoji" data-effect="fire">🔥</span>
+<span class="flyEmoji" data-effect="flower">🌸</span>
+<span class="flyEmoji" data-effect="thumbs">👍</span>
+<span class="flyEmoji" data-effect="wow">😮</span>
+<span class="flyEmoji" data-effect="heart-burst">💖</span>
+<span class="flyEmoji" data-effect="heart-rain">💕</span>
+<span class="flyEmoji" data-effect="sparkle">✨</span>
+<span class="flyEmoji" data-effect="sparkle-burst">🌟</span>
+<span class="flyEmoji" data-effect="fire-rain">🔥</span>
+<span class="flyEmoji" data-effect="laugh">😂</span>
+<span class="flyEmoji" data-effect="laugh-rain">🤣</span>
+<span class="flyEmoji" data-effect="angry">😡</span>
+<span class="flyEmoji" data-effect="angry-rain">💢</span>
+<span class="flyEmoji" data-effect="explode">💥</span>
+<span class="flyEmoji" data-effect="party">🎉</span>
+<span class="flyEmoji" data-effect="confetti">🎊</span>
+<span class="flyEmoji" data-effect="money">💰</span>
+<span class="flyEmoji" data-effect="money-rain">💸</span>
+<span class="flyEmoji" data-effect="rocket">🚀</span>
+<span class="flyEmoji" data-effect="rocket-fly">🚀</span>
+<span class="flyEmoji" data-effect="star">⭐</span>
+<span class="flyEmoji" data-effect="star-rain">🌟</span>
+<span class="flyEmoji" data-effect="shake">😈</span>
+<span class="flyEmoji" data-effect="bounce">😂</span>
+<span class="flyEmoji" data-effect="spin">🤪</span>
+<span class="flyEmoji" data-effect="fall">😭</span>
+<span class="flyEmoji" data-effect="fly">🚀</span>
+<span class="flyEmoji" data-effect="orbit">❤</span>
+<span class="flyEmoji" data-effect="spiral">🌀</span>
+<span class="flyEmoji" data-effect="wave">👋</span>
+<span class="flyEmoji" data-effect="rainbow">🌈</span>
+<span class="flyEmoji" data-effect="emoji-rain">🥳</span>
+<span id="addCustomEmoji" class="flyEmoji">➕</span> 
+    </div>
+    <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" />
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" />
   </div>
 </div>
 
@@ -201,7 +246,7 @@ function calcEqual(){
   <div class="wheelContainer">
     <div class="wheelCol">
       <div class="wheelLabel">Saat</div>
-      <div class="wheelBox"><input id="wheelHour" type="number" min="0" max="23" value="12" readonly></div>
+      <div class="wheelBox"><input id="wheelHour" type="number" min="0" max="23" value="4" readonly></div>
       <button class="wheelBtn" onclick="wheelStep('hour',1)">▲</button>
       <button class="wheelBtn" onclick="wheelStep('hour',-1)">▼</button>
     </div>
@@ -219,25 +264,12 @@ function calcEqual(){
       <button class="wheelBtn" style="width:140px;margin-top:4px;" onclick="setWheelQuick(900)">15 dk</button>
       <button class="wheelBtn" style="width:140px;margin-top:4px;" onclick="setWheelQuick(3600)">1 saat</button>
       <button class="wheelBtn" style="width:140px;margin-top:4px;" onclick="setWheelQuick(14400)">4 saat</button>
-      <button class="wheelBtn" style="width:140px;margin-top:4px;" onclick="setWheelQuick(43200)">12 saat</button>
       <button class="wheelBtn" style="width:140px;margin-top:4px;" onclick="setWheelQuick(86400)">24 saat</button>
     </div>
   </div>
   <div class="wheelActions">
     <button id="wheelCancel">İptal</button>
     <button id="wheelOk">Kaydet</button>
-  </div>
-</div>
-
-<div id="wheelPersistModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100001; align-items:center; justify-content:center;">
-  <div style="width:300px; background:#111; border:1px solid #333; border-radius:16px; padding:20px; text-align:center;">
-    <div style="font-size:32px; margin-bottom:12px;">⏰</div>
-    <div id="wheelPersistText" style="font-size:13px; color:#fff; margin-bottom:6px; line-height:1.4;">Bundan sonraki girişlerde de 5 saat sürenin sürekli sabit kalmasını istiyor musunuz?</div>
-    <div style="font-size:10px; color:#888; margin-bottom:16px;">Evet dersen her girişte bu süre varsayılan olacak, hayır dersen sadece bu seferlik ve sonrası 12 saat varsayılana dönecek.</div>
-    <div style="display:flex; gap:10px;">
-      <button id="wheelPersistNo" style="flex:1; height:42px; background:#222; color:#fff; border:1px solid #333; border-radius:10px; font-size:12px; cursor:pointer;">Hayır, 12 saat kalsın</button>
-      <button id="wheelPersistYes" style="flex:1; height:42px; background:#00c853; color:#000; border:none; border-radius:10px; font-weight:bold; font-size:12px; cursor:pointer;">Evet, kalıcı olsun</button>
-    </div>
   </div>
 </div>
 
@@ -248,10 +280,10 @@ function calcEqual(){
   const minuteInput = document.getElementById("wheelMinute");
   const okBtn = document.getElementById("wheelOk");
   const cancelBtn = document.getElementById("wheelCancel");
-  const selectEl = document.getElementById("perMessageTimerSelect");
+  const openBtn = document.getElementById("openWheelBtn");
+  const selectEl = document.getElementById("defaultSelfDestructSelect");
   function openWheelFix(){
-    const persistent = localStorage.getItem("gorgor_persistent_default");
-    const def = parseInt(persistent || localStorage.getItem("gorgor_default_expire")||"43200");
+    const def = parseInt(localStorage.getItem("gorgor_default_expire")||"14400");
     const h = Math.floor(def/3600);
     const m = Math.floor((def%3600)/60);
     if(hourInput) hourInput.value = h;
@@ -267,27 +299,38 @@ function calcEqual(){
   function saveFix(){
     const h=parseInt(hourInput.value)||0; const m=parseInt(minuteInput.value)||0;
     let sec=h*3600+m*60; if(sec<60) sec=60; if(sec>86400) sec=86400;
-    closeWheelFix();
-    if(typeof showWheelPersistAsk === 'function'){ showWheelPersistAsk(sec); }
-    else {
-      localStorage.setItem("gorgor_default_expire", sec.toString());
-      if(selectEl){
-        let customOpt=selectEl.querySelector('option[value="custom_display"]');
-        if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; selectEl.appendChild(customOpt); }
-        customOpt.textContent=h+"sa "+m+"dk (wheel)"; customOpt.selected=true;
-      }
+    localStorage.setItem("gorgor_default_expire", sec.toString());
+    if(selectEl){
+      let customOpt=selectEl.querySelector('option[value="custom_display"]');
+      if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; selectEl.appendChild(customOpt); }
+      customOpt.textContent=h+"sa "+m+"dk (wheel)"; customOpt.selected=true;
     }
+    closeWheelFix();
   }
   window.wheelStep = stepFix;
   window.setWheelQuick = quickFix;
   window.openWheel = openWheelFix;
   window.closeWheel = closeWheelFix;
-  if(selectEl){ selectEl.addEventListener("change", function(){ if(this.value==="custom_wheel"){ openWheelFix(); } }); }
+  if(openBtn){ openBtn.onclick = function(e){ e.preventDefault(); e.stopPropagation(); openWheelFix(); }; }
+  if(selectEl){ selectEl.addEventListener("change", function(){ if(this.value==="custom"){ openWheelFix(); } }); }
   if(okBtn){ okBtn.onclick = saveFix; }
   if(cancelBtn){ cancelBtn.onclick = closeWheelFix; }
   if(overlay){ overlay.addEventListener("click", function(e){ if(e.target===overlay){ closeWheelFix(); } }); }
 })();
 </script>
+
+
+<div id="wheelPersistModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100001; align-items:center; justify-content:center;">
+  <div style="width:300px; background:#111; border:1px solid #333; border-radius:16px; padding:20px; text-align:center;">
+    <div style="font-size:32px; margin-bottom:12px;">⏰</div>
+    <div id="wheelPersistText" style="font-size:13px; color:#fff; margin-bottom:6px; line-height:1.4;">Bundan sonraki girişlerde de 5 saat sürenin sürekli sabit kalmasını istiyor musunuz?</div>
+    <div style="font-size:10px; color:#888; margin-bottom:16px;">Evet dersen her girişte bu süre varsayılan olacak, hayır dersen sadece bu seferlik ve sonrası 12 saat varsayılana dönecek.</div>
+    <div style="display:flex; gap:10px;">
+      <button id="wheelPersistNo" style="flex:1; height:42px; background:#222; color:#fff; border:1px solid #333; border-radius:10px; font-size:12px; cursor:pointer;">Hayır, 12 saat kalsın</button>
+      <button id="wheelPersistYes" style="flex:1; height:42px; background:#00c853; color:#000; border:none; border-radius:10px; font-weight:bold; font-size:12px; cursor:pointer;">Evet, kalıcı olsun</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
