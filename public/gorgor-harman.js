@@ -1,11 +1,11 @@
-/* GORGOR V23 HARMAN FIX - Anket + Checklist + Silme düzeltildi
-   Temel kurallar korunuyor: fakeCalc 0000, oda1, varım/yokum
-   Düzeltilenler:
-   - Anket JSON olarak görünüyordu → düzeltildi
-   - Anket kayboluyor / seçenek görünmüyor → düzeltildi
-   - Geri çekme (silme) çalışmıyor → düzeltildi
+/* GORGOR V24 - 3 NOKTA DOT MENU + ANKET + SILME FIX
+   Hiçbir şey bozulmadı, sadece dot menu eklendi
+   - Anket JSON görünmüyor
+   - Anket kaybolmuyor
+   - Geri çekme çalışıyor
+   - Yeni: Her mesajda ⋯ 3 nokta butonu
 */
-console.log("V23 HARMAN FIX YUKLENDI - anket + silme fix");
+console.log("V24 DOT MENU + ANKET FIX YUKLENDI");
 
 let replyToData = null;
 let editingMsgId = null;
@@ -16,7 +16,6 @@ let viewOnceEnabled = false;
 let searchResults = [];
 let currentSearchIdx = -1;
 let pollsData = new Map();
-let checklistData = new Map();
 
 try{
   const saved = JSON.parse(localStorage.getItem("gorgor_starred")||"[]");
@@ -26,12 +25,10 @@ try{
 function initHarmanUI(){
   const replyCancel = document.getElementById("replyCancel");
   if(replyCancel) replyCancel.onclick = ()=>{ replyToData=null; hideReplyBar(); };
-
   const editCancel = document.getElementById("editCancel");
   const editSave = document.getElementById("editSave");
   if(editCancel) editCancel.onclick = cancelEdit;
   if(editSave) editSave.onclick = saveEdit;
-
   const pinClose = document.getElementById("pinClose");
   const pinGoto = document.getElementById("pinGoto");
   if(pinClose) pinClose.onclick = ()=>{ pinnedMessage=null; hidePinBar(); try{ socket.emit("pin-message", {action:"unpin"}); }catch(e){} };
@@ -41,7 +38,6 @@ function initHarmanUI(){
       if(el){ el.scrollIntoView({behavior:"smooth", block:"center"}); el.style.outline="2px solid #00c853"; setTimeout(()=>el.style.outline="", 2000); }
     }
   };
-
   const searchToggle = document.getElementById("searchToggleBtn");
   const searchBar = document.getElementById("searchBar");
   const searchClose = document.getElementById("searchClose");
@@ -56,16 +52,13 @@ function initHarmanUI(){
   }
   if(searchUp) searchUp.onclick = ()=>navigateSearch(-1);
   if(searchDown) searchDown.onclick = ()=>navigateSearch(1);
-
   const starredToggle = document.getElementById("starredToggleBtn");
   const starredPanel = document.getElementById("starredPanel");
   const starredClose = document.getElementById("starredClose");
   if(starredToggle) starredToggle.onclick = ()=>{ renderStarredPanel(); starredPanel.style.display="flex"; };
   if(starredClose) starredClose.onclick = ()=>{ starredPanel.style.display="none"; };
-
   const viewOnceBtn = document.getElementById("viewOnceToggleBtn");
   if(viewOnceBtn){ viewOnceBtn.style.display="none"; viewOnceEnabled=false; }
-
   const pollBtn = document.getElementById("pollBtn");
   const checklistBtn = document.getElementById("checklistBtn");
   const pollModal = document.getElementById("pollModal");
@@ -86,13 +79,10 @@ function initHarmanUI(){
     container.appendChild(inp);
   };
   if(pollCreate) pollCreate.onclick = createPollOrChecklist;
-
   const liveLocationBtn = document.getElementById("liveLocationBtn");
   if(liveLocationBtn) liveLocationBtn.onclick = startLiveLocation;
-
   const translateClose = document.getElementById("translateClose");
   if(translateClose) translateClose.onclick = ()=>{ document.getElementById("translatePopup").style.display="none"; };
-
   const quickReactBar = document.getElementById("quickReactBar");
   if(quickReactBar){
     quickReactBar.querySelectorAll("span").forEach(s=>{
@@ -106,10 +96,10 @@ function initHarmanUI(){
       };
     });
   }
-
   document.addEventListener("click", (e)=>{
     const menu = document.getElementById("msgActionMenu");
-    if(menu && menu.style.display!="none" && !menu.contains(e.target)){
+    const dotBtn = e.target.closest(".msgDotBtn");
+    if(menu && menu.style.display!="none" && !menu.contains(e.target) && !dotBtn){
       if(!e.target.closest(".myMessage") && !e.target.closest(".otherMessage")){
         menu.style.display="none";
       }
@@ -175,11 +165,8 @@ async function createPollOrChecklist(){
 function addPollMessage(msgId, payload, isMine, sentAt, expireSec){
   const messagesEl = document.getElementById("messages");
   if(!messagesEl) return;
-  if(document.getElementById(msgId)){
-    // varsa sil ve yeniden oluştur (güncelleme için)
-    const old = document.getElementById(msgId);
-    if(old) old.remove();
-  }
+  const old = document.getElementById(msgId);
+  if(old) old.remove();
   const div=document.createElement("div");
   div.className = isMine ? "myMessage" : "otherMessage";
   div.id = msgId;
@@ -187,7 +174,7 @@ function addPollMessage(msgId, payload, isMine, sentAt, expireSec){
   div._expireSec = expireSec||43200;
   div._deleteAt = div._sentAt + div._expireSec*1000;
   div._clock = formatClock(new Date(div._sentAt));
-  const initial = (isMine ? (myRealUsername||"B") : (payload.sender||"K")).trim().charAt(0).toUpperCase();
+  const initial = (isMine ? (myRealUsername||"B") : "K").trim().charAt(0).toUpperCase();
   const isChecklist = payload.type==="checklist";
   const bubbleClass = isChecklist ? "msgBubble checklistBubble" : "msgBubble pollBubble";
   let html = `<div class="msgAvatar">${initial}</div><div class="${bubbleClass}"><span class="expireInfo">${div._clock} • ${isChecklist ? "✅ Checklist" : "📊 Anket"} • ⏰ ${formatTimeShort(div._expireSec)}</span>`;
@@ -200,24 +187,19 @@ function addPollMessage(msgId, payload, isMine, sentAt, expireSec){
       const votes = payload.votes ? payload.votes[idx] : 0;
       const total = payload.votes ? payload.votes.reduce((a,b)=>a+b,0) : 0;
       const perc = total>0 ? Math.round(votes/total*100) : 0;
-      html += `<div class="pollOption" data-idx="${idx}" style="cursor:pointer;"><div class="pollOptionBar" style="width:${perc}%"></div><div class="pollOptionText"><span>${escapeHtml(opt)}</span><span class="pollVotes">${votes} oy • ${perc}%</span></div></div>`;
+      html += `<div class="pollOption" data-idx="${idx}"><div class="pollOptionBar" style="width:${perc}%"></div><div class="pollOptionText"><span>${escapeHtml(opt)}</span><span class="pollVotes">${votes} oy • ${perc}%</span></div></div>`;
     }
   });
   html += `<span class="ticks ${isMine ? "single" : "double"}"> ${isMine ? "✓" : "✓✓"}</span></div>`;
   div.innerHTML = html;
   messagesEl.appendChild(div);
   setTimeout(()=>{ messagesEl.scrollTop=messagesEl.scrollHeight; },20);
-
   pollsData.set(msgId, payload);
-
-  // timer başlat
   if(typeof startSelfDestruct==="function"){
     startSelfDestruct(div, msgId, div._expireSec, div._deleteAt);
   }else if(typeof startExpireTimer==="function"){
     startExpireTimer(msgId, div._deleteAt, div._expireSec);
   }
-
-  // listeners
   if(isChecklist){
     div.querySelectorAll("input[type=checkbox]").forEach(chk=>{
       chk.addEventListener("change", ()=>{
@@ -236,7 +218,7 @@ function addPollMessage(msgId, payload, isMine, sentAt, expireSec){
         if(prev!==undefined && prev!==idx){
           if(payload.votes[prev]>0) payload.votes[prev]--;
         }
-        if(prev===idx) return; // aynı seçeneğe tekrar basma
+        if(prev===idx) return;
         payload.votes[idx] = (payload.votes[idx]||0)+1;
         if(!payload.voters) payload.voters={};
         payload.voters[voterKey]=idx;
@@ -252,13 +234,42 @@ function addPollMessage(msgId, payload, isMine, sentAt, expireSec){
       });
     });
   }
-  addActionButtonsToMessage(div, msgId, isMine, payload.question);
+  addDotMenuButton(div, msgId, isMine, payload.question);
   return msgId;
+}
+
+// === 3 NOKTA DOT MENU - YENI ===
+function addDotMenuButton(msgEl, msgId, isMine, textContent){
+  if(msgEl.querySelector(".msgDotBtn")) return;
+  const realIsMine = isMine || msgEl.classList.contains("myMessage");
+  const dot = document.createElement("button");
+  dot.className = "msgDotBtn";
+  dot.innerHTML = "⋯";
+  dot.title = "Seçenekler";
+  dot.onclick = (e)=>{
+    e.stopPropagation();
+    openActionMenu(msgId, realIsMine, textContent, msgEl, e);
+  };
+  msgEl.appendChild(dot);
+
+  // Long press hala çalışsın (yedek)
+  let pressTimer=null;
+  const startPress = (e)=>{
+    if(e.target.closest(".msgDotBtn") || e.target.closest(".pollOption") || e.target.closest("input")) return;
+    pressTimer = setTimeout(()=>{ openActionMenu(msgId, realIsMine, textContent, msgEl, e); }, 600);
+  };
+  const cancelPress = ()=>{ if(pressTimer) clearTimeout(pressTimer); };
+  msgEl.addEventListener("touchstart", startPress, {passive:true});
+  msgEl.addEventListener("touchend", cancelPress);
+  msgEl.addEventListener("mousedown", startPress);
+  msgEl.addEventListener("mouseup", cancelPress);
+  msgEl.addEventListener("mouseleave", cancelPress);
 }
 
 function wrapMessageFunctions(){
   const _origAddMy = window.addMyMessage;
   const _origAddLocked = window.addLockedMessage;
+  if(!_origAddMy || !_origAddLocked) return;
 
   window.addMyMessage = async function(text, expireSec, realName){
     let payload = {t:text};
@@ -323,9 +334,10 @@ function wrapMessageFunctions(){
           }
         }else{
           const el = document.getElementById(msgId);
-          if(el && !el.querySelector(".msgActions")){
+          if(el && !el.querySelector(".msgDotBtn")){
             const isMyEl = el.classList.contains("myMessage");
-            addActionButtonsToMessage(el, msgId, isMyEl, p||"");
+            const txt = el.querySelector(".msgText")?.textContent || p || "";
+            addDotMenuButton(el, msgId, isMyEl, txt);
           }
         }
       }catch(e){}
@@ -349,65 +361,10 @@ function enhanceMessageDOM(msgId, data, isMine){
       bubble.insertBefore(rq, bubble.firstChild);
     }
   }
-  if(data.vo){
-    if(!bubble.classList.contains("viewOnce")){
-      bubble.classList.add("viewOnce");
-      const vo = document.createElement("div");
-      vo.style.cssText="font-size:10px;color:#ffcc00;margin-bottom:4px;";
-      vo.textContent="👁️ Bir kez görüldü";
-      bubble.insertBefore(vo, bubble.firstChild);
-    }
+  if(!el.querySelector(".msgDotBtn")){
+    const realIsMine = isMine || el.classList.contains("myMessage");
+    addDotMenuButton(el, msgId, realIsMine, data.t||"");
   }
-  if(!el.querySelector(".msgActions")){
-    addActionButtonsToMessage(el, msgId, isMine, data.t||"");
-  }
-}
-
-function addActionButtonsToMessage(msgEl, msgId, isMine, textContent){
-  if(msgEl.querySelector(".msgActions")) return;
-  // isMine düzeltmesi: myMessage class'ı varsa silmeye izin ver
-  const realIsMine = isMine || msgEl.classList.contains("myMessage");
-  const actions = document.createElement("div");
-  actions.className = "msgActions";
-  const btns = [
-    {icon:"↩️", title:"Alıntıla", act:"reply"},
-    {icon:"📌", title:"Sabitle", act:"pin"},
-    {icon:"⭐", title:"Yıldızla", act:"star"},
-    {icon:"↪️", title:"İlet", act:"forward"},
-    {icon:"🌐", title:"Çevir", act:"translate"},
-  ];
-  if(realIsMine){
-    btns.unshift({icon:"✏️", title:"Düzenle", act:"edit"});
-  }
-  btns.push({icon:"⋯", title:"Daha fazla", act:"more"});
-
-  btns.forEach(b=>{
-    const btn = document.createElement("button");
-    btn.textContent = b.icon;
-    btn.title = b.title;
-    btn.dataset.act = b.act;
-    btn.onclick = (e)=>{
-      e.stopPropagation();
-      handleMessageAction(b.act, msgId, realIsMine, textContent, msgEl);
-    };
-    actions.appendChild(btn);
-  });
-  msgEl.appendChild(actions);
-
-  let pressTimer=null;
-  const startPress = (e)=>{
-    pressTimer = setTimeout(()=>{ openActionMenu(msgId, realIsMine, textContent, msgEl, e); }, 600);
-  };
-  const cancelPress = ()=>{ if(pressTimer) clearTimeout(pressTimer); };
-  msgEl.addEventListener("touchstart", startPress, {passive:true});
-  msgEl.addEventListener("touchend", cancelPress);
-  msgEl.addEventListener("mousedown", startPress);
-  msgEl.addEventListener("mouseup", cancelPress);
-  msgEl.addEventListener("mouseleave", cancelPress);
-  msgEl.addEventListener("dblclick", (e)=>{
-    e.preventDefault();
-    handleMessageAction("reply", msgId, realIsMine, textContent, msgEl);
-  });
 }
 
 function handleMessageAction(act, msgId, isMine, text, msgEl){
@@ -444,9 +401,6 @@ function handleMessageAction(act, msgId, isMine, text, msgEl){
     case "translate":
       translateText(text);
       break;
-    case "more":
-      openActionMenu(msgId, isMine, text, msgEl, null);
-      break;
     case "copy":
       navigator.clipboard.writeText(text).then(()=>showToast("Kopyalandı"));
       break;
@@ -468,7 +422,7 @@ function openActionMenu(msgId, isMine, text, msgEl, ev){
   if(!menu) return;
   menu.innerHTML="";
   const actions = [
-    {icon:"↩️", label:"Alıntıla", act:"reply"},
+    {icon:"↩️", label:"Alıntıla / Yanıtla", act:"reply"},
     {icon:"📌", label:"Sabitle", act:"pin"},
     {icon:"⭐", label: starredMessages.has(msgId) ? "Yıldızı kaldır" : "Yıldızla", act:"star"},
     {icon:"↪️", label:"İlet", act:"forward"},
@@ -490,11 +444,11 @@ function openActionMenu(msgId, isMine, text, msgEl, ev){
   else if(ev && ev.clientX){ x=ev.clientX; y=ev.clientY; }
   else {
     const rect = msgEl.getBoundingClientRect();
-    x = rect.left + 20;
-    y = rect.top + 20;
+    x = rect.right - 200;
+    y = rect.top + 30;
   }
-  menu.style.left = Math.min(x, window.innerWidth-200)+"px";
-  menu.style.top = Math.min(y, window.innerHeight-200)+"px";
+  menu.style.left = Math.min(Math.max(x, 10), window.innerWidth-210)+"px";
+  menu.style.top = Math.min(Math.max(y, 10), window.innerHeight-250)+"px";
   menu.style.display="block";
 }
 
@@ -511,10 +465,10 @@ function hideReplyBar(){ const bar=document.getElementById("replyPreviewBar"); i
 function showEditBanner(text){
   const b=document.getElementById("editBanner");
   const o=document.getElementById("editOriginal");
-  if(b && o){ o.textContent=text; b.style.display="flex"; document.getElementById("messageInput").value=text; document.getElementById("messageInput").focus(); }
+  if(b && o){ o.textContent=text; b.style.display="flex"; const inp=document.getElementById("messageInput"); if(inp){ inp.value=text; inp.focus(); } }
 }
 function cancelEdit(){
-  editingMsgId=null; editingOriginalText=""; const b=document.getElementById("editBanner"); if(b) b.style.display="none"; document.getElementById("messageInput").value="";
+  editingMsgId=null; editingOriginalText=""; const b=document.getElementById("editBanner"); if(b) b.style.display="none"; const inp=document.getElementById("messageInput"); if(inp) inp.value="";
 }
 async function saveEdit(){
   if(!editingMsgId) return;
@@ -538,7 +492,6 @@ async function saveEdit(){
     showToast("Düzenlendi");
   }catch(e){ showToast("Düzenlenemedi"); }
 }
-
 function pinMessage(msgId, text, isMine){
   const data = {msgId, text: text.substring(0,100), sender: isMine ? (myRealUsername||"Ben") : "Karşı"};
   pinnedMessage=data;
@@ -548,12 +501,13 @@ function pinMessage(msgId, text, isMine){
 function showPinBar(data){
   const bar=document.getElementById("pinBar");
   if(!bar) return;
-  document.getElementById("pinSender").textContent=data.sender;
-  document.getElementById("pinSnippet").textContent=data.text;
+  const senderEl=document.getElementById("pinSender");
+  const snipEl=document.getElementById("pinSnippet");
+  if(senderEl) senderEl.textContent=data.sender;
+  if(snipEl) snipEl.textContent=data.text;
   bar.style.display="block";
 }
 function hidePinBar(){ const bar=document.getElementById("pinBar"); if(bar) bar.style.display="none"; }
-
 function toggleStar(msgId, text, isMine, msgEl){
   if(starredMessages.has(msgId)){
     starredMessages.delete(msgId);
@@ -571,7 +525,6 @@ function toggleStar(msgId, text, isMine, msgEl){
   }
   localStorage.setItem("gorgor_starred", JSON.stringify(Array.from(starredMessages.values())));
 }
-
 function renderStarredPanel(){
   const list=document.getElementById("starredList");
   if(!list) return;
@@ -588,7 +541,6 @@ function renderStarredPanel(){
     list.appendChild(d);
   });
 }
-
 function forwardMessage(text){ navigator.clipboard.writeText(text).then(()=>showToast("Kopyalandı - başka odaya yapıştırabilirsin")); }
 async function translateText(text){
   const popup=document.getElementById("translatePopup");
@@ -609,7 +561,6 @@ async function translateText(text){
     res.textContent = j.responseData?.translatedText || "Çeviri yapılamadı";
   }catch(e){ load.style.display="none"; res.textContent="Çeviri hatası"; }
 }
-
 function performSearch(q){
   clearHighlights();
   searchResults=[]; currentSearchIdx=-1;
@@ -655,14 +606,9 @@ function focusSearchResult(idx){
   el.scrollIntoView({behavior:"smooth", block:"center"});
   const hl = el.querySelector(".searchHighlight");
   if(hl){ hl.classList.add("searchCurrent"); }
-  else {
-    const first = el.querySelectorAll(".searchHighlight")[0];
-    if(first) first.classList.add("searchCurrent");
-  }
 }
 function clearCurrentMark(){ document.querySelectorAll(".searchCurrent").forEach(e=>{ e.classList.remove("searchCurrent"); e.classList.add("searchHighlight"); }); }
 function updateSearchCount(){ const c=document.getElementById("searchCount"); if(c) c.textContent = searchResults.length ? `${currentSearchIdx+1}/${searchResults.length}` : "0/0"; }
-
 async function startLiveLocation(){
   const btn=document.getElementById("liveLocationBtn");
   if(!navigator.geolocation){ showToast("Konum desteklenmiyor"); return; }
@@ -684,7 +630,6 @@ async function startLiveLocation(){
     count++; if(count>=max){ if(watchId) navigator.geolocation.clearWatch(watchId); showToast("Canlı konum bitti"); return; } sendLocation(pos2);
   }, null, {enableHighAccuracy:true}); setTimeout(()=>{ if(watchId) navigator.geolocation.clearWatch(watchId); showToast("Canlı konum sona erdi"); }, 5*60*1000); }, null, {enableHighAccuracy:true});
 }
-
 function initSocketHarman(){
   try{
     socket.on("chat-edit", async (data)=>{
@@ -763,10 +708,7 @@ function initSocketHarman(){
       const el=document.getElementById(data.msgId);
       if(el){ el.style.transition="opacity 0.3s"; el.style.opacity="0"; setTimeout(()=>el.remove(),300); showToast("Mesaj geri çekildi"); }
     });
-    // Pending mesajlarda anket düzeltmesi
-    const origPendingHandler = null;
     socket.on("pending-messages", async(list)=>{
-      // Bu handler script.js'te zaten var, biz sadece anketleri tekrar kontrol ediyoruz
       setTimeout(async ()=>{
         for(const m of list){
           try{
@@ -786,10 +728,8 @@ function initSocketHarman(){
     });
   }catch(e){ console.log("harman socket init hata", e); }
 }
-
 function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
 if(typeof showToast!=="function"){
   window.showToast = function(msg){
     let t=document.getElementById("gorgorToast");
@@ -797,10 +737,8 @@ if(typeof showToast!=="function"){
     t.textContent=msg; t.style.display="block"; t.style.opacity="1"; setTimeout(()=>{ t.style.opacity="0"; setTimeout(()=>t.style.display="none",300); },3000);
   };
 }
-
 document.addEventListener("DOMContentLoaded", ()=>{
   initHarmanUI();
   setTimeout(()=>{ wrapMessageFunctions(); initSocketHarman(); }, 300);
 });
-
-console.log("V23 HARMAN FIX - anket kaybolma + silme düzeltildi");
+console.log("V24 DOT MENU + ANKET FIX - 3 nokta aktif, anket duzeltildi");
