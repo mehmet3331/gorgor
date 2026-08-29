@@ -637,3 +637,26 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   #myVideoContainer{ top:75px !important; }
   #myVideoUnderBar{ top:75px !important; }
 }
+
+
+
+/* ===== V22.8 - 10PX DAHA ASAGI (ISTEK UZERINE) ===== */
+#leftStackContainer{
+  top:100px !important;
+}
+#settingsContainer{
+  top:290px !important;
+}
+#myVideoContainer{
+  top:90px !important;
+}
+#myVideoUnderBar{
+  top:90px !important;
+  margin-top:175px !important;
+}
+@media (max-width: 480px){
+  #leftStackContainer{ top:80px !important; }
+  #settingsContainer{ top:270px !important; }
+  #myVideoContainer{ top:85px !important; }
+  #myVideoUnderBar{ top:85px !important; margin-top:155px !important; }
+}
