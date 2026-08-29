@@ -481,26 +481,13 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 
 /* ===== V22.2 GIZLI MOD + ANTI-SLEEP ===== */
-#hiddenCalc{display:flex;}
 .hidden-calc-container button{height:44px; border:none; border-radius:8px; font-size:16px; cursor:pointer; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.3);}
 .hidden-calc-container button:active{transform:scale(0.95);}
-
 @keyframes blink2580{
   0%{background:#eee !important; color:#111 !important; box-shadow:0 0 0 rgba(0,200,83,0);}
   50%{background:#00c853 !important; color:#fff !important; box-shadow:0 0 20px #00c853 !important; transform:scale(1.08);}
   100%{background:#eee !important; color:#111 !important;}
 }
-.hc-blink{
-  animation: blink2580 0.6s infinite !important;
-  background:#00c853 !important;
-  color:#fff !important;
-  border:2px solid #fff !important;
-}
-
-#hiddenPingStatus{
-  animation: pulsePing 2s infinite;
-}
-@keyframes pulsePing{
-  0%,100%{opacity:1;}
-  50%{opacity:0.6;}
-}
+.hc-blink{animation: blink2580 0.6s infinite !important; background:#00c853 !important; color:#fff !important; border:2px solid #fff !important;}
+#hiddenPingStatus{animation: pulsePing 2s infinite;}
+@keyframes pulsePing{0%,100%{opacity:1;}50%{opacity:0.6;}}
