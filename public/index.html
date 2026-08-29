@@ -391,22 +391,18 @@ function calcEqual(){
   function saveFix(){
     const h=parseInt(hourInput.value)||0; const m=parseInt(minuteInput.value)||0;
     let sec=h*3600+m*60; if(sec<60) sec=60; if(sec>86400) sec=86400;
-    // BUG FIX: defaultExpire global güncelle
     try{
       localStorage.setItem("gorgor_default_expire", sec.toString());
-      if(typeof window.defaultExpire!=="undefined"){ window.defaultExpire = sec; }
-      if(typeof defaultExpire!=="undefined"){ defaultExpire = sec; }
-      if(typeof setDefaultExpire==="function"){ setDefaultExpire(sec); }
+      if(typeof window.defaultExpire!=="undefined") window.defaultExpire = sec;
+      if(typeof defaultExpire!=="undefined") defaultExpire = sec;
+      if(typeof setDefaultExpire==="function") setDefaultExpire(sec);
     }catch(e){ localStorage.setItem("gorgor_default_expire", sec.toString()); }
-    // Select'i güncelle
     if(selectEl){
       let customOpt=selectEl.querySelector('option[value="custom_display"]');
       if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; selectEl.appendChild(customOpt); }
       customOpt.textContent=h+"sa "+m+"dk (wheel) - VARSAYILAN";
       customOpt.selected=true;
-      // perMessageTimerSelect de default ise otomatik 2 saat kullanacak
     }
-    // Toast
     if(typeof showToast==="function") showToast(`⏰ Varsayılan süre ${h}sa ${m}dk oldu`);
     closeWheelFix();
   }

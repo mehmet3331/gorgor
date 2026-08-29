@@ -78,11 +78,10 @@ let typingTimer; let isTyping = false; let messageIdCounter = 0;
 const sentMessages = new Map();
 window.defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "43200");
 let defaultExpire = window.defaultExpire;
-function setDefaultExpire(sec){ defaultExpire = sec; window.defaultExpire = sec; localStorage.setItem("gorgor_default_expire", sec.toString()); }
+function setDefaultExpire(sec){ defaultExpire = sec; window.defaultExpire = sec; localStorage.setItem("gorgor_default_expire", sec.toString()); console.log("defaultExpire guncellendi:", sec); }
 let activeTimers = new Map();
 let offlineTimer = null;
 const FOURTEEN_MIN = 14*60*1000;
-
 
 function startSelfDestruct(div,msgId,expireSec,deleteAt){
   expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
@@ -448,7 +447,6 @@ function getExpireFromSelect(){
   try{
     let perVal = perMessageTimerSelect ? perMessageTimerSelect.value : "default";
     if(perVal==="default"){
-      // defaultExpire güncel mi kontrol et
       const stored = parseInt(localStorage.getItem("gorgor_default_expire")||"43200");
       if(stored!==defaultExpire){ defaultExpire = stored; window.defaultExpire = stored; }
       return defaultExpire;
@@ -463,7 +461,7 @@ function getExpireFromSelect(){
     }
     const n=parseInt(perVal);
     if(!isNaN(n)) return Math.min(n,MAX_SEC);
-  }catch(e){}
+  }catch(e){ console.log("getExpire hata", e); }
   return defaultExpire;
 }
 sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); input.value=""; socket.emit('typing',false); isTyping=false; };
@@ -1564,64 +1562,72 @@ function hiddenCalcEqual(){
 }
 function enterHiddenMode(){
   isHiddenMode=true; hasNewMessageWhileHidden=false;
-  const mainEl = document.getElementById("mainScreen");
-  if(mainEl) mainEl.style.display="none";
-  const hiddenEl = document.getElementById("hiddenCalc");
-  if(hiddenEl) hiddenEl.style.display="flex";
-  const ind = document.getElementById("hiddenNewMsgIndicator");
-  if(ind) ind.style.display="none";
-  stopBlinking();
-  startKeepAlive();
-  try{ if('wakeLock' in navigator){ navigator.wakeLock.request('screen').then(l=>{wakeLock=l;}).catch(()=>{}); } }catch(e){}
-  if(typeof showToast==="function") showToast("🕵️ Gizli mod - 25sn ping aktif");
-  console.log("GIZLI MOD GIRDI - keepalive 25sn");
+  try{
+    const mainEl = document.getElementById("mainScreen");
+    if(mainEl) mainEl.style.display="none";
+    const hiddenEl = document.getElementById("hiddenCalc");
+    if(hiddenEl) hiddenEl.style.display="flex";
+    else { console.error("hiddenCalc bulunamadi!"); alert("Gizli hesap makinesi bulunamadi, sayfayi yenileyin"); return; }
+    const ind = document.getElementById("hiddenNewMsgIndicator");
+    if(ind) ind.style.display="none";
+    stopBlinking();
+    startKeepAlive();
+    try{ if('wakeLock' in navigator){ navigator.wakeLock.request('screen').then(l=>{wakeLock=l;}).catch(()=>{}); } }catch(e){}
+    if(typeof showToast==="function") showToast("🕵️ Gizli mod - 25sn ping aktif");
+    console.log("GIZLI MOD GIRDI - keepalive 25sn");
+  }catch(e){ console.error("enterHiddenMode hata", e); }
 }
 function exitHiddenMode(){
   isHiddenMode=false;
-  const hiddenEl = document.getElementById("hiddenCalc");
-  if(hiddenEl) hiddenEl.style.display="none";
-  const mainEl = document.getElementById("mainScreen");
-  if(mainEl) mainEl.style.display="block";
-  stopBlinking(); hasNewMessageWhileHidden=false;
-  const ind = document.getElementById("hiddenNewMsgIndicator");
-  if(ind) ind.style.display="none";
-  if(typeof messages!=="undefined" && messages) messages.scrollTop=messages.scrollHeight;
-  // Socket kopmus mu kontrol et, kopmussa yeniden baglan ve odaya gir
   try{
-    if(typeof socket!=="undefined"){
-      if(!socket.connected){
-        console.log("Cikis: socket kopuk, yeniden baglaniyor");
-        socket.connect();
-        setTimeout(()=>{
-          if(currentRoom && myUsername){
+    const hiddenEl = document.getElementById("hiddenCalc");
+    if(hiddenEl) hiddenEl.style.display="none";
+    const mainEl = document.getElementById("mainScreen");
+    if(mainEl) mainEl.style.display="block";
+    stopBlinking(); hasNewMessageWhileHidden=false;
+    const ind = document.getElementById("hiddenNewMsgIndicator");
+    if(ind) ind.style.display="none";
+    if(typeof messages!=="undefined" && messages) messages.scrollTop=messages.scrollHeight;
+    // Socket kopmus mu kontrol et
+    try{
+      if(typeof socket!=="undefined"){
+        if(!socket.connected){
+          console.log("Cikis: socket kopuk, yeniden baglaniyor");
+          socket.connect();
+          setTimeout(()=>{
+            if(currentRoom && myUsername){
+              socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
+              if(typeof showToast==="function") showToast("🔄 Bağlantı yenilendi");
+            }
+          }, 800);
+        }else{
+          if(currentRoom){
             socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
-            if(typeof showToast==="function") showToast("🔄 Bağlantı yenilendi");
           }
-        }, 800);
-      }else{
-        // Zaten bagli, ama oda bilgisini tazele
-        if(currentRoom){
-          socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
         }
       }
-    }
-  }catch(e){ console.log("exitHiddenMode rejoin hata", e); }
-  if(typeof showToast==="function") showToast("🔓 Geri döndün");
-  console.log("GIZLI MOD CIKIS - reconnect kontrol edildi");
+    }catch(e){ console.log("exitHiddenMode rejoin hata", e); }
+    if(typeof showToast==="function") showToast("🔓 Geri döndün");
+    console.log("GIZLI MOD CIKIS - reconnect kontrol edildi");
+  }catch(e){ console.error("exitHiddenMode hata", e); }
+}
+function startBlinking2580(){
+  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add("hc-blink"); });
+  const ind=document.getElementById("hiddenNewMsgIndicator"); if(ind) ind.style.display="block";
+  let blink=false;
+  if(blinkInterval) clearInterval(blinkInterval);
+  blinkInterval=setInterval(()=>{ if(!isHiddenMode){clearInterval(blinkInterval); return;} document.title=blink?"💬 Yeni Mesaj":"HESAPLAMA"; blink=!blink; },1000);
 }
 function stopBlinking(){
   ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove("hc-blink"); });
   if(blinkInterval){ clearInterval(blinkInterval); blinkInterval=null; }
   document.title="HESAPLAMA";
-  if(!isHiddenMode) document.title="HESAPLAMA";
 }
 function startKeepAlive(){
   if(keepAliveInterval) clearInterval(keepAliveInterval);
   doKeepAlivePing();
-  // 25 saniyede bir ping - browser throttle'a dayanıklı
   keepAliveInterval=setInterval(()=>{ doKeepAlivePing(); }, 25*1000);
-  // her 5 dakikada bir de health fetch
-  setInterval(()=>{ try{ fetch('/health', {keepalive:true}).catch(()=>{}); fetch('/keepalive', {keepalive:true}).catch(()=>{}); }catch(e){} }, 5*60*1000);
+  setInterval(()=>{ try{ fetch('/health', {keepalive:true}).catch(()=>{}); fetch('/keepalive', {keepalive:true}).catch(()=>{}); fetch('/ping', {keepalive:true}).catch(()=>{}); }catch(e){} }, 5*60*1000);
 }
 function doKeepAlivePing(){
   try{
@@ -1635,16 +1641,26 @@ function doKeepAlivePing(){
         socket.emit("keepalive", {room: (typeof currentRoom!=="undefined"?currentRoom:""), user: (typeof myRealUsername!=="undefined"?myRealUsername:"")});
       }
     }
-    // fetch keepalive
-    try{ fetch('/health', {keepalive:true}).catch(()=>{}); fetch('/keepalive', {keepalive:true}).catch(()=>{}); fetch('/ping', {keepalive:true}).catch(()=>{}); }catch(e){}
+    try{ fetch('/health', {keepalive:true}).catch(()=>{}); fetch('/keepalive', {keepalive:true}).catch(()=>{}); }catch(e){}
     if(typeof wakeLock!=="undefined" && wakeLock===null && 'wakeLock' in navigator){
       try{ navigator.wakeLock.request('screen').then(l=>{wakeLock=l;}).catch(()=>{}); }catch(e){}
     }
   }catch(e){ console.log("keepalive hata", e); }
-};
+}
+document.addEventListener("DOMContentLoaded", ()=>{
+  const hideBtn=document.getElementById("hideChatBtn");
+  if(hideBtn) hideBtn.onclick=enterHiddenMode;
+  startKeepAlive();
+  document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ doKeepAlivePing(); } });
+  try{
+    socket.on("chat-message", ()=>{ if(isHiddenMode){ hasNewMessageWhileHidden=true; startBlinking2580(); if(navigator.vibrate) navigator.vibrate([200,100,200]); } });
+    socket.on("chat-media", ()=>{ if(isHiddenMode){ hasNewMessageWhileHidden=true; startBlinking2580(); } });
+    socket.on("chat-voice", ()=>{ if(isHiddenMode){ hasNewMessageWhileHidden=true; startBlinking2580(); } });
+  }catch(e){}
+});
 socket.on('connect', ()=>{
   console.log("Socket baglandi");
-  if(currentRoom && myUsername && !isHiddenMode){
+  if(currentRoom && myUsername && typeof isHiddenMode!=="undefined" && !isHiddenMode){
     console.log("Odaya otomatik rejoin", currentRoom);
     socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
   }
@@ -1652,8 +1668,7 @@ socket.on('connect', ()=>{
 socket.on('disconnect', (reason)=>{
   console.log("Socket koptu", reason);
   if(typeof isHiddenMode!=="undefined" && isHiddenMode){
-    // gizli modda koparsa 5sn sonra dene
     setTimeout(()=>{ try{ if(!socket.connected) socket.connect(); }catch(e){} }, 5000);
   }
 });
-console.log("V25 FIX - keepalive 25sn + auto rejoin + Genel mod koruma yuklendi");
+console.log("V25.1 FIX - gizli gorusme + wheel + Genel mod koruma + 25sn ping yuklendi");

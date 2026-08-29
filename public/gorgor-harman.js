@@ -1,14 +1,5 @@
-/* GORGOR V25 - 3 NOKTA DOT MENU + ANKET + WHEEL + GIZLI MOD + GENEL MOD FIX
-   Hiçbir şey bozulmadı
-   - Anket JSON görünmüyor (async fix)
-   - Anket kaybolmuyor (tek addPollMessage + pending fix)
-   - Geri çekme çalışıyor (myMessage class check)
-   - Wheel 2 saat ayarı artık çalışıyor (defaultExpire global güncelle)
-   - Gizli mod 15dk+ sonra kopmuyor (25sn ping + auto rejoin)
-   - Genel modda gizli mod + sekme değişince mesajlar kaybolmuyor (isHiddenMode check)
-   - 3 Nokta Dot Menu eklendi
-*/
-console.log("V25 DOT MENU + TUM FIXLER YUKLENDI");
+/* GORGOR V25.1 - 3 NOKTA DOT MENU + ANKET + WHEEL + GIZLI MOD + GENEL MOD FIX */
+console.log("V25.1 DOT MENU + TUM FIXLER YUKLENDI");
 
 let replyToData = null;
 let editingMsgId = null;
@@ -738,4 +729,4 @@ document.addEventListener("DOMContentLoaded", ()=>{
   initHarmanUI();
   setTimeout(()=>{ wrapMessageFunctions(); initSocketHarman(); }, 300);
 });
-console.log("V25 DOT MENU + TUM FIXLER - 3 nokta aktif, wheel, gizli mod, genel mod duzeltildi");
+console.log("V25.1 DOT MENU + TUM FIXLER - 3 nokta aktif, wheel, gizli mod, genel mod duzeltildi");
