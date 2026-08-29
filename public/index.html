@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>GORGOR V22.2 HARMAN - Gizli Mod 0000 + 13dk Ping + 2-5-8-0 Blink</title>
+<title>HESAPLAMA</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="mobile_fix.css" />
 <script src="/socket.io/socket.io.js"></script>
@@ -34,7 +34,7 @@
 </div>
 
 <div id="roomScreen" style="display:none;"><div style="position:absolute;top:10px;right:10px;background:#00ff88;color:#000;padding:2px 8px;border-radius:10px;font-size:10px;">V20 25 TEMMUZ STABIL</div>
-  <h2>🔒 GORGOR</h2>
+  <h2>🔒 HESAPLAMA</h2>
   <input id="roomName" placeholder="Oda adı" autocomplete="off" />
   <div id="fakeRoomsHint" style="display:none; width:280px; background:#111; border:1px solid #333; border-radius:10px; padding:8px; font-size:12px;">
     <div id="fakeRoomsList" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
@@ -269,6 +269,7 @@
 
 <!-- V22.2 GIZLI MOD - Farkli tasarim, 2-5-8-0 blink, 1111 geri don, arka planda ping -->
 <!-- V22.3 GIZLI MOD - 0000 sifre, hicbir ipucu yok, tam CASIO -->
+<!-- V22.4 FINAL - 0000 sifre, tam gizli, HESAPLAMA -->
 <div id="hiddenCalc" style="display:none; position:fixed; inset:0; background:#0a0a0a; z-index:10010; justify-content:center; align-items:center; flex-direction:column;">
   <div class="hidden-calc-container" style="background:linear-gradient(145deg, #1e1e1e, #2a2a2a); padding:22px; border-radius:20px; width:320px; box-shadow:0 20px 60px rgba(0,0,0,0.8); border:1px solid #333;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -306,7 +307,6 @@
       <button onclick="hiddenCalcPress('/')" style="background:#333; color:#fff;">÷</button>
       <button onclick="hiddenCalcEqual()" style="background:#00c853; color:white; font-weight:bold;">=</button>
     </div>
-    <!-- Gizli elementler - gorunmez, sadece JS icin -->
     <div id="hiddenPingStatus" style="display:none;">PING</div>
     <div id="hiddenNewMsgIndicator" style="display:none;"></div>
   </div>

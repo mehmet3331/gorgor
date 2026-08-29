@@ -364,7 +364,54 @@ settingsBtn.onclick=()=>settingsContainer.classList.toggle("menu-open");
 if(fullscreenBtn){ fullscreenBtn.onclick=()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }; }
 function formatTime(sec){ if(sec<60) return `${sec} sn`; const m=Math.floor(sec/60); const s=sec%60; if(m<60) return `${m} dk ${s} sn`; const h=Math.floor(m/60); const mm=m%60; if(h<24) return `${h}sa ${mm}dk`; const d=Math.floor(h/24); const hh=h%24; return `${d}g ${hh}sa ${mm}dk`; }
 function formatTimeShort(sec){ if(sec<60) return `${sec}sn`; const m=Math.floor(sec/60); if(m<60) return `${m}dk`; const h=Math.floor(m/60); if(h<24) return `${h}sa`; return `${Math.floor(h/24)}g`; }
-function startSelfDestruct(div,msgId,expireSec,deleteAt){ expireSec=Math.min(expireSec,MAX_SEC); if(activeTimers.has(msgId)){ const old=activeTimers.get(msgId); if(old.interval) clearInterval(old.interval); if(old.timeout) clearTimeout(old.timeout); } const expireAt=deleteAt||(Date.now()+expireSec*1000); const clock=div._clock||formatClock(new Date(expireAt-expireSec*1000)); const infoEl=div.querySelector(".expireInfo"); const interval=setInterval(()=>{ const remaining=Math.max(0,Math.floor((expireAt-Date.now())/1000)); if(infoEl){ infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(remaining)}`; if(remaining<60) infoEl.style.color="#ff4444"; } if(remaining<=0) clearInterval(interval); },1000); const timeout=setTimeout(()=>{ div.innerHTML="💨 Bu mesaj kendini imha etti"; div.className="selfDestructed"; setTimeout(()=>div.remove(),2000); clearInterval(interval); activeTimers.delete(msgId); },expireAt-Date.now()); activeTimers.set(msgId,{interval,timeout,expireAt}); }
+
+function startSelfDestruct(div,msgId,expireSec,deleteAt){
+  expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
+  if(activeTimers.has(msgId)){
+    const old=activeTimers.get(msgId);
+    if(old.interval) clearInterval(old.interval);
+    if(old.timeout) clearTimeout(old.timeout);
+  }
+  const expireAt=deleteAt||(Date.now()+expireSec*1000);
+  const clock=div._clock||formatClock(new Date(expireAt-expireSec*1000));
+  const infoEl=div.querySelector(".expireInfo");
+  if(infoEl){
+    const rem=Math.max(0,Math.floor((expireAt-Date.now())/1000));
+    infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(rem)}`;
+  }
+  const interval=setInterval(()=>{
+    const remaining=Math.max(0,Math.floor((expireAt-Date.now())/1000));
+    if(infoEl){
+      infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(remaining)}`;
+      if(remaining<60) infoEl.style.color="#ff4444";
+    }
+    if(remaining<=0) clearInterval(interval);
+  },1000);
+  const timeout=setTimeout(()=>{
+    div.style.transition="opacity 0.3s";
+    div.style.opacity="0";
+    setTimeout(()=>{
+      div.innerHTML="💨 Bu mesaj kendini imha etti";
+      div.className="selfDestructed";
+      div.style.opacity="1";
+      setTimeout(()=>{ 
+        div.style.opacity="0";
+        setTimeout(()=>div.remove(),300);
+      },1000);
+    },300);
+    clearInterval(interval);
+    activeTimers.delete(msgId);
+    try{ if(typeof socket!=="undefined") socket.emit("delete-message",{msgId}); }catch(e){}
+  }, Math.max(0, expireAt-Date.now()));
+  activeTimers.set(msgId,{interval,timeout,expireAt});
+}
+
+function startExpireTimer(msgId, deleteAt, expireSec){
+  const el=document.getElementById(msgId)||sentMessages.get(msgId);
+  if(!el) return;
+  startSelfDestruct(el, msgId, expireSec, deleteAt);
+}
+
 
 async function addMyMessage(text,expireSec,realName){ const now=Date.now(); const msgId=`msg-${now}-${messageIdCounter++}`; const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC); const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); const initial=(realName||"Y").trim().charAt(0).toUpperCase()||"Y"; const clock=formatClock(new Date(now)); div._clock=clock; div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(expireSec)}</span><div class="msgText">${linked}</div><span class="ticks single"> ✓</span></div>`; div._sentAt=now; div._deleteAt=now+expireSec*1000; messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); div._expireSec=expireSec; startSelfDestruct(div,msgId,expireSec,div._deleteAt); startExpireTimer(msgId, div._deleteAt, expireSec); return msgId; }
 async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){ const now=Date.now(); const msgId=`media-${now}-${messageIdCounter++}`; const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=now; div._deleteAt=now+expireSec*1000; const initial=(myRealUsername||"Y").trim().charAt(0).toUpperCase()||"Y"; const clock=formatClock(new Date(now)); div._clock=clock; div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(expireSec)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; bubble.appendChild(im); } else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks single"; tick.textContent=" ✓"; bubble.appendChild(tick); messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); startSelfDestruct(div,msgId,expireSec,div._deleteAt); startExpireTimer(msgId, div._deleteAt, expireSec); return msgId; }
@@ -1491,13 +1538,13 @@ function startBlinking2580(){
   const ind=document.getElementById("hiddenNewMsgIndicator"); if(ind) ind.style.display="block";
   let blink=false;
   if(blinkInterval) clearInterval(blinkInterval);
-  blinkInterval=setInterval(()=>{ if(!isHiddenMode){clearInterval(blinkInterval); return;} document.title=blink?"💬 YENI MESAJ! - Hesap Makinesi":"🔢 Hesap Makinesi - CASIO"; blink=!blink; },1000);
+  blinkInterval=setInterval(()=>{ if(!isHiddenMode){clearInterval(blinkInterval); return;} document.title=blink?"💬 Yeni Mesaj":"HESAPLAMA"; blink=!blink; },1000);
 }
 function stopBlinking(){
   ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove("hc-blink"); });
   if(blinkInterval){ clearInterval(blinkInterval); blinkInterval=null; }
-  document.title="GORGOR - Hesap Makinesi";
-  if(!isHiddenMode) document.title="Hesap Makinesi";
+  document.title="HESAPLAMA";
+  if(!isHiddenMode) document.title="HESAPLAMA";
 }
 function startKeepAlive(){
   if(keepAliveInterval) clearInterval(keepAliveInterval);

@@ -20,7 +20,7 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; overflow: 
 .cameraOverlayBtn { position: absolute; width: 32px; height: 32px; border: none; border-radius: 50%; background: rgba(0,0,0,.7); color: white; font-size: 16px; cursor: pointer; z-index: 120; }
 #switchCameraBtn { bottom: 5px; left: 5px; } #fullscreenBtn { top: 5px; right: 5px; }
 .qualitySelect { position: absolute; bottom: 5px; right: 5px; width: 60px; height: 28px; border: none; border-radius: 6px; background: rgba(0,0,0,.8); color: white; font-size: 12px; }
-#settingsContainer { position: fixed; top: 10px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; max-height: 90vh; overflow-y: auto; }
+#settingsContainer { position: fixed; top: 260px; left: 12px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; max-height: 90vh; overflow-y: auto; }
 #settingsBtn { width: 46px; height: 46px; border: none; border-radius: 50%; font-size: 22px; cursor: pointer; background: rgba(0,0,0,.7); color: white; }
 #settingsContainer > button:not(#settingsBtn), #settingsContainer > #statusBar, #settingsContainer > #secretSettings { display: none; width: 50px; height: 50px; border: none; border-radius: 12px; font-size: 22px; cursor: pointer; background: rgba(0,0,0,.8); color: white; }
 #settingsContainer.menu-open > button:not(#settingsBtn), #settingsContainer.menu-open > #statusBar { display: block; }
@@ -491,3 +491,21 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 .hc-blink{animation: blink2580 0.6s infinite !important; background:#00c853 !important; color:#fff !important; border:2px solid #fff !important;}
 #hiddenPingStatus{animation: pulsePing 2s infinite;}
 @keyframes pulsePing{0%,100%{opacity:1;}50%{opacity:0.6;}}
+
+
+/* V22.3 FIX - Ayar tusu asagiya cekildi, kurukafa + gizli buton ust uste binmesin */
+#settingsContainer{ top:260px !important; left:12px !important; }
+#leftStackContainer{ top:60px !important; left:12px !important; z-index:26 !important; }
+@media (max-width: 480px){
+  #settingsContainer{ top:230px !important; left:8px !important; }
+  #leftStackContainer{ top:50px !important; left:8px !important; }
+}
+
+
+/* V22.4 FINAL FIX - Ayar tusu asagiya, HESAPLAMA baslik */
+#settingsContainer{ top:260px !important; left:12px !important; }
+#leftStackContainer{ top:60px !important; left:12px !important; z-index:26 !important; }
+@media (max-width: 480px){
+  #settingsContainer{ top:230px !important; left:8px !important; }
+  #leftStackContainer{ top:50px !important; left:8px !important; }
+}
