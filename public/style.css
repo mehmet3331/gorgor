@@ -582,3 +582,32 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   #myVideoContainer{ width:90px !important; height:120px !important; top:10px !important; right:8px !important; }
   #floatingPill{ left:50px !important; right:8px !important; }
 }
+
+
+
+/* ===== V22.6 - SAG TARAF COK YUKARI FIX ===== */
+#myVideoContainer{
+  top:70px !important;
+  right:12px !important;
+  width:110px !important;
+  height:145px !important;
+}
+#myVideoUnderBar{
+  top:70px !important;
+  margin-top:155px !important;
+  right:12px !important;
+  width:110px !important;
+}
+#floatingPill{
+  top:8px !important;
+  left:12px !important;
+  right:12px !important;
+  padding-bottom:8px !important;
+}
+#floatingPillRight{
+  gap:8px !important;
+}
+@media (max-width: 480px){
+  #myVideoContainer{ top:65px !important; width:95px !important; height:125px !important; }
+  #myVideoUnderBar{ top:65px !important; margin-top:135px !important; width:95px !important; }
+}
