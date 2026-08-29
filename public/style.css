@@ -414,11 +414,11 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   width:100px !important;
 }
 
-/* ===== V22 HARMAN - Dunya chat harmani ===== */
+/* ===== V22.1 HARMAN - 41-54 ozellikler - ilk 40'a dokunulmedi ===== */
 #pinBar{position:fixed; top:56px; left:0; right:0; background:#111; border-bottom:1px solid #00c853; z-index:25; padding:6px 12px; animation:slideDown 0.2s ease;}
 .pinBarContent{display:flex; align-items:center; gap:8px;}
-.pinBarContent .pinIcon{font-size:16px;}
-.pinBarContent .pinText{flex:1; display:flex; flex-direction:column; min-width:0;}
+.pinIcon{font-size:16px;}
+.pinText{flex:1; display:flex; flex-direction:column; min-width:0;}
 #pinSender{font-size:11px; color:#00ff88; font-weight:bold;}
 #pinSnippet{font-size:12px; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;}
 .pinClose,.pinGoto{width:28px; height:28px; border:none; border-radius:50%; background:#222; color:#fff; cursor:pointer;}
@@ -430,14 +430,13 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #searchBar button{width:28px; height:28px; border:none; border-radius:6px; background:#222; color:#fff; cursor:pointer;}
 
 #replyPreviewBar{display:flex; align-items:center; gap:8px; padding:8px 12px; background:#0a1a0a; border-left:3px solid #00c853; border-top:1px solid #222; flex-shrink:0;}
-#replyPreviewBar .replyLine{width:3px; background:#00c853; border-radius:2px; align-self:stretch;}
-#replyPreviewBar .replyContent{flex:1; display:flex; flex-direction:column;}
+.replyLine{width:3px; background:#00c853; border-radius:2px; align-self:stretch;}
+.replyContent{flex:1; display:flex; flex-direction:column;}
 #replyToName{font-size:11px; color:#00ff88; font-weight:bold;}
 #replyToSnippet{font-size:12px; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;}
 #replyCancel{width:24px; height:24px; border:none; border-radius:50%; background:#222; color:#fff; cursor:pointer;}
 
 #editBanner{display:flex; align-items:center; gap:8px; padding:8px 12px; background:#1a1500; border-left:3px solid #ffcc00; border-top:1px solid #333; flex-shrink:0;}
-#editBanner span:first-child{font-size:12px; color:#ffcc00; font-weight:bold;}
 #editOriginal{flex:1; font-size:12px; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 #editCancel,#editSave{padding:4px 10px; border:none; border-radius:6px; font-size:11px; cursor:pointer;}
 #editCancel{background:#222; color:#fff;} #editSave{background:#ffcc00; color:#000; font-weight:bold;}
@@ -458,7 +457,6 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 .replyQuote .rqText{color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;}
 
 .msgBubble .editedLabel{font-size:8px; color:#888; font-style:italic; margin-left:6px;}
-.msgBubble .viewOnceBadge{font-size:9px; background:#ff4444; color:#fff; padding:1px 6px; border-radius:10px; margin-left:6px;}
 .msgBubble .starIcon{position:absolute; top:-4px; right:-4px; font-size:10px; background:#ffcc00; width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#000;}
 
 .msgBubble.pollBubble{background:#0f1a0f !important; border:1px solid #00c853 !important; min-width:220px;}
@@ -478,8 +476,31 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #msgActionMenu button{display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; background:transparent; border:none; color:#fff; font-size:13px; cursor:pointer; text-align:left; border-bottom:1px solid #222;}
 #msgActionMenu button:last-child{border-bottom:none;}
 #msgActionMenu button:hover{background:#222;}
-#msgActionMenu button span.icon{width:20px; text-align:center;}
 
 @keyframes slideDown{from{transform:translateY(-100%); opacity:0;} to{transform:translateY(0); opacity:1;}}
-.viewOnceBlur{filter:blur(12px); pointer-events:none; user-select:none;}
-.viewOnceOverlay{position:absolute; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; border-radius:18px; cursor:pointer; font-size:12px; color:#fff; flex-direction:column; gap:4px;}
+
+
+/* ===== V22.2 GIZLI MOD + ANTI-SLEEP ===== */
+#hiddenCalc{display:flex;}
+.hidden-calc-container button{height:44px; border:none; border-radius:8px; font-size:16px; cursor:pointer; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.3);}
+.hidden-calc-container button:active{transform:scale(0.95);}
+
+@keyframes blink2580{
+  0%{background:#eee !important; color:#111 !important; box-shadow:0 0 0 rgba(0,200,83,0);}
+  50%{background:#00c853 !important; color:#fff !important; box-shadow:0 0 20px #00c853 !important; transform:scale(1.08);}
+  100%{background:#eee !important; color:#111 !important;}
+}
+.hc-blink{
+  animation: blink2580 0.6s infinite !important;
+  background:#00c853 !important;
+  color:#fff !important;
+  border:2px solid #fff !important;
+}
+
+#hiddenPingStatus{
+  animation: pulsePing 2s infinite;
+}
+@keyframes pulsePing{
+  0%,100%{opacity:1;}
+  50%{opacity:0.6;}
+}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>GORGOR V22 HARMAN - Reply Edit Pin Star Search ViewOnce Translate Poll Checklist LiveLocation</title>
+<title>GORGOR V22.2 HARMAN - Gizli Mod + 13dk Ping + Anti-Sleep + 2-5-8-0 Blink</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="mobile_fix.css" />
 <script src="/socket.io/socket.io.js"></script>
@@ -77,6 +77,7 @@
     <button id="micBtn" title="Mikrofon" style="width:36px; height:36px; background:#222; border:1px solid #444; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🎤</button>
     <button id="panicBtn" title="Panik" style="width:36px; height:36px; background:#ff0000 !important; border:none; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🚨</button>
     <button id="skullPanicBtn" title="Tam Yok Et" style="width:36px; height:36px; background:#111 !important; border:1px solid #333 !important; border-radius:50%; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">💀</button>
+    <button id="hideChatBtn" title="Görüşmeyi Gizle - Hesap Makinesi" style="width:36px; height:36px; background:#222 !important; border:1px solid #00c853 !important; border-radius:50%; color:#00c853; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🕵️</button>
   </div>
 
   <div id="myVideoContainer">
@@ -144,7 +145,7 @@
 
   <button id="chatToggle">💬</button>
 
-  <!-- V22 HARMAN - Pin Bar -->
+  <!-- V22.1 HARMAN - Pin Bar (ozellik 43) -->
   <div id="pinBar" style="display:none;">
     <div class="pinBarContent">
       <span class="pinIcon">📌</span>
@@ -158,7 +159,7 @@
   </div>
 
   <div id="chatPanel">
-    <!-- V22 HARMAN - Search Bar -->
+    <!-- V22.1 - Search Bar (ozellik 45) -->
     <div id="searchBar" style="display:none;">
       <input id="searchInput" placeholder="🔍 Mesajlarda ara..." />
       <span id="searchCount">0/0</span>
@@ -167,7 +168,7 @@
       <button id="searchClose">✕</button>
     </div>
     <div id="messages"></div>
-    <!-- V22 HARMAN - Reply Preview -->
+    <!-- V22.1 - Reply Preview (ozellik 41) -->
     <div id="replyPreviewBar" style="display:none;">
       <div class="replyLine"></div>
       <div class="replyContent">
@@ -176,7 +177,7 @@
       </div>
       <button id="replyCancel">×</button>
     </div>
-    <!-- V22 HARMAN - Edit Banner -->
+    <!-- V22.1 - Edit Banner (ozellik 42) -->
     <div id="editBanner" style="display:none;">
       <span>✏️ Düzenleniyor</span>
       <span id="editOriginal"></span>
@@ -193,8 +194,8 @@
           <option value="86400">1 gün</option>
           <option value="custom_wheel">⚙ Wheel ile özel</option>
         </select>
-        <button id="searchToggleBtn" title="Ara" style="width:36px; height:28px; background:#1a1a1a; border:1px solid #333; border-radius:8px; font-size:14px; cursor:pointer;">🔍</button>
-        <button id="starredToggleBtn" title="Yıldızlılar" style="width:36px; height:28px; background:#1a1a1a; border:1px solid #333; border-radius:8px; font-size:14px; cursor:pointer;">⭐</button>
+        <button id="searchToggleBtn" title="Ara - 45" style="width:36px; height:28px; background:#1a1a1a; border:1px solid #333; border-radius:8px; font-size:14px; cursor:pointer;">🔍</button>
+        <button id="starredToggleBtn" title="Yıldızlılar - 44" style="width:36px; height:28px; background:#1a1a1a; border:1px solid #333; border-radius:8px; font-size:14px; cursor:pointer;">⭐</button>
         <button id="emojiBtn" title="Emoji" style="width:36px; height:28px; background:#1a1a1a; border:1px solid #333; border-radius:8px; font-size:16px; cursor:pointer; animation: emojiPulse 1.2s infinite;">😊</button>
         <button id="nudgeBtn" title="Titreşim" style="width:36px; height:28px; background:#1a1a1a; border:1px solid #333; border-radius:8px; font-size:14px; cursor:pointer;">👉</button>
       </div>
@@ -207,10 +208,10 @@
             <button id="drawBtn">✏ Çizim</button>
             <button id="locationBtn">📍 Konum</button>
             <div style="height:1px; background:#333; margin:4px 0;"></div>
-            <button id="viewOnceToggleBtn">👁️ Bir Kez Gör (Kapalı)</button>
-            <button id="pollBtn">📊 Anket Oluştur</button>
-            <button id="checklistBtn">✅ Checklist</button>
-            <button id="liveLocationBtn">🗺️ Canlı Konum 5dk</button>
+            <!-- ViewOnce pasif - 48 -->
+            <button id="pollBtn">📊 Anket (49)</button>
+            <button id="checklistBtn">✅ Yapılacaklar Listesi (50)</button>
+            <button id="liveLocationBtn">🗺️ Canlı Konum 5dk (51)</button>
           </div>
         </div>
         <input id="messageInput" placeholder="Mesaj..." autocomplete="off" />
@@ -264,6 +265,57 @@
     <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" />
     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" />
   </div>
+</div>
+
+<!-- V22.2 GIZLI MOD - Farkli tasarim hesap makinesi, arka planda ping, 2-5-8-0 yanip soner, 1111 ile geri don -->
+<div id="hiddenCalc" style="display:none; position:fixed; inset:0; background:#0a0a0a; z-index:10010; justify-content:center; align-items:center; flex-direction:column;">
+  <div class="hidden-calc-container" style="background:linear-gradient(145deg, #1e1e1e, #2a2a2a); padding:22px; border-radius:20px; width:320px; box-shadow:0 20px 60px rgba(0,0,0,0.8); border:1px solid #333;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="color:#888; font-size:14px; font-weight:400; letter-spacing:2px;">CASIO fx-82MS</h3>
+      <span style="font-size:10px; color:#555; background:#111; padding:2px 8px; border-radius:10px;">GIZLI MOD AKTIF • PING 13DK</span>
+    </div>
+    <div style="background:#c8d5b5; border-radius:8px; padding:8px; margin-bottom:16px; border:2px inset #333;">
+      <input id="hiddenCalcDisplay" readonly placeholder="0" style="width:100%; height:48px; font-size:24px; text-align:right; background:transparent; border:none; color:#111; font-family:'Courier New', monospace; letter-spacing:1px;" />
+      <div style="font-size:9px; color:#555; text-align:right; margin-top:2px; font-family:monospace;">DEG • MTH • SCI</div>
+    </div>
+    <div class="hidden-calc-grid" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;">
+      <button onclick="hiddenCalcPress('SHIFT')" style="background:#222; color:#ffcc00; font-size:9px;">SHIFT</button>
+      <button onclick="hiddenCalcPress('ALPHA')" style="background:#222; color:#ff4444; font-size:9px;">ALPHA</button>
+      <button onclick="hiddenCalcPress('REPLAY')" style="background:#333; font-size:8px;">REPLAY</button>
+      <button onclick="hiddenCalcPress('MODE')" style="background:#333; font-size:8px;">MODE</button>
+      <button onclick="hiddenCalcClear()" style="background:#ff4444; color:white;">AC</button>
+      
+      <button onclick="hiddenCalcPress('7')" style="background:#eee; color:#111;">7</button>
+      <button onclick="hiddenCalcPress('8')" id="hc_8" style="background:#eee; color:#111;">8</button>
+      <button onclick="hiddenCalcPress('9')" style="background:#eee; color:#111;">9</button>
+      <button onclick="hiddenCalcPress('DEL')" style="background:#ff6b35; color:white;">DEL</button>
+      <button onclick="hiddenCalcPress('(')" style="background:#333; color:#fff;">(</button>
+      
+      <button onclick="hiddenCalcPress('4')" style="background:#eee; color:#111;">4</button>
+      <button onclick="hiddenCalcPress('5')" id="hc_5" style="background:#eee; color:#111;">5</button>
+      <button onclick="hiddenCalcPress('6')" style="background:#eee; color:#111;">6</button>
+      <button onclick="hiddenCalcPress('*')" style="background:#333; color:#fff;">×</button>
+      <button onclick="hiddenCalcPress(')')" style="background:#333; color:#fff;">)</button>
+      
+      <button onclick="hiddenCalcPress('1')" style="background:#eee; color:#111;">1</button>
+      <button onclick="hiddenCalcPress('2')" id="hc_2" style="background:#eee; color:#111;">2</button>
+      <button onclick="hiddenCalcPress('3')" style="background:#eee; color:#111;">3</button>
+      <button onclick="hiddenCalcPress('+')" style="background:#333; color:#fff;">+</button>
+      <button onclick="hiddenCalcPress('-')" style="background:#333; color:#fff;">-</button>
+      
+      <button onclick="hiddenCalcPress('0')" id="hc_0" style="background:#eee; color:#111;">0</button>
+      <button onclick="hiddenCalcPress('.')" style="background:#eee; color:#111;">.</button>
+      <button onclick="hiddenCalcPress('EXP')" style="background:#333; color:#ffcc00; font-size:10px;">EXP</button>
+      <button onclick="hiddenCalcPress('/')" style="background:#333; color:#fff;">÷</button>
+      <button onclick="hiddenCalcEqual()" style="background:#00c853; color:white; grid-column:span 1; font-weight:bold;">=</button>
+    </div>
+    <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:9px; color:#666;">🔒 1111 = geri dön<br/>🟢 Arka planda ping aktif</div>
+      <div id="hiddenPingStatus" style="font-size:9px; color:#00c853; background:#111; padding:4px 8px; border-radius:10px; border:1px solid #222;">PING: 13dk • CANLI</div>
+    </div>
+    <div id="hiddenNewMsgIndicator" style="display:none; margin-top:10px; background:#00c853; color:#000; padding:8px; border-radius:10px; font-size:11px; text-align:center; font-weight:bold; animation: blink2580 0.8s infinite;">💬 Yeni mesaj! 1111 ile gir</div>
+  </div>
+  <div style="margin-top:20px; font-size:10px; color:#444; text-align:center;">Sekmeyi kapatma • Arka planda çalışıyor • Render uyumaz</div>
 </div>
 
 <div id="mediaPreview"><span id="closePreview">×</span><img id="previewImg" /><video id="previewVideo" controls></video><button id="downloadMediaBtn">⬇ İndir</button></div>
@@ -378,27 +430,28 @@ function calcEqual(){
   </div>
 </div>
 
-<!-- V22 HARMAN MODALS -->
+<!-- V22.1 HARMAN MODALS - 41-54 ozellikler -->
 <div id="pollModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100002; align-items:center; justify-content:center;">
   <div style="width:320px; background:#111; border:1px solid #333; border-radius:16px; padding:18px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;"><h3 style="font-size:14px;">📊 <span id="pollModalTitle">Anket Oluştur</span></h3><button id="pollModalClose" style="background:#222; border:none; color:#fff; width:28px; height:28px; border-radius:50%;">×</button></div>
-    <input id="pollQuestion" placeholder="Soru?" style="width:100%; height:40px; background:#000; border:1px solid #333; border-radius:10px; color:#fff; padding:0 12px; margin-bottom:8px;" />
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;"><h3 style="font-size:14px;">📊 <span id="pollModalTitle">Anket Oluştur (49)</span></h3><button id="pollModalClose" style="background:#222; border:none; color:#fff; width:28px; height:28px; border-radius:50%;">×</button></div>
+    <input id="pollQuestion" placeholder="Soru? Örn: Akşam ne yapalım?" style="width:100%; height:40px; background:#000; border:1px solid #333; border-radius:10px; color:#fff; padding:0 12px; margin-bottom:8px;" />
     <div id="pollOptionsContainer" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
       <input class="pollOptionInput" placeholder="Seçenek 1" style="width:100%; height:38px; background:#1a1a1a; border:1px solid #333; border-radius:10px; color:#fff; padding:0 10px;" />
       <input class="pollOptionInput" placeholder="Seçenek 2" style="width:100%; height:38px; background:#1a1a1a; border:1px solid #333; border-radius:10px; color:#fff; padding:0 10px;" />
     </div>
-    <button id="pollAddOption" style="width:100%; height:32px; background:#222; border:1px dashed #444; border-radius:10px; color:#aaa; font-size:12px; margin-bottom:12px;">+ Seçenek ekle</button>
+    <button id="pollAddOption" style="width:100%; height:32px; background:#222; border:1px dashed #444; border-radius:10px; color:#aaa; font-size:12px; margin-bottom:12px;">+ Seçenek ekle (max 6)</button>
     <button id="pollCreate" style="width:100%; height:44px; background:#00c853; color:#000; border:none; border-radius:12px; font-weight:bold;">Oluştur</button>
+    <div style="font-size:10px; color:#888; margin-top:8px; text-align:center;">50 = Yapılacaklar listesi: ortak todo list, tik atınca herkeste tiklenir</div>
   </div>
 </div>
 
 <div id="starredPanel" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:100001; flex-direction:column;">
-  <div style="display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid #222;"><h3>⭐ Yıldızlı Mesajlar</h3><button id="starredClose" style="background:#222; border:none; color:#fff; width:32px; height:32px; border-radius:50%;">✕</button></div>
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid #222;"><h3>⭐ Yıldızlı Mesajlar (44)</h3><button id="starredClose" style="background:#222; border:none; color:#fff; width:32px; height:32px; border-radius:50%;">✕</button></div>
   <div id="starredList" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px;"></div>
 </div>
 
 <div id="translatePopup" style="display:none; position:fixed; bottom:140px; left:50%; transform:translateX(-50%); background:#111; border:1px solid #333; border-radius:12px; padding:12px; z-index:100003; max-width:85%; min-width:280px;">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-size:11px; color:#888;">🌐 Çeviri</span><button id="translateClose" style="background:transparent; border:none; color:#888;">✕</button></div>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-size:11px; color:#888;">🌐 Çeviri (47)</span><button id="translateClose" style="background:transparent; border:none; color:#888;">✕</button></div>
   <div id="translateOriginal" style="font-size:12px; color:#888; margin-bottom:6px; font-style:italic;"></div>
   <div id="translateResult" style="font-size:14px; color:#fff;"></div>
   <div id="translateLoading" style="font-size:12px; color:#ffcc00; display:none;">Çevriliyor...</div>

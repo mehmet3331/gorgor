@@ -7,6 +7,11 @@ const io = new Server(server, { maxHttpBufferSize: 30 * 1024 * 1024, cors: { ori
 app.use(express.static('public'));
 app.use(express.static(__dirname));
 app.use(express.static(__dirname + '/public'));
+// V22.2 ANTI-SLEEP + KEEPALIVE - Render uyumasin, 13dk ping
+app.get('/health', (req,res)=>{ res.status(200).send('OK GORGOR V22.2 - '+new Date().toISOString()); });
+app.get('/keepalive', (req,res)=>{ res.status(200).send('alive '+Date.now()+' - anti-sleep'); });
+app.get('/ping', (req,res)=>{ res.status(200).send('pong '+Date.now()); });
+app.get('/api/ping', (req,res)=>{ res.json({status:'alive', time: Date.now(), uptime: process.uptime()}); });
 function normalize(s){ return (s||'').toString().trim().toLowerCase(); }
 let persistedMessages = [];
 let mongoCollection = null;
@@ -52,6 +57,16 @@ io.on('connection', socket=>{
   socket.on('draw-clear', ()=>{ if(!socket.room) return; io.to(socket.room).emit('draw-clear'); });
   socket.on('voice-start', data=>{ if(!socket.room) return; socket.to(socket.room).emit('voice-start',{from:socket.realUsername}); });
   socket.on('background-blur', data=>{ if(!socket.room) return; socket.to(socket.room).emit('background-blur',data); });
+  socket.on('keepalive-ping', data=>{ /* V22.2 13dk ping - Render uyumasin */ if(socket.room && rooms[socket.room]){ rooms[socket.room].lastSeen[socket.realUsername]=Date.now(); } socket.emit('keepalive-pong', {time: Date.now(), serverTime: Date.now()}); });
+  socket.on('keepalive', data=>{ if(socket.room && rooms[socket.room]){ rooms[socket.room].lastSeen[data.user||socket.realUsername]=Date.now(); } });
+  socket.on('keepalive-pong', ()=>{});
+  // V22.1 HARMAN - 41-54 events - ViewOnce pasif
+  socket.on('chat-edit', data=>{ if(!socket.room) return; const room=socket.room; if(rooms[room]?.messages.has(data.msgId)){ const m=rooms[room].messages.get(data.msgId); m.enc=data.enc; } let idx=persistedMessages.findIndex(m=>m.msgId===data.msgId&&m.room===room); if(idx>=0) persistedMessages[idx].enc=data.enc; debouncedSave(); socket.to(room).emit('chat-edit', data); io.to(room).emit('message-edit', data); });
+  socket.on('message-edit', data=>{ if(!socket.room) return; const room=socket.room; if(rooms[room]?.messages.has(data.msgId)){ const m=rooms[room].messages.get(data.msgId); m.enc=data.enc; } let idx=persistedMessages.findIndex(m=>m.msgId===data.msgId&&m.room===room); if(idx>=0) persistedMessages[idx].enc=data.enc; debouncedSave(); socket.to(room).emit('chat-edit', data); socket.to(room).emit('message-edit', data); });
+  socket.on('pin-message', data=>{ if(!socket.room) return; io.to(socket.room).emit('pin-message', data); });
+  socket.on('poll-vote', data=>{ if(!socket.room) return; io.to(socket.room).emit('poll-vote', data); });
+  socket.on('checklist-toggle', data=>{ if(!socket.room) return; io.to(socket.room).emit('checklist-toggle', data); });
+  socket.on('delete-message', data=>{ if(!socket.room) return; const room=socket.room; if(rooms[room]?.messages.has(data.msgId)) rooms[room].messages.delete(data.msgId); persistedMessages=persistedMessages.filter(m=>!(m.msgId===data.msgId&&m.room===room)); debouncedSave(); io.to(room).emit('delete-message', data); });
   socket.on('join-room', data=>{
     const room=data.room; const requestedUsername=data.username;
     if(!rooms[room]) rooms[room]={users:{},messages:new Map(), lastSeen:{}};
@@ -149,4 +164,4 @@ io.on('connection', socket=>{
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
 });
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', ()=> console.log(`GORGOR V19.0 FINAL - tum ozellikler - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim`));
+server.listen(PORT, '0.0.0.0', ()=> console.log(`GORGOR V22.1 HARMAN - tum ozellikler - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim`));
