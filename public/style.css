@@ -493,7 +493,8 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 @keyframes pulsePing{0%,100%{opacity:1;}50%{opacity:0.6;}}
 
 
-/* V22.3 FIX - Ayar tusu asagiya cekildi, kurukafa + gizli buton ust uste binmesin */
+/* V22.3 FIX - DEPRECATED */
+/* - Ayar tusu asagiya cekildi, kurukafa + gizli buton ust uste binmesin */
 #settingsContainer{ top:260px !important; left:12px !important; }
 #leftStackContainer{ top:60px !important; left:12px !important; z-index:26 !important; }
 @media (max-width: 480px){
@@ -502,10 +503,82 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 }
 
 
-/* V22.4 FINAL FIX - Ayar tusu asagiya, HESAPLAMA baslik */
+/* V22.4 FINAL FIX - DEPRECATED */
+/* - Ayar tusu asagiya, HESAPLAMA baslik */
 #settingsContainer{ top:260px !important; left:12px !important; }
 #leftStackContainer{ top:60px !important; left:12px !important; z-index:26 !important; }
 @media (max-width: 480px){
   #settingsContainer{ top:230px !important; left:8px !important; }
   #leftStackContainer{ top:50px !important; left:8px !important; }
+}
+
+
+/* ===== V22.5 FINAL - EKRAN GORUNTUSU HATALARI DUZELTILDI ===== */
+/* Mic butonu geri gelsin, sol kolon ustte kalsin */
+#leftStackContainer{
+  top:80px !important;
+  left:12px !important;
+  z-index:50 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:10px !important;
+}
+#leftStackContainer button{
+  width:38px !important;
+  height:38px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+#micBtn{ display:flex !important; }
+
+/* Ayar tusunu biraz daha asagi, ama cok degil - 270px */
+#settingsContainer{
+  top:270px !important;
+  left:12px !important;
+  z-index:49 !important;
+}
+
+/* Kendi video kutun - buyut ve duzelt */
+#myVideoContainer{
+  top:15px !important;
+  right:12px !important;
+  width:120px !important;
+  height:160px !important;
+  border:2px solid rgba(255,255,255,0.3) !important;
+  z-index:20 !important;
+}
+#myVideoUnderBar{
+  top:15px !important;
+  margin-top:172px !important;
+  right:12px !important;
+  width:120px !important;
+}
+#qualitySelect{
+  bottom:4px !important;
+  right:4px !important;
+  width:50px !important;
+}
+
+/* Floating pill - ses slideri disari tasmasin */
+#floatingPill{
+  top:8px !important;
+  left:60px !important;
+  right:12px !important;
+  z-index:30 !important;
+  background:rgba(0,0,0,0.85) !important;
+  border-radius:20px !important;
+  padding:6px 12px !important;
+}
+#soundUnderPrivacy{
+  margin-left:0 !important;
+  margin-top:4px !important;
+}
+#volumeSlider{ width:80px !important; }
+
+@media (max-width: 480px){
+  #leftStackContainer{ top:60px !important; left:8px !important; }
+  #settingsContainer{ top:250px !important; left:8px !important; }
+  #myVideoContainer{ width:90px !important; height:120px !important; top:10px !important; right:8px !important; }
+  #floatingPill{ left:50px !important; right:8px !important; }
 }
