@@ -367,15 +367,15 @@ function calcEqual(){
 
 <script>
 (function(){
-  const overlay = document.getElementById("wheelOverlay");
   const hourInput = document.getElementById("wheelHour");
   const minuteInput = document.getElementById("wheelMinute");
+  const overlay = document.getElementById("wheelOverlay");
+  const openBtn = document.getElementById("openWheelBtn");
   const okBtn = document.getElementById("wheelOk");
   const cancelBtn = document.getElementById("wheelCancel");
-  const openBtn = document.getElementById("openWheelBtn");
   const selectEl = document.getElementById("defaultSelfDestructSelect");
   function openWheelFix(){
-    const def = parseInt(localStorage.getItem("gorgor_default_expire")||"14400");
+    const def = parseInt(localStorage.getItem("gorgor_default_expire")||"43200");
     const h = Math.floor(def/3600);
     const m = Math.floor((def%3600)/60);
     if(hourInput) hourInput.value = h;
@@ -391,12 +391,23 @@ function calcEqual(){
   function saveFix(){
     const h=parseInt(hourInput.value)||0; const m=parseInt(minuteInput.value)||0;
     let sec=h*3600+m*60; if(sec<60) sec=60; if(sec>86400) sec=86400;
-    localStorage.setItem("gorgor_default_expire", sec.toString());
+    // BUG FIX: defaultExpire global güncelle
+    try{
+      localStorage.setItem("gorgor_default_expire", sec.toString());
+      if(typeof window.defaultExpire!=="undefined"){ window.defaultExpire = sec; }
+      if(typeof defaultExpire!=="undefined"){ defaultExpire = sec; }
+      if(typeof setDefaultExpire==="function"){ setDefaultExpire(sec); }
+    }catch(e){ localStorage.setItem("gorgor_default_expire", sec.toString()); }
+    // Select'i güncelle
     if(selectEl){
       let customOpt=selectEl.querySelector('option[value="custom_display"]');
       if(!customOpt){ customOpt=document.createElement("option"); customOpt.value="custom_display"; selectEl.appendChild(customOpt); }
-      customOpt.textContent=h+"sa "+m+"dk (wheel)"; customOpt.selected=true;
+      customOpt.textContent=h+"sa "+m+"dk (wheel) - VARSAYILAN";
+      customOpt.selected=true;
+      // perMessageTimerSelect de default ise otomatik 2 saat kullanacak
     }
+    // Toast
+    if(typeof showToast==="function") showToast(`⏰ Varsayılan süre ${h}sa ${m}dk oldu`);
     closeWheelFix();
   }
   window.wheelStep = stepFix;
@@ -404,7 +415,22 @@ function calcEqual(){
   window.openWheel = openWheelFix;
   window.closeWheel = closeWheelFix;
   if(openBtn){ openBtn.onclick = function(e){ e.preventDefault(); e.stopPropagation(); openWheelFix(); }; }
-  if(selectEl){ selectEl.addEventListener("change", function(){ if(this.value==="custom"){ openWheelFix(); } }); }
+  if(selectEl){
+    selectEl.addEventListener("change", function(){
+      if(this.value==="custom"){ openWheelFix(); }
+      else if(this.value!=="custom_display"){
+        const v=parseInt(this.value);
+        if(!isNaN(v)){
+          try{
+            localStorage.setItem("gorgor_default_expire", v.toString());
+            if(typeof window.defaultExpire!=="undefined") window.defaultExpire=v;
+            if(typeof defaultExpire!=="undefined") defaultExpire=v;
+            if(typeof setDefaultExpire==="function") setDefaultExpire(v);
+          }catch(e){}
+        }
+      }
+    });
+  }
   if(okBtn){ okBtn.onclick = saveFix; }
   if(cancelBtn){ cancelBtn.onclick = closeWheelFix; }
   if(overlay){ overlay.addEventListener("click", function(e){ if(e.target===overlay){ closeWheelFix(); } }); }

@@ -1,11 +1,14 @@
-/* GORGOR V24 - 3 NOKTA DOT MENU + ANKET + SILME FIX
-   Hiçbir şey bozulmadı, sadece dot menu eklendi
-   - Anket JSON görünmüyor
-   - Anket kaybolmuyor
-   - Geri çekme çalışıyor
-   - Yeni: Her mesajda ⋯ 3 nokta butonu
+/* GORGOR V25 - 3 NOKTA DOT MENU + ANKET + WHEEL + GIZLI MOD + GENEL MOD FIX
+   Hiçbir şey bozulmadı
+   - Anket JSON görünmüyor (async fix)
+   - Anket kaybolmuyor (tek addPollMessage + pending fix)
+   - Geri çekme çalışıyor (myMessage class check)
+   - Wheel 2 saat ayarı artık çalışıyor (defaultExpire global güncelle)
+   - Gizli mod 15dk+ sonra kopmuyor (25sn ping + auto rejoin)
+   - Genel modda gizli mod + sekme değişince mesajlar kaybolmuyor (isHiddenMode check)
+   - 3 Nokta Dot Menu eklendi
 */
-console.log("V24 DOT MENU + ANKET FIX YUKLENDI");
+console.log("V25 DOT MENU + TUM FIXLER YUKLENDI");
 
 let replyToData = null;
 let editingMsgId = null;
@@ -136,7 +139,7 @@ async function createPollOrChecklist(){
   const opts = Array.from(document.querySelectorAll(".pollOptionInput")).map(i=>i.value.trim()).filter(v=>v);
   if(!q){ showToast("Soru yaz"); return; }
   if(opts.length<2){ showToast("En az 2 seçenek"); return; }
-  const expire = typeof getExpireFromSelect==="function" ? getExpireFromSelect() : 43200;
+  const expire = typeof getExpireFromSelect==="function" ? getExpireFromSelect() : (window.defaultExpire||43200);
   const payload = {
     type,
     question: q,
@@ -171,7 +174,7 @@ function addPollMessage(msgId, payload, isMine, sentAt, expireSec){
   div.className = isMine ? "myMessage" : "otherMessage";
   div.id = msgId;
   div._sentAt = sentAt||Date.now();
-  div._expireSec = expireSec||43200;
+  div._expireSec = expireSec||window.defaultExpire||43200;
   div._deleteAt = div._sentAt + div._expireSec*1000;
   div._clock = formatClock(new Date(div._sentAt));
   const initial = (isMine ? (myRealUsername||"B") : "K").trim().charAt(0).toUpperCase();
@@ -238,7 +241,6 @@ function addPollMessage(msgId, payload, isMine, sentAt, expireSec){
   return msgId;
 }
 
-// === 3 NOKTA DOT MENU - YENI ===
 function addDotMenuButton(msgEl, msgId, isMine, textContent){
   if(msgEl.querySelector(".msgDotBtn")) return;
   const realIsMine = isMine || msgEl.classList.contains("myMessage");
@@ -251,8 +253,6 @@ function addDotMenuButton(msgEl, msgId, isMine, textContent){
     openActionMenu(msgId, realIsMine, textContent, msgEl, e);
   };
   msgEl.appendChild(dot);
-
-  // Long press hala çalışsın (yedek)
   let pressTimer=null;
   const startPress = (e)=>{
     if(e.target.closest(".msgDotBtn") || e.target.closest(".pollOption") || e.target.closest("input")) return;
@@ -270,7 +270,6 @@ function wrapMessageFunctions(){
   const _origAddMy = window.addMyMessage;
   const _origAddLocked = window.addLockedMessage;
   if(!_origAddMy || !_origAddLocked) return;
-
   window.addMyMessage = async function(text, expireSec, realName){
     let payload = {t:text};
     if(replyToData) payload.r = replyToData;
@@ -288,7 +287,6 @@ function wrapMessageFunctions(){
     }
     return msgId;
   };
-
   window.addLockedMessage = async function(msgId, expireSec, enc, mediaType, senderReal, sentAt){
     let plain = null;
     try{ plain = await decryptText(enc, currentPassword); }catch(e){}
@@ -610,7 +608,6 @@ function focusSearchResult(idx){
 function clearCurrentMark(){ document.querySelectorAll(".searchCurrent").forEach(e=>{ e.classList.remove("searchCurrent"); e.classList.add("searchHighlight"); }); }
 function updateSearchCount(){ const c=document.getElementById("searchCount"); if(c) c.textContent = searchResults.length ? `${currentSearchIdx+1}/${searchResults.length}` : "0/0"; }
 async function startLiveLocation(){
-  const btn=document.getElementById("liveLocationBtn");
   if(!navigator.geolocation){ showToast("Konum desteklenmiyor"); return; }
   showToast("Canlı konum paylaşılıyor (5dk)");
   let count=0; const max=10;
@@ -741,4 +738,4 @@ document.addEventListener("DOMContentLoaded", ()=>{
   initHarmanUI();
   setTimeout(()=>{ wrapMessageFunctions(); initSocketHarman(); }, 300);
 });
-console.log("V24 DOT MENU + ANKET FIX - 3 nokta aktif, anket duzeltildi");
+console.log("V25 DOT MENU + TUM FIXLER - 3 nokta aktif, wheel, gizli mod, genel mod duzeltildi");

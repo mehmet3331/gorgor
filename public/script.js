@@ -76,33 +76,59 @@ let micEnabled = true; let camEnabled = true;
 let currentQuality = 720; let currentFacingMode = "user"; let pingTimer = null; let currentMediaData = null;
 let typingTimer; let isTyping = false; let messageIdCounter = 0;
 const sentMessages = new Map();
-let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "43200");
+window.defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "43200");
+let defaultExpire = window.defaultExpire;
+function setDefaultExpire(sec){ defaultExpire = sec; window.defaultExpire = sec; localStorage.setItem("gorgor_default_expire", sec.toString()); }
 let activeTimers = new Map();
 let offlineTimer = null;
 const FOURTEEN_MIN = 14*60*1000;
 
-function startExpireTimer(msgId, deleteAt, expireSec){
-  const remaining = deleteAt - Date.now();
-  if(remaining <= 0){
-    const el = document.getElementById(msgId);
-    if(el) el.remove();
-    return;
-  }
+
+function startSelfDestruct(div,msgId,expireSec,deleteAt){
+  expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
   if(activeTimers.has(msgId)){
-    const old = activeTimers.get(msgId);
-    if(old.timeout) clearTimeout(old.timeout);
+    const old=activeTimers.get(msgId);
     if(old.interval) clearInterval(old.interval);
+    if(old.timeout) clearTimeout(old.timeout);
   }
-  const timer = setTimeout(()=>{
-    const el = document.getElementById(msgId);
-    if(el){
-      el.style.opacity="0";
-      setTimeout(()=>{ el.remove(); }, 300);
+  const expireAt=deleteAt||(Date.now()+expireSec*1000);
+  const clock=div._clock||formatClock(new Date(expireAt-expireSec*1000));
+  const infoEl=div.querySelector(".expireInfo");
+  if(infoEl){
+    const rem=Math.max(0,Math.floor((expireAt-Date.now())/1000));
+    if(!infoEl.textContent.includes("Anket") && !infoEl.textContent.includes("Checklist")){
+      infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(rem)}`;
     }
+  }
+  const interval=setInterval(()=>{
+    const remaining=Math.max(0,Math.floor((expireAt-Date.now())/1000));
+    if(infoEl && !infoEl.textContent.includes("Anket") && !infoEl.textContent.includes("Checklist")){
+      infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(remaining)}`;
+      if(remaining<60) infoEl.style.color="#ff4444";
+    }
+    if(remaining<=0) clearInterval(interval);
+  },1000);
+  const timeout=setTimeout(()=>{
+    div.style.transition="opacity 0.3s";
+    div.style.opacity="0";
+    setTimeout(()=>{
+      div.innerHTML="💨 Bu mesaj kendini imha etti";
+      div.className="selfDestructed";
+      div.style.opacity="1";
+      setTimeout(()=>{ div.style.opacity="0"; setTimeout(()=>div.remove(),300); },1000);
+    },300);
+    clearInterval(interval);
     activeTimers.delete(msgId);
-  }, remaining);
-  activeTimers.set(msgId, {timeout: timer, expireAt: deleteAt});
+    try{ if(typeof socket!=="undefined") socket.emit("delete-message",{msgId}); }catch(e){}
+  }, Math.max(0, expireAt-Date.now()));
+  activeTimers.set(msgId,{interval,timeout,expireAt});
 }
+function startExpireTimer(msgId, deleteAt, expireSec){
+  const el=document.getElementById(msgId)||sentMessages.get(msgId);
+  if(!el) return;
+  startSelfDestruct(el, msgId, expireSec, deleteAt);
+}
+
 
 let isPhoneMode = false;
 let isPickingFile = false;
@@ -119,6 +145,7 @@ function formatClock(d=new Date()){ const hh=String(d.getHours()).padStart(2,'0'
 
 let securityMode = localStorage.getItem("gorgor_security_mode") || "private";
 function doSecurityReset(reason){
+  if(typeof isHiddenMode!=="undefined" && isHiddenMode){ console.log("GIZLI MOD AKTIF - security reset atlaniyor", reason); return; }
   if(isPickingFile || _photoPicking){ console.log("FOTO IPTAL", reason); return; }
   if(securityMode === "general"){
     console.log("GENEL MOD - kamera ve ses iki tarafta kapaniyor - mum", reason);
@@ -171,10 +198,10 @@ function doSecurityReset(reason){
     if(myVideoContainer) myVideoContainer.style.display="none";
   }catch(e){ console.log(e); }
 }
-document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ if(isPickingFile || _photoPicking) return; doSecurityReset("visibility hidden"); } });
-window.addEventListener("pagehide", ()=>{ doSecurityReset("pagehide"); });
-window.addEventListener("blur", ()=>{ setTimeout(()=>{ if(isPickingFile || _photoPicking) return; if(document.hidden){ doSecurityReset("blur+hidden"); } }, 1000); });
-document.addEventListener("freeze", ()=>{ doSecurityReset("freeze"); });
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ if(typeof isHiddenMode!=="undefined" && isHiddenMode) return; if(isPickingFile || _photoPicking) return; doSecurityReset("visibility hidden"); } });
+window.addEventListener("pagehide", ()=>{ if(typeof isHiddenMode!=="undefined" && isHiddenMode) return; doSecurityReset("pagehide"); });
+window.addEventListener("blur", ()=>{ setTimeout(()=>{ if(typeof isHiddenMode!=="undefined" && isHiddenMode) return; if(isPickingFile || _photoPicking) return; if(document.hidden){ doSecurityReset("blur+hidden"); } }, 1000); });
+document.addEventListener("freeze", ()=>{ if(typeof isHiddenMode!=="undefined" && isHiddenMode) return; doSecurityReset("freeze"); });
 
 function renderFakeLists(){
     if(fakeUsersList){ fakeUsersList.innerHTML=""; const allUsers=[...REAL_USERS,...FAKE_USERS].sort(()=>Math.random()-0.5); allUsers.forEach(u=>{ const sp=document.createElement("span"); sp.className="userTag"; sp.textContent=u; sp.onclick=()=>{ userName.value=u; }; fakeUsersList.appendChild(sp); }); }
@@ -365,7 +392,6 @@ if(fullscreenBtn){ fullscreenBtn.onclick=()=>{ if(!document.fullscreenElement) d
 function formatTime(sec){ if(sec<60) return `${sec} sn`; const m=Math.floor(sec/60); const s=sec%60; if(m<60) return `${m} dk ${s} sn`; const h=Math.floor(m/60); const mm=m%60; if(h<24) return `${h}sa ${mm}dk`; const d=Math.floor(h/24); const hh=h%24; return `${d}g ${hh}sa ${mm}dk`; }
 function formatTimeShort(sec){ if(sec<60) return `${sec}sn`; const m=Math.floor(sec/60); if(m<60) return `${m}dk`; const h=Math.floor(m/60); if(h<24) return `${h}sa`; return `${Math.floor(h/24)}g`; }
 
-
 function startSelfDestruct(div,msgId,expireSec,deleteAt){
   expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
   if(activeTimers.has(msgId)){
@@ -378,17 +404,11 @@ function startSelfDestruct(div,msgId,expireSec,deleteAt){
   const infoEl=div.querySelector(".expireInfo");
   if(infoEl){
     const rem=Math.max(0,Math.floor((expireAt-Date.now())/1000));
-    const base = infoEl.textContent.split("•")[0] || clock;
-    // keep original label (Anket vs)
-    if(infoEl.textContent.includes("Anket") || infoEl.textContent.includes("Checklist")){
-      // keep it
-    } else {
-      infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(rem)}`;
-    }
+    infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(rem)}`;
   }
   const interval=setInterval(()=>{
     const remaining=Math.max(0,Math.floor((expireAt-Date.now())/1000));
-    if(infoEl && !infoEl.textContent.includes("Anket") && !infoEl.textContent.includes("Checklist")){
+    if(infoEl){
       infoEl.textContent=`${clock} • ⏰ ${formatTimeShort(remaining)}`;
       if(remaining<60) infoEl.style.color="#ff4444";
     }
@@ -401,7 +421,10 @@ function startSelfDestruct(div,msgId,expireSec,deleteAt){
       div.innerHTML="💨 Bu mesaj kendini imha etti";
       div.className="selfDestructed";
       div.style.opacity="1";
-      setTimeout(()=>{ div.style.opacity="0"; setTimeout(()=>div.remove(),300); },1000);
+      setTimeout(()=>{ 
+        div.style.opacity="0";
+        setTimeout(()=>div.remove(),300);
+      },1000);
     },300);
     clearInterval(interval);
     activeTimers.delete(msgId);
@@ -409,17 +432,40 @@ function startSelfDestruct(div,msgId,expireSec,deleteAt){
   }, Math.max(0, expireAt-Date.now()));
   activeTimers.set(msgId,{interval,timeout,expireAt});
 }
+
 function startExpireTimer(msgId, deleteAt, expireSec){
   const el=document.getElementById(msgId)||sentMessages.get(msgId);
   if(!el) return;
   startSelfDestruct(el, msgId, expireSec, deleteAt);
 }
 
+
 async function addMyMessage(text,expireSec,realName){ const now=Date.now(); const msgId=`msg-${now}-${messageIdCounter++}`; const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; expireSec=Math.min(expireSec,MAX_SEC); const linked=text.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); const initial=(realName||"Y").trim().charAt(0).toUpperCase()||"Y"; const clock=formatClock(new Date(now)); div._clock=clock; div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(expireSec)}</span><div class="msgText">${linked}</div><span class="ticks single"> ✓</span></div>`; div._sentAt=now; div._deleteAt=now+expireSec*1000; messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); div._expireSec=expireSec; startSelfDestruct(div,msgId,expireSec,div._deleteAt); startExpireTimer(msgId, div._deleteAt, expireSec); return msgId; }
 async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){ const now=Date.now(); const msgId=`media-${now}-${messageIdCounter++}`; const div=document.createElement("div"); div.className="myMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=now; div._deleteAt=now+expireSec*1000; const initial=(myRealUsername||"Y").trim().charAt(0).toUpperCase()||"Y"; const clock=formatClock(new Date(now)); div._clock=clock; div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(expireSec)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(mediaType==="image"){ const im=document.createElement("img"); im.src=dataUrl; im.className="mediaMessage"; im.onclick=(ev)=>{ ev.stopPropagation(); openPreview({type:"image",data:dataUrl,name:fileName}); }; bubble.appendChild(im); } else if(mediaType==="video"){ const v=document.createElement("video"); v.src=dataUrl; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks single"; tick.textContent=" ✓"; bubble.appendChild(tick); messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); sentMessages.set(msgId,div); startSelfDestruct(div,msgId,expireSec,div._deleteAt); startExpireTimer(msgId, div._deleteAt, expireSec); return msgId; }
 async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal,sentAt){ if(document.getElementById(msgId)) return; expireSec=Math.min(expireSec||defaultExpire,MAX_SEC); const sent=sentAt||Date.now(); const deleteAt=sent+expireSec*1000; try{ const plain=await decryptText(enc,currentPassword); if(!plain) return; const div=document.createElement("div"); div.className="otherMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=sent; div._deleteAt=deleteAt; const remaining=Math.max(1,Math.floor((deleteAt-Date.now())/1000)); const initial=(senderReal||"V").trim().charAt(0).toUpperCase()||"V"; const clock=formatClock(new Date(sent)); div._clock=clock; if(mediaType==="text"||!mediaType){ const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span><div class="msgText">${linked}</div><span class="ticks double"> ✓✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks double"; tick.textContent=" ✓✓"; bubble.appendChild(tick); } messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); startSelfDestruct(div,msgId,remaining,deleteAt); startExpireTimer(msgId, deleteAt, expireSec); socket.emit("message-opened",{msgId}); socket.emit("message-read",{msgId,reader:myRealUsername}); if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); } return; }catch(e){ console.log(e); } }
 
-function getExpireFromSelect(){ let val=perMessageTimerSelect.value; if(val==="default") return defaultExpire; if(val==="custom"){ let custom=prompt(`Manuel süre saniye:`); if(!custom) return defaultExpire; let num=parseInt(custom.replace(/[^0-9]/g,'')); if(isNaN(num)||num<=0) return defaultExpire; if(num>MAX_SEC) num=MAX_SEC; return num; } return Math.min(parseInt(val),MAX_SEC); }
+function getExpireFromSelect(){
+  try{
+    let perVal = perMessageTimerSelect ? perMessageTimerSelect.value : "default";
+    if(perVal==="default"){
+      // defaultExpire güncel mi kontrol et
+      const stored = parseInt(localStorage.getItem("gorgor_default_expire")||"43200");
+      if(stored!==defaultExpire){ defaultExpire = stored; window.defaultExpire = stored; }
+      return defaultExpire;
+    }
+    if(perVal==="custom"){
+      let custom=prompt(`Manuel süre saniye:`);
+      if(!custom) return defaultExpire;
+      let num=parseInt(custom.replace(/[^0-9]/g,''));
+      if(isNaN(num)||num<=0) return defaultExpire;
+      if(num>MAX_SEC) num=MAX_SEC;
+      return num;
+    }
+    const n=parseInt(perVal);
+    if(!isNaN(n)) return Math.min(n,MAX_SEC);
+  }catch(e){}
+  return defaultExpire;
+}
 sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); input.value=""; socket.emit('typing',false); isTyping=false; };
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{
@@ -1518,29 +1564,50 @@ function hiddenCalcEqual(){
 }
 function enterHiddenMode(){
   isHiddenMode=true; hasNewMessageWhileHidden=false;
-  document.getElementById("mainScreen").style.display="none";
-  document.getElementById("hiddenCalc").style.display="flex";
-  document.getElementById("hiddenNewMsgIndicator").style.display="none";
+  const mainEl = document.getElementById("mainScreen");
+  if(mainEl) mainEl.style.display="none";
+  const hiddenEl = document.getElementById("hiddenCalc");
+  if(hiddenEl) hiddenEl.style.display="flex";
+  const ind = document.getElementById("hiddenNewMsgIndicator");
+  if(ind) ind.style.display="none";
   stopBlinking();
   startKeepAlive();
   try{ if('wakeLock' in navigator){ navigator.wakeLock.request('screen').then(l=>{wakeLock=l;}).catch(()=>{}); } }catch(e){}
-  if(typeof showToast==="function") showToast("🕵️");
+  if(typeof showToast==="function") showToast("🕵️ Gizli mod - 25sn ping aktif");
+  console.log("GIZLI MOD GIRDI - keepalive 25sn");
 }
 function exitHiddenMode(){
   isHiddenMode=false;
-  document.getElementById("hiddenCalc").style.display="none";
-  document.getElementById("mainScreen").style.display="block";
+  const hiddenEl = document.getElementById("hiddenCalc");
+  if(hiddenEl) hiddenEl.style.display="none";
+  const mainEl = document.getElementById("mainScreen");
+  if(mainEl) mainEl.style.display="block";
   stopBlinking(); hasNewMessageWhileHidden=false;
-  document.getElementById("hiddenNewMsgIndicator").style.display="none";
+  const ind = document.getElementById("hiddenNewMsgIndicator");
+  if(ind) ind.style.display="none";
   if(typeof messages!=="undefined" && messages) messages.scrollTop=messages.scrollHeight;
+  // Socket kopmus mu kontrol et, kopmussa yeniden baglan ve odaya gir
+  try{
+    if(typeof socket!=="undefined"){
+      if(!socket.connected){
+        console.log("Cikis: socket kopuk, yeniden baglaniyor");
+        socket.connect();
+        setTimeout(()=>{
+          if(currentRoom && myUsername){
+            socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
+            if(typeof showToast==="function") showToast("🔄 Bağlantı yenilendi");
+          }
+        }, 800);
+      }else{
+        // Zaten bagli, ama oda bilgisini tazele
+        if(currentRoom){
+          socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
+        }
+      }
+    }
+  }catch(e){ console.log("exitHiddenMode rejoin hata", e); }
   if(typeof showToast==="function") showToast("🔓 Geri döndün");
-}
-function startBlinking2580(){
-  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add("hc-blink"); });
-  const ind=document.getElementById("hiddenNewMsgIndicator"); if(ind) ind.style.display="block";
-  let blink=false;
-  if(blinkInterval) clearInterval(blinkInterval);
-  blinkInterval=setInterval(()=>{ if(!isHiddenMode){clearInterval(blinkInterval); return;} document.title=blink?"💬 Yeni Mesaj":"HESAPLAMA"; blink=!blink; },1000);
+  console.log("GIZLI MOD CIKIS - reconnect kontrol edildi");
 }
 function stopBlinking(){
   ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove("hc-blink"); });
@@ -1551,30 +1618,42 @@ function stopBlinking(){
 function startKeepAlive(){
   if(keepAliveInterval) clearInterval(keepAliveInterval);
   doKeepAlivePing();
-  keepAliveInterval=setInterval(()=>{ doKeepAlivePing(); }, 13*60*1000);
-  const status=document.getElementById("hiddenPingStatus");
-  if(status){ let sec=13*60; setInterval(()=>{ sec--; if(sec<=0) sec=13*60; const m=Math.floor(sec/60); const s=sec%60; if(status) status.textContent=` `; },1000); }
+  // 25 saniyede bir ping - browser throttle'a dayanıklı
+  keepAliveInterval=setInterval(()=>{ doKeepAlivePing(); }, 25*1000);
+  // her 5 dakikada bir de health fetch
+  setInterval(()=>{ try{ fetch('/health', {keepalive:true}).catch(()=>{}); fetch('/keepalive', {keepalive:true}).catch(()=>{}); }catch(e){} }, 5*60*1000);
 }
 function doKeepAlivePing(){
   try{
-    if(typeof socket!=="undefined" && socket && socket.connected){
-      socket.emit("ping-check", Date.now());
-      socket.emit("keepalive-ping", {from: (typeof myRealUsername!=="undefined"?myRealUsername:"gizli"), time: Date.now(), hidden: isHiddenMode});
-      socket.emit("keepalive", {room: (typeof currentRoom!=="undefined"?currentRoom:""), user: (typeof myRealUsername!=="undefined"?myRealUsername:"")});
+    if(typeof socket!=="undefined"){
+      if(!socket.connected){
+        console.log("Socket bagli degil, yeniden baglaniyor...");
+        try{ socket.connect(); }catch(e){}
+      }else{
+        socket.emit("ping-check", Date.now());
+        socket.emit("keepalive-ping", {from: (typeof myRealUsername!=="undefined"?myRealUsername:"gizli"), time: Date.now(), hidden: isHiddenMode});
+        socket.emit("keepalive", {room: (typeof currentRoom!=="undefined"?currentRoom:""), user: (typeof myRealUsername!=="undefined"?myRealUsername:"")});
+      }
     }
-    fetch('/health').catch(()=>{}); fetch('/keepalive').catch(()=>{});
-    if(wakeLock===null && 'wakeLock' in navigator){ navigator.wakeLock.request('screen').then(l=>{wakeLock=l;}).catch(()=>{}); }
-  }catch(e){}
-}
-document.addEventListener("DOMContentLoaded", ()=>{
-  const hideBtn=document.getElementById("hideChatBtn");
-  if(hideBtn) hideBtn.onclick=enterHiddenMode;
-  startKeepAlive();
-  document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ doKeepAlivePing(); } });
-  try{
-    socket.on("chat-message", ()=>{ if(isHiddenMode){ hasNewMessageWhileHidden=true; startBlinking2580(); if(navigator.vibrate) navigator.vibrate([200,100,200]); } });
-    socket.on("chat-media", ()=>{ if(isHiddenMode){ hasNewMessageWhileHidden=true; startBlinking2580(); } });
-    socket.on("chat-voice", ()=>{ if(isHiddenMode){ hasNewMessageWhileHidden=true; startBlinking2580(); } });
-  }catch(e){}
+    // fetch keepalive
+    try{ fetch('/health', {keepalive:true}).catch(()=>{}); fetch('/keepalive', {keepalive:true}).catch(()=>{}); fetch('/ping', {keepalive:true}).catch(()=>{}); }catch(e){}
+    if(typeof wakeLock!=="undefined" && wakeLock===null && 'wakeLock' in navigator){
+      try{ navigator.wakeLock.request('screen').then(l=>{wakeLock=l;}).catch(()=>{}); }catch(e){}
+    }
+  }catch(e){ console.log("keepalive hata", e); }
+};
+socket.on('connect', ()=>{
+  console.log("Socket baglandi");
+  if(currentRoom && myUsername && !isHiddenMode){
+    console.log("Odaya otomatik rejoin", currentRoom);
+    socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
+  }
 });
-console.log("V22.3 GIZLI MOD - 0000 + 13DK PING yuklendi");
+socket.on('disconnect', (reason)=>{
+  console.log("Socket koptu", reason);
+  if(typeof isHiddenMode!=="undefined" && isHiddenMode){
+    // gizli modda koparsa 5sn sonra dene
+    setTimeout(()=>{ try{ if(!socket.connected) socket.connect(); }catch(e){} }, 5000);
+  }
+});
+console.log("V25 FIX - keepalive 25sn + auto rejoin + Genel mod koruma yuklendi");

@@ -663,7 +663,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 
 
-/* ===== V24 - 3 NOKTA DOT MENU + LAYOUT FINAL - HICBIRSEY BOZULMADI ===== */
+/* ===== V25 - 3 NOKTA DOT MENU + LAYOUT FINAL + TUM FIX - HICBIRSEY BOZULMADI ===== */
 #leftStackContainer{ top:100px !important; left:12px !important; z-index:50 !important; display:flex !important; flex-direction:column !important; gap:10px !important; }
 #leftStackContainer button{ width:38px !important; height:38px !important; display:flex !important; align-items:center !important; justify-content:center !important; }
 #micBtn{ display:flex !important; }
@@ -672,7 +672,6 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #myVideoUnderBar{ top:90px !important; margin-top:175px !important; right:12px !important; width:110px !important; }
 #floatingPill{ top:10px !important; left:12px !important; right:12px !important; }
 
-/* 3 NOKTA DOT MENU - Mesaj köşesinde */
 .myMessage, .otherMessage{ position:relative; }
 .msgDotBtn{
   position:absolute;
@@ -695,22 +694,14 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 }
 .otherMessage .msgDotBtn{ right:auto; left:-6px; }
 .msgDotBtn:hover{ background:#222; color:#fff; transform:scale(1.1); border-color:#555; }
-.myMessage:hover .msgDotBtn, .otherMessage:hover .msgDotBtn, .myMessage:focus-within .msgDotBtn, .otherMessage:focus-within .msgDotBtn{
-  display:flex;
-}
-/* Mobilde her zaman hafif görünsün */
+.myMessage:hover .msgDotBtn, .otherMessage:hover .msgDotBtn, .myMessage:focus-within .msgDotBtn, .otherMessage:focus-within .msgDotBtn{ display:flex; }
 @media (max-width: 768px){
-  .msgDotBtn{ display:flex !important; opacity:0.7; width:24px; height:24px; font-size:12px; }
+  .msgDotBtn{ display:flex !important; opacity:0.75; width:24px; height:24px; font-size:12px; }
   .myMessage .msgDotBtn{ top:-6px; right:-4px; }
   .otherMessage .msgDotBtn{ top:-6px; left:-4px; }
 }
-.msgBubble.pollBubble .msgDotBtn, .msgBubble.checklistBubble .msgDotBtn{
-  top:-10px;
-}
-/* Eski msgActions'ı gizle ama silme - yedek kalsın, dot menu primary olsun */
+.msgBubble.pollBubble .msgDotBtn, .msgBubble.checklistBubble .msgDotBtn{ top:-10px; }
 .msgActions{ display:none !important; }
-
-/* Action menu modern */
 #msgActionMenu{
   background:#1a1a1a !important;
   border:1px solid #333 !important;
