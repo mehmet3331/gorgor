@@ -413,3 +413,73 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   right:12px !important;
   width:100px !important;
 }
+
+/* ===== V22 HARMAN - Dunya chat harmani ===== */
+#pinBar{position:fixed; top:56px; left:0; right:0; background:#111; border-bottom:1px solid #00c853; z-index:25; padding:6px 12px; animation:slideDown 0.2s ease;}
+.pinBarContent{display:flex; align-items:center; gap:8px;}
+.pinBarContent .pinIcon{font-size:16px;}
+.pinBarContent .pinText{flex:1; display:flex; flex-direction:column; min-width:0;}
+#pinSender{font-size:11px; color:#00ff88; font-weight:bold;}
+#pinSnippet{font-size:12px; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;}
+.pinClose,.pinGoto{width:28px; height:28px; border:none; border-radius:50%; background:#222; color:#fff; cursor:pointer;}
+.pinGoto{background:#00c853; color:#000; font-size:10px; width:36px;}
+
+#searchBar{display:flex; align-items:center; gap:6px; padding:8px 12px; background:#111; border-bottom:1px solid #333; flex-shrink:0;}
+#searchBar input{flex:1; height:32px; background:#000; border:1px solid #333; border-radius:8px; color:#fff; padding:0 10px; font-size:13px;}
+#searchCount{font-size:11px; color:#888; min-width:40px; text-align:center;}
+#searchBar button{width:28px; height:28px; border:none; border-radius:6px; background:#222; color:#fff; cursor:pointer;}
+
+#replyPreviewBar{display:flex; align-items:center; gap:8px; padding:8px 12px; background:#0a1a0a; border-left:3px solid #00c853; border-top:1px solid #222; flex-shrink:0;}
+#replyPreviewBar .replyLine{width:3px; background:#00c853; border-radius:2px; align-self:stretch;}
+#replyPreviewBar .replyContent{flex:1; display:flex; flex-direction:column;}
+#replyToName{font-size:11px; color:#00ff88; font-weight:bold;}
+#replyToSnippet{font-size:12px; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;}
+#replyCancel{width:24px; height:24px; border:none; border-radius:50%; background:#222; color:#fff; cursor:pointer;}
+
+#editBanner{display:flex; align-items:center; gap:8px; padding:8px 12px; background:#1a1500; border-left:3px solid #ffcc00; border-top:1px solid #333; flex-shrink:0;}
+#editBanner span:first-child{font-size:12px; color:#ffcc00; font-weight:bold;}
+#editOriginal{flex:1; font-size:12px; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+#editCancel,#editSave{padding:4px 10px; border:none; border-radius:6px; font-size:11px; cursor:pointer;}
+#editCancel{background:#222; color:#fff;} #editSave{background:#ffcc00; color:#000; font-weight:bold;}
+
+#quickReactBar{display:flex; gap:6px; padding:6px 12px; background:#000; border-top:1px solid #222; overflow-x:auto; flex-shrink:0;}
+#quickReactBar span{font-size:20px; cursor:pointer; padding:4px 8px; background:#1a1a1a; border-radius:20px; border:1px solid #333; transition:transform 0.1s;}
+#quickReactBar span:hover{transform:scale(1.2); background:#222;}
+
+.myMessage, .otherMessage{position:relative;}
+.myMessage .msgActions, .otherMessage .msgActions{position:absolute; top:-10px; right:10px; display:none; gap:4px; background:#1a1a1a; border:1px solid #333; border-radius:20px; padding:2px 6px; z-index:5;}
+.otherMessage .msgActions{right:auto; left:10px;}
+.myMessage:hover .msgActions, .otherMessage:hover .msgActions{display:flex;}
+.msgActions button{width:22px; height:22px; border:none; border-radius:50%; background:transparent; color:#aaa; font-size:12px; cursor:pointer;}
+.msgActions button:hover{background:#333; color:#fff;}
+
+.msgBubble .replyQuote{display:flex; flex-direction:column; background:rgba(0,0,0,0.3); border-left:3px solid #00c853; border-radius:6px; padding:4px 8px; margin-bottom:6px; font-size:11px;}
+.replyQuote .rqName{color:#00ff88; font-weight:bold; font-size:10px;}
+.replyQuote .rqText{color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;}
+
+.msgBubble .editedLabel{font-size:8px; color:#888; font-style:italic; margin-left:6px;}
+.msgBubble .viewOnceBadge{font-size:9px; background:#ff4444; color:#fff; padding:1px 6px; border-radius:10px; margin-left:6px;}
+.msgBubble .starIcon{position:absolute; top:-4px; right:-4px; font-size:10px; background:#ffcc00; width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#000;}
+
+.msgBubble.pollBubble{background:#0f1a0f !important; border:1px solid #00c853 !important; min-width:220px;}
+.pollQuestion{font-weight:bold; font-size:13px; margin-bottom:8px; color:#fff;}
+.pollOption{position:relative; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:6px 10px; margin-bottom:4px; cursor:pointer; overflow:hidden;}
+.pollOptionBar{position:absolute; left:0; top:0; bottom:0; background:rgba(0,200,83,0.2); border-radius:8px; transition:width 0.3s;}
+.pollOptionText{position:relative; z-index:1; font-size:12px; display:flex; justify-content:space-between;}
+.pollVotes{font-size:10px; color:#888;}
+
+.msgBubble.checklistBubble{background:#0f0f1a !important; border:1px solid #4488ff !important; min-width:220px;}
+.checklistItem{display:flex; align-items:center; gap:6px; padding:4px 0; font-size:12px;}
+.checklistItem input[type=checkbox]{accent-color:#4488ff;}
+
+.searchHighlight{background:#ffcc00 !important; color:#000 !important; border-radius:3px; padding:0 2px;}
+.searchCurrent{background:#ff4444 !important; color:#fff !important;}
+
+#msgActionMenu button{display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; background:transparent; border:none; color:#fff; font-size:13px; cursor:pointer; text-align:left; border-bottom:1px solid #222;}
+#msgActionMenu button:last-child{border-bottom:none;}
+#msgActionMenu button:hover{background:#222;}
+#msgActionMenu button span.icon{width:20px; text-align:center;}
+
+@keyframes slideDown{from{transform:translateY(-100%); opacity:0;} to{transform:translateY(0); opacity:1;}}
+.viewOnceBlur{filter:blur(12px); pointer-events:none; user-select:none;}
+.viewOnceOverlay{position:absolute; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; border-radius:18px; cursor:pointer; font-size:12px; color:#fff; flex-direction:column; gap:4px;}
