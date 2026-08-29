@@ -365,6 +365,7 @@ if(fullscreenBtn){ fullscreenBtn.onclick=()=>{ if(!document.fullscreenElement) d
 function formatTime(sec){ if(sec<60) return `${sec} sn`; const m=Math.floor(sec/60); const s=sec%60; if(m<60) return `${m} dk ${s} sn`; const h=Math.floor(m/60); const mm=m%60; if(h<24) return `${h}sa ${mm}dk`; const d=Math.floor(h/24); const hh=h%24; return `${d}g ${hh}sa ${mm}dk`; }
 function formatTimeShort(sec){ if(sec<60) return `${sec}sn`; const m=Math.floor(sec/60); if(m<60) return `${m}dk`; const h=Math.floor(m/60); if(h<24) return `${h}sa`; return `${Math.floor(h/24)}g`; }
 
+
 function startSelfDestruct(div,msgId,expireSec,deleteAt){
   expireSec=Math.min(expireSec||defaultExpire,MAX_SEC);
   if(activeTimers.has(msgId)){
