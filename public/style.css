@@ -611,3 +611,29 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   #myVideoContainer{ top:65px !important; width:95px !important; height:125px !important; }
   #myVideoUnderBar{ top:65px !important; margin-top:135px !important; width:95px !important; }
 }
+
+
+
+/* ===== V22.7 - KIRMIZI CERCEVE 10PX ASAGI ===== */
+#leftStackContainer{
+  top:90px !important;
+}
+#settingsContainer{
+  top:280px !important;
+}
+#myVideoContainer{
+  top:80px !important;
+}
+#myVideoUnderBar{
+  top:80px !important;
+  margin-top:165px !important;
+}
+#floatingPill{
+  top:10px !important;
+}
+@media (max-width: 480px){
+  #leftStackContainer{ top:70px !important; }
+  #settingsContainer{ top:260px !important; }
+  #myVideoContainer{ top:75px !important; }
+  #myVideoUnderBar{ top:75px !important; }
+}
