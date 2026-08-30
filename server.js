@@ -8,7 +8,7 @@ app.use(express.static('public'));
 app.use(express.static(__dirname));
 app.use(express.static(__dirname + '/public'));
 // V22.2 ANTI-SLEEP
-app.get('/health', (req,res)=>{ res.status(200).send('OK HESAPLAMA V26 STABLE - '+new Date().toISOString()); });
+app.get('/health', (req,res)=>{ res.status(200).send('OK HESAPLAMA V27 STABLE - '+new Date().toISOString()); });
 app.get('/keepalive', (req,res)=>{ res.status(200).send('alive '+Date.now()); });
 app.get('/ping', (req,res)=>{ res.status(200).send('pong '+Date.now()); });
 app.get('/api/ping', (req,res)=>{ res.json({status:'alive', time: Date.now()}); });
@@ -166,4 +166,4 @@ io.on('connection', socket=>{
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
 });
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', ()=> console.log(`HESAPLAMA V26 STABLE - tum ozellikler - FINAL STABIL - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim`));
+server.listen(PORT, '0.0.0.0', ()=> console.log(`HESAPLAMA V27 STABLE - tum ozellikler - FINAL STABIL - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim`));

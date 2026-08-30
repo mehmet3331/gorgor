@@ -663,110 +663,269 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 
 
-/* ===== V26 FINAL - TUM ISTEKLER - HICBIRSEY BOZULMADI ===== */
-/* Temel layout korunuyor: sol kolon 100px, ayar 290px, sag video 90px */
-#leftStackContainer{ top:100px !important; left:12px !important; z-index:50 !important; display:flex !important; flex-direction:column !important; gap:10px !important; }
-#leftStackContainer button{ width:38px !important; height:38px !important; display:flex !important; align-items:center !important; justify-content:center !important; }
-#micBtn{ display:flex !important; }
-#settingsContainer{ top:290px !important; left:12px !important; z-index:49 !important; }
-#myVideoContainer{ top:90px !important; right:12px !important; width:110px !important; height:145px !important; border:2px solid rgba(255,255,255,0.3) !important; z-index:20 !important; }
-#myVideoUnderBar{ top:90px !important; margin-top:175px !important; right:12px !important; width:110px !important; }
-#floatingPill{ top:10px !important; left:12px !important; right:12px !important; }
+/* ===== V27 FINAL - OLMASI GEREKEN PNG + TUM FIXLER ===== */
+/* Üst bar - olması gereken.png gibi */
+#floatingPill{
+  top:8px !important;
+  left:8px !important;
+  right:8px !important;
+  background:rgba(0,0,0,0.92) !important;
+  border-radius:20px !important;
+  padding:10px 12px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:6px !important;
+  z-index:30 !important;
+  border:1px solid #222 !important;
+}
+#floatingPillTopRow{
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:center !important;
+  width:100% !important;
+}
+#floatingPillLeft{
+  display:flex !important;
+  align-items:center !important;
+  gap:6px !important;
+  flex:0 0 auto !important;
+}
+#floatingPillRight{
+  display:flex !important;
+  gap:6px !important;
+  align-items:center !important;
+}
+#floatingPillRight button{
+  width:32px !important;
+  height:32px !important;
+  background:#1a1a1a !important;
+  border:1px solid #333 !important;
+  border-radius:50% !important;
+  font-size:14px !important;
+}
+#privacyModeSelect{
+  background:#1a1a1a !important;
+  color:#ffcc00 !important;
+  border:1px solid #444 !important;
+  border-radius:12px !important;
+  font-size:10px !important;
+  padding:4px 10px !important;
+  height:26px !important;
+  margin:0 !important;
+  transform:none !important;
+}
+#opponentStatusText{
+  font-size:10px !important;
+  color:#888 !important;
+  max-width:110px !important;
+  white-space:nowrap !important;
+}
+#opponentNameDisplay{ font-size:12px !important; color:#fff !important; }
 
-/* Mesaj fontu küçült - 12 saat varsayılan boyutu = 12px */
+/* Ses slider - olması gereken.png gibi yeşil büyük */
+#soundUnderPrivacy{
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  width:100% !important;
+  margin-left:0 !important;
+  margin-top:6px !important;
+  transform:none !important;
+  padding-left:2px !important;
+}
+#soundBtn{
+  font-size:16px !important;
+  background:transparent !important;
+  border:none !important;
+  color:#fff !important;
+  width:24px !important;
+  height:24px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+#volumeSlider{
+  flex:1 !important;
+  width:auto !important;
+  height:8px !important;
+  accent-color:#00ff88 !important;
+  background:#333 !important;
+  border-radius:10px !important;
+  cursor:pointer !important;
+}
+#volumeSlider::-webkit-slider-thumb{
+  width:18px !important;
+  height:18px !important;
+  background:#00ff88 !important;
+  border-radius:50% !important;
+  border:2px solid #000 !important;
+}
+#volumeSlider::-moz-range-thumb{
+  width:18px !important;
+  height:18px !important;
+  background:#00ff88 !important;
+  border-radius:50% !important;
+  border:2px solid #000 !important;
+}
+
+/* Sol kolon - mic, panic, skull, gizli, settings */
+#leftStackContainer{
+  top:90px !important;
+  left:10px !important;
+  z-index:50 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:10px !important;
+}
+#leftStackContainer button{
+  width:40px !important;
+  height:40px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:50% !important;
+  font-size:18px !important;
+  box-shadow:0 2px 8px rgba(0,0,0,0.5) !important;
+}
+#micBtn{ background:#222 !important; border:1px solid #444 !important; }
+#panicBtn{ background:#ff0000 !important; }
+#skullPanicBtn{ background:#111 !important; border:1px solid #333 !important; }
+#hideChatBtn{ background:#222 !important; border:1px solid #00c853 !important; color:#00c853 !important; display:flex !important; }
+#settingsContainer{ top:300px !important; left:10px !important; z-index:49 !important; }
+
+/* Sağ video */
+#myVideoContainer{
+  top:75px !important;
+  right:10px !important;
+  width:110px !important;
+  height:145px !important;
+  border:2px solid rgba(255,255,255,0.2) !important;
+  border-radius:12px !important;
+  z-index:20 !important;
+}
+#myVideoUnderBar{
+  top:75px !important;
+  margin-top:160px !important;
+  right:10px !important;
+  width:110px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:6px !important;
+}
+#myVideoUnderBar button{
+  width:100% !important;
+  height:28px !important;
+  background:#1e1e1e !important;
+  border:1px solid #333 !important;
+  border-radius:14px !important;
+  font-size:12px !important;
+}
+
+/* Mesaj fontu küçük - 12px */
 .msgText{ font-size:12px !important; font-weight:400 !important; line-height:1.4 !important; }
-.msgBubble{ padding:8px 12px !important; }
+.msgBubble{ padding:8px 12px !important; max-width:78% !important; }
 .msgBubble .expireInfo{ font-size:8px !important; }
 .msgBubble .ticks{ font-size:9px !important; }
 
-/* Ses slider 10px sağa + 3 punto büyüt */
-#soundUnderPrivacy{ margin-left:10px !important; margin-top:4px !important; transform:translateX(10px) !important; }
-#volumeSlider{ width:100px !important; height:6px !important; accent-color:#00ff88; cursor:pointer; }
-#volumeSlider::-webkit-slider-thumb{ width:14px; height:14px; }
-#soundBtn{ font-size:14px !important; }
-
-/* 3 Nokta Dot Menu - HER mesajda, her zaman, kaybolmayan */
+/* 3 Nokta - HER mesajda sabit */
 .myMessage, .otherMessage{ position:relative !important; overflow:visible !important; }
 .msgDotBtn{
-  position:absolute;
-  top:-10px;
-  right:-8px;
-  width:28px;
-  height:28px;
-  background:#1e1e1e;
-  border:1px solid #444;
-  border-radius:50%;
-  color:#ccc;
-  font-size:14px;
-  font-weight:bold;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  z-index:15;
-  box-shadow:0 2px 10px rgba(0,0,0,0.6);
-  opacity:0.9;
-  transition: all 0.15s;
-}
-.otherMessage .msgDotBtn{ right:auto; left:-8px; }
-.msgDotBtn:hover{ background:#2a2a2a; color:#fff; transform:scale(1.15); border-color:#666; }
-.myMessage .msgDotBtn, .otherMessage .msgDotBtn{ display:flex !important; }
-@media (max-width: 768px){
-  .msgDotBtn{ width:26px; height:26px; font-size:13px; top:-8px; }
-}
-.msgActions{ display:none !important; }
-
-/* Action Menu */
-#msgActionMenu{
+  position:absolute !important;
+  top:-10px !important;
+  right:-8px !important;
+  width:28px !important;
+  height:28px !important;
   background:#1e1e1e !important;
   border:1px solid #444 !important;
-  border-radius:14px !important;
-  min-width:210px !important;
+  border-radius:50% !important;
+  color:#ccc !important;
+  font-size:14px !important;
+  font-weight:bold !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  cursor:pointer !important;
+  z-index:15 !important;
+  box-shadow:0 2px 10px rgba(0,0,0,0.6) !important;
+  opacity:0.9 !important;
+}
+.otherMessage .msgDotBtn{ right:auto !important; left:-8px !important; }
+.msgActions{ display:none !important; }
+
+/* Mesaj menü - EKRAN ORTASINDA (V27) - altta kaybolma fix */
+#msgActionMenu{
+  position:fixed !important;
+  top:50% !important;
+  left:50% !important;
+  transform:translate(-50%, -50%) !important;
+  background:#1a1a1a !important;
+  border:1px solid #444 !important;
+  border-radius:16px !important;
+  min-width:260px !important;
+  max-width:90vw !important;
   overflow:hidden !important;
-  box-shadow:0 12px 40px rgba(0,0,0,0.9) !important;
+  box-shadow:0 20px 60px rgba(0,0,0,0.9) !important;
   z-index:10010 !important;
+  padding:6px !important;
 }
 #msgActionMenu button{
   display:flex !important;
   align-items:center !important;
   gap:12px !important;
   width:100% !important;
-  padding:12px 16px !important;
+  padding:14px 16px !important;
   background:transparent !important;
   border:none !important;
   color:#e0e0e0 !important;
-  font-size:13px !important;
+  font-size:14px !important;
   cursor:pointer !important;
   text-align:left !important;
   border-bottom:1px solid #2a2a2a !important;
+  border-radius:10px !important;
+  margin-bottom:2px !important;
 }
 #msgActionMenu button:last-child{ border-bottom:none !important; }
 #msgActionMenu button:hover{ background:#2a2a2a !important; color:#fff !important; }
+#msgActionMenu::before{
+  content:"Mesaj Seçenekleri";
+  display:block;
+  text-align:center;
+  font-size:11px;
+  color:#888;
+  padding:8px 0 6px 0;
+  border-bottom:1px solid #333;
+  margin-bottom:6px;
+}
 
-/* Bağlantı koptu uyarı modal */
+/* Bağlantı koptu modal */
 #connectionLostModal{
-  position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:100000;
-  display:none; align-items:center; justify-content:center; flex-direction:column; gap:16px;
-}
-#connectionLostModal .lostBox{
-  background:#111; border:1px solid #ff4444; border-radius:16px; padding:20px; width:300px; text-align:center;
-}
-#connectionLostModal button{
-  width:100%; height:44px; background:#00c853; color:#000; border:none; border-radius:12px; font-weight:bold; cursor:pointer;
+  position:fixed !important;
+  inset:0 !important;
+  background:rgba(0,0,0,0.9) !important;
+  z-index:100000 !important;
+  display:none;
+  align-items:center !important;
+  justify-content:center !important;
 }
 
-/* Online status - sol üst geliştirilmiş */
-#opponentStatusText{ font-size:10px !important; max-width:120px !important; white-space:nowrap; overflow:hidden; }
-.onlineDot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:4px; }
-.onlineDot.online{ background:#00ff88; box-shadow:0 0 6px #00ff88; }
-.onlineDot.busy{ background:#ffcc00; box-shadow:0 0 6px #ffcc00; }
-.onlineDot.offline{ background:#ff4444; }
+/* Online dot */
+.onlineDot{ width:8px !important; height:8px !important; border-radius:50% !important; display:inline-block !important; }
+.onlineDot.online{ background:#00ff88 !important; box-shadow:0 0 6px #00ff88 !important; }
+.onlineDot.busy{ background:#ffcc00 !important; box-shadow:0 0 6px #ffcc00 !important; }
+.onlineDot.offline{ background:#ff4444 !important; }
 
 @media (max-width: 480px){
-  #leftStackContainer{ top:80px !important; left:8px !important; }
-  #settingsContainer{ top:270px !important; left:8px !important; }
-  #myVideoContainer{ top:85px !important; width:95px !important; height:125px !important; right:8px !important; }
-  #myVideoUnderBar{ top:85px !important; margin-top:155px !important; width:95px !important; right:8px !important; }
-  #floatingPill{ left:8px !important; right:8px !important; }
+  #floatingPill{ left:6px !important; right:6px !important; padding:8px 10px !important; }
+  #leftStackContainer{ top:80px !important; left:6px !important; }
+  #settingsContainer{ top:280px !important; left:6px !important; }
+  #myVideoContainer{ top:70px !important; width:95px !important; height:125px !important; right:6px !important; }
+  #myVideoUnderBar{ top:70px !important; margin-top:140px !important; width:95px !important; right:6px !important; }
   .msgText{ font-size:11px !important; }
+  #msgActionMenu{ min-width:240px !important; }
 }
+
+
+/* V28.2 FIX */
+#opponentStatusText{ max-width:150px !important; white-space:nowrap !important; overflow:visible !important; font-size:10px !important; }
+#opponentNameDisplay{ max-width:100px !important; }
+.replyQuote{ background:#1a1a1a; border-left:3px solid #00c853; padding:6px 8px; margin-bottom:6px; border-radius:6px; }
