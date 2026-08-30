@@ -388,6 +388,19 @@ socket.on("pending-messages", async(list)=>{ for(const m of list){ const plain=a
 socket.on("message-opened",({msgId,deleteAt,expireSec})=>{ const div=document.getElementById(msgId)||sentMessages.get(msgId); if(!div) return; if(sentMessages.has(msgId)){ const info=div.querySelector(".expireInfo"); const clock=div._clock||formatClock(new Date()); if(info){ info.textContent=`${clock} • ⏰ ${formatTimeShort(expireSec)}`; info.style.color="#00ff88"; } const ticks=div.querySelector(".ticks"); if(ticks){ ticks.textContent=" ✓✓"; ticks.style.color="#00ff88"; ticks.className="ticks double read"; } } });
 
 chatToggle.onclick=()=>{ if(chatPanel.style.display==="flex"){ chatPanel.style.display="none"; document.body.classList.remove("chat-open"); chatToggle.textContent="💬"; } else{ chatPanel.style.display="flex"; document.body.classList.add("chat-open"); chatToggle.classList.remove("newMessageBlink"); chatToggle.textContent="✖"; const goBottom=()=>{ if(messages){ messages.scrollTop=messages.scrollHeight; } }; goBottom(); setTimeout(goBottom,50); setTimeout(goBottom,200); setTimeout(goBottom,600); socket.emit("messages-read-all"); } };
+const hideChatBtn = document.getElementById("hideChatBtn");
+if(hideChatBtn){
+  hideChatBtn.onclick = ()=>{
+    if(typeof isHiddenMode!=="undefined" && typeof enterHiddenMode==="function"){
+      enterHiddenMode();
+    }else{
+      if(chatPanel.style.display==="flex"){ chatPanel.style.display="none"; document.body.classList.remove("chat-open"); }
+      else { chatPanel.style.display="flex"; document.body.classList.add("chat-open"); }
+      if(typeof showToast==="function") showToast("🕵️ Görüşme gizlendi");
+    }
+  };
+}
+
 input.addEventListener('input',()=>{ if(!isTyping&&input.value.trim()){ socket.emit('typing',true); isTyping=true; } clearTimeout(typingTimer); typingTimer=setTimeout(()=>{ socket.emit('typing',false); isTyping=false; },1000); });
 socket.on('typing',(data)=>{ let td=document.getElementById('typingIndicator'); if(!td){ td=document.createElement('div'); td.id='typingIndicator'; td.className='otherMessage'; messages.appendChild(td); } td.textContent=data.typing?`${data.username} yazıyor...`:''; td.style.display=data.typing?'block':'none'; });
 if(nudgeBtn){ nudgeBtn.onclick=(e)=>{ e.stopPropagation(); socket.emit("nudge"); triggerNudge(true); }; }
@@ -2411,7 +2424,7 @@ if(typeof showToast!=="function"){
 console.log("V22 HARMAN - tum ozellikler yuklendi: reply, edit 15dk, pin, star, search, forward, viewOnce, translate, poll/checklist, live location, quick react");
 
 
-// ===== V28.2 FIX - GIRIS KORUMALI + HIDDEN + ONLINE FIX =====
+// V29
 let isHiddenMode = false;
 let hasNewMessageWhileHidden = false;
 let hiddenCalcBuf = "";
@@ -2587,7 +2600,8 @@ function updateOpponentDisplay(username, status){
   const statusEl = document.getElementById("opponentStatusText");
   const dotEl = document.getElementById("opponentDot");
   if(!nameEl || !statusEl || !dotEl) return;
-  if(username) nameEl.textContent = username;
+  if(username && typeof myRealUsername!=="undefined" && username===myRealUsername) return;
+  if(username){ nameEl.textContent = username; if(typeof opponentUsername!=="undefined") opponentUsername=username; }
   const secMode = localStorage.getItem("gorgor_security_mode")||"private";
   if(status === "online" || status === "çevrimiçi" || status === "varım"){
     statusEl.textContent = "çevrimiçi";

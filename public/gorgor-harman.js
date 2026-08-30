@@ -185,10 +185,15 @@ function wrapMessageFunctions(){
   // Wrap addMyMessage
   const _origAddMy = window.addMyMessage || addMyMessage;
   window.addMyMessage = async function(text, expireSec, realName){
+    // check if reply or viewOnce
     let payload = {t:text};
     if(replyToData) payload.r = replyToData;
     if(viewOnceEnabled) payload.vo = true;
-    const msgId = await _origAddMy.call(this, text, expireSec, realName);
+    // if editing, this is not add but edit
+    const jsonText = JSON.stringify(payload);
+    const isRich = replyToData || viewOnceEnabled;
+    const finalText = isRich ? `__GORGOR_JSON__${jsonText}` : text;
+    const msgId = await _origAddMy.call(this, finalText, expireSec, realName);
     // enhance DOM
     setTimeout(()=>enhanceMessageDOM(msgId, payload, true), 50);
     // clear reply
@@ -285,18 +290,6 @@ function enhanceMessageDOM(msgId, data, isMine){
   const bubble = el.querySelector(".msgBubble");
   if(!bubble) return;
 
-  // V28.2 FIX - JSON sizintisi temizle
-  if(data && data.t){
-    const msgTextEl = bubble.querySelector(".msgText");
-    if(msgTextEl){
-      const cur = msgTextEl.textContent||msgTextEl.innerHTML||"";
-      if(cur.includes("__GORGOR_JSON__") || cur.includes('"msgId"') || cur.includes('"snippet"')){
-        const linked = data.t.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>');
-        msgTextEl.innerHTML = linked;
-      }
-    }
-  }
-
   // Reply quote
   if(data.r){
     if(!bubble.querySelector(".replyQuote")){
@@ -370,50 +363,103 @@ function enhanceMessageDOM(msgId, data, isMine){
 
 function addActionButtonsToMessage(msgEl, msgId, isMine, textContent){
   if(msgEl.querySelector(".msgActions")) return;
-  const actions = document.createElement("div");
-  actions.className = "msgActions";
-  // buttons
-  const btns = [
-    {icon:"↩️", title:"Alıntıla", act:"reply"},
-    {icon:"📌", title:"Sabitle", act:"pin"},
-    {icon:"⭐", title:"Yıldızla", act:"star"},
-    {icon:"↪️", title:"İlet", act:"forward"},
-    {icon:"🌐", title:"Çevir", act:"translate"},
-  ];
-  if(isMine){
-    btns.unshift({icon:"✏️", title:"Düzenle", act:"edit"});
-  }
-  btns.push({icon:"⋯", title:"Daha fazla", act:"more"});
+  // V29 - Instagram/WhatsApp tarzı swipe - basılı tut kaldırıldı
+  const bubble = msgEl.querySelector(".msgBubble");
+  if(!bubble) return;
 
-  btns.forEach(b=>{
-    const btn = document.createElement("button");
-    btn.textContent = b.icon;
-    btn.title = b.title;
-    btn.dataset.act = b.act;
-    btn.onclick = (e)=>{
-      e.stopPropagation();
-      handleMessageAction(b.act, msgId, isMine, textContent, msgEl);
-    };
-    actions.appendChild(btn);
-  });
-  msgEl.appendChild(actions);
+  // Swipe için değişkenler
+  let startX=0, startY=0, currentX=0, isSwiping=false, swipeTriggered=false;
 
-  // long press to open menu
-  let pressTimer=null;
-  const startPress = (e)=>{
-    pressTimer = setTimeout(()=>{ openActionMenu(msgId, isMine, textContent, msgEl, e); }, 600);
+  const onTouchStart = (e)=>{
+    const t = e.touches ? e.touches[0] : e;
+    startX = t.clientX;
+    startY = t.clientY;
+    currentX = 0;
+    isSwiping = false;
+    swipeTriggered = false;
+    bubble.style.transition = "none";
   };
-  const cancelPress = ()=>{ if(pressTimer) clearTimeout(pressTimer); };
-  msgEl.addEventListener("touchstart", startPress, {passive:true});
-  msgEl.addEventListener("touchend", cancelPress);
-  msgEl.addEventListener("mousedown", startPress);
-  msgEl.addEventListener("mouseup", cancelPress);
-  msgEl.addEventListener("mouseleave", cancelPress);
+  const onTouchMove = (e)=>{
+    if(!startX) return;
+    const t = e.touches ? e.touches[0] : e;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    // yatay kaydırma baskınsa swipe moduna geç
+    if(Math.abs(dx) > 15 && Math.abs(dx) > Math.abs(dy)*1.5){
+      isSwiping = true;
+      currentX = dx;
+      // sadece sağa kaydırma (reply) için görsel geri bildirim - Instagram tarzı
+      if(dx > 0 && dx < 120){
+        bubble.style.transform = `translateX(${dx*0.5}px)`;
+        bubble.style.opacity = `${1 - dx/300}`;
+        if(!msgEl.querySelector(".swipeReplyHint")){
+          const hint = document.createElement("div");
+          hint.className = "swipeReplyHint";
+          hint.style.cssText = "position:absolute; left:10px; top:50%; transform:translateY(-50%); background:#00c853; color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; z-index:5;";
+          hint.textContent = "↩️";
+          msgEl.style.position="relative";
+          msgEl.appendChild(hint);
+        }
+      }
+      // sola kaydırma da engelleme yok
+      if(Math.abs(dx) > 10) e.preventDefault && e.preventDefault();
+    }
+  };
+  const onTouchEnd = (e)=>{
+    if(!isSwiping){ 
+      // swipe değilse - sadece dokunma, bubble'ı sıfırla
+      bubble.style.transition = "transform 0.2s, opacity 0.2s";
+      bubble.style.transform = "";
+      bubble.style.opacity = "";
+      const hint = msgEl.querySelector(".swipeReplyHint");
+      if(hint) hint.remove();
+      startX=0;
+      return;
+    }
+    bubble.style.transition = "transform 0.2s, opacity 0.2s";
+    const dx = currentX;
+    const hint = msgEl.querySelector(".swipeReplyHint");
+    if(hint) hint.remove();
+    
+    if(dx > 60){
+      // sağa kaydır -> alıntıla (Instagram/WhatsApp gibi)
+      bubble.style.transform = "";
+      bubble.style.opacity = "";
+      handleMessageAction("reply", msgId, isMine, textContent, msgEl);
+      // haptic feedback
+      if(navigator.vibrate) navigator.vibrate(30);
+    }else if(dx < -60){
+      // sola kaydır -> seçenekleri aç
+      bubble.style.transform = "";
+      bubble.style.opacity = "";
+      openActionMenu(msgId, isMine, textContent, msgEl, e);
+      if(navigator.vibrate) navigator.vibrate(30);
+    }else{
+      bubble.style.transform = "";
+      bubble.style.opacity = "";
+    }
+    startX=0;
+    currentX=0;
+    isSwiping=false;
+  };
 
-  // double click quick reply
-  msgEl.addEventListener("dblclick", (e)=>{
-    e.preventDefault();
-    handleMessageAction("reply", msgId, isMine, textContent, msgEl);
+  // Dokunma olayları - swipe için
+  msgEl.addEventListener("touchstart", onTouchStart, {passive:true});
+  msgEl.addEventListener("touchmove", onTouchMove, {passive:false});
+  msgEl.addEventListener("touchend", onTouchEnd, {passive:true});
+  
+  // Mouse için de swipe (desktop)
+  let mouseDown=false;
+  msgEl.addEventListener("mousedown", (e)=>{ mouseDown=true; onTouchStart(e); });
+  msgEl.addEventListener("mousemove", (e)=>{ if(mouseDown) onTouchMove(e); });
+  msgEl.addEventListener("mouseup", (e)=>{ if(mouseDown){ mouseDown=false; onTouchEnd(e); } });
+  msgEl.addEventListener("mouseleave", ()=>{ mouseDown=false; bubble.style.transform=""; bubble.style.opacity=""; const h=msgEl.querySelector(".swipeReplyHint"); if(h) h.remove(); });
+
+  // Tıklama -> ortada seçenekler (basılı tut değil, tıklama)
+  bubble.addEventListener("click", (e)=>{
+    // eğer swipe yapıldıysa click'i engelle
+    if(isSwiping || Math.abs(currentX) > 20) return;
+    openActionMenu(msgId, isMine, textContent, msgEl, e);
   });
 }
 
@@ -469,13 +515,19 @@ function handleMessageAction(act, msgId, isMine, text, msgEl){
 }
 
 function openActionMenu(msgId, isMine, text, msgEl, ev){
-  // V27 - ekran ortasında göster, altta kaybolma fix
-
   const menu = document.getElementById("msgActionMenu");
   if(!menu) return;
   menu.innerHTML="";
+  
+  // V29 - Header + Çarpı tuşu - yanlışlıkla basınca geri dön
+  const header = document.createElement("div");
+  header.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid #333; margin-bottom:6px;";
+  header.innerHTML = `<span style="font-size:12px; color:#888;">Mesaj Seçenekleri</span><button id="msgMenuCloseX" style="width:28px; height:28px; background:#222; border:1px solid #444; border-radius:50%; color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>`;
+  menu.appendChild(header);
+  header.querySelector("#msgMenuCloseX").onclick = ()=>{ menu.style.display="none"; };
+  
   const actions = [
-    {icon:"↩️", label:"Alıntıla", act:"reply"},
+    {icon:"↩️", label:"Alıntıla (Sağa kaydır)", act:"reply"},
     {icon:"📌", label:"Sabitle", act:"pin"},
     {icon:"⭐", label: starredMessages.has(msgId) ? "Yıldızı kaldır" : "Yıldızla", act:"star"},
     {icon:"↪️", label:"İlet", act:"forward"},
@@ -492,9 +544,10 @@ function openActionMenu(msgId, isMine, text, msgEl, ev){
     btn.onclick = ()=>{ menu.style.display="none"; handleMessageAction(a.act, msgId, isMine, text, msgEl); };
     menu.appendChild(btn);
   });
-  // position
-  let x=0, y=0;
-  // Her zaman ekran ortasında göster - altta kalma sorunu çözüldü
+  
+  // Arka plana tıklayınca kapat
+  menu.onclick = (e)=>{ if(e.target===menu) menu.style.display="none"; };
+  
   menu.style.left = "50%";
   menu.style.top = "50%";
   menu.style.transform = "translate(-50%, -50%)";
@@ -930,33 +983,13 @@ const _origSendOnclick = null;
 document.addEventListener("DOMContentLoaded", ()=>{
   const sendBtn = document.getElementById("sendBtn");
   if(sendBtn){
-    sendBtn.addEventListener("click", async (e)=>{
+    const orig = sendBtn.onclick;
+    sendBtn.addEventListener("click", (e)=>{
+      // if editing, handled by editSave, not send
       if(editingMsgId){
         e.stopPropagation();
         e.preventDefault();
         saveEdit();
-        return false;
-      }
-      if(replyToData){
-        e.stopPropagation();
-        e.preventDefault();
-        const inputEl = document.getElementById("messageInput");
-        const text = inputEl ? inputEl.value.trim() : "";
-        if(!text) return false;
-        try{
-          const payload = {t:text, r:replyToData};
-          const jsonStr = `__GORGOR_JSON__${JSON.stringify(payload)}`;
-          const expire = typeof getExpireFromSelect==="function" ? getExpireFromSelect() : 43200;
-          const msgId = await (window.addMyMessage||addMyMessage)(text, expire, myRealUsername);
-          setTimeout(()=>enhanceMessageDOM(msgId, payload, true), 50);
-          const enc = await encryptText(jsonStr, currentPassword);
-          const sentAt = Date.now();
-          try{ socket.emit("chat-message", {msgId, enc, expireSec: expire, sentAt, deleteAt: Date.now()+expire*1000}); }catch(e){}
-          if(inputEl) inputEl.value="";
-          socket.emit('typing', false);
-          replyToData=null;
-          hideReplyBar();
-        }catch(err){ console.log("reply send hata", err); }
         return false;
       }
     }, true);

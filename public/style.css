@@ -616,7 +616,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 /* ===== V22.7 - KIRMIZI CERCEVE 10PX ASAGI ===== */
 #leftStackContainer{
-  top:90px !important;
+  top:105px !important;
 }
 #settingsContainer{
   top:280px !important;
@@ -648,14 +648,14 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   top:290px !important;
 }
 #myVideoContainer{
-  top:90px !important;
+  top:105px !important;
 }
 #myVideoUnderBar{
-  top:90px !important;
+  top:105px !important;
   margin-top:175px !important;
 }
 @media (max-width: 480px){
-  #leftStackContainer{ top:80px !important; }
+  #leftStackContainer{ top:95px !important; }
   #settingsContainer{ top:270px !important; }
   #myVideoContainer{ top:85px !important; }
   #myVideoUnderBar{ top:85px !important; margin-top:155px !important; }
@@ -770,7 +770,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 /* Sol kolon - mic, panic, skull, gizli, settings */
 #leftStackContainer{
-  top:90px !important;
+  top:105px !important;
   left:10px !important;
   z-index:50 !important;
   display:flex !important;
@@ -795,7 +795,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 /* Sağ video */
 #myVideoContainer{
-  top:75px !important;
+  top:85px !important;
   right:10px !important;
   width:110px !important;
   height:145px !important;
@@ -804,8 +804,8 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   z-index:20 !important;
 }
 #myVideoUnderBar{
-  top:75px !important;
-  margin-top:160px !important;
+  top:85px !important;
+  margin-top:172px !important;
   right:10px !important;
   width:110px !important;
   display:flex !important;
@@ -916,16 +916,18 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 @media (max-width: 480px){
   #floatingPill{ left:6px !important; right:6px !important; padding:8px 10px !important; }
-  #leftStackContainer{ top:80px !important; left:6px !important; }
+  #leftStackContainer{ top:95px !important; left:6px !important; }
   #settingsContainer{ top:280px !important; left:6px !important; }
-  #myVideoContainer{ top:70px !important; width:95px !important; height:125px !important; right:6px !important; }
-  #myVideoUnderBar{ top:70px !important; margin-top:140px !important; width:95px !important; right:6px !important; }
+  #myVideoContainer{ top:82px !important; width:95px !important; height:125px !important; right:6px !important; }
+  #myVideoUnderBar{ top:82px !important; margin-top:155px !important; width:95px !important; right:6px !important; }
   .msgText{ font-size:11px !important; }
   #msgActionMenu{ min-width:240px !important; }
 }
 
-
-/* V28.2 FIX */
-#opponentStatusText{ max-width:150px !important; white-space:nowrap !important; overflow:visible !important; font-size:10px !important; }
-#opponentNameDisplay{ max-width:100px !important; }
-.replyQuote{ background:#1a1a1a; border-left:3px solid #00c853; padding:6px 8px; margin-bottom:6px; border-radius:6px; }
+/* V29 - Swipe + Menu X fix */
+.swipeReplyHint{ animation: popIn 0.2s ease; }
+@keyframes popIn{ from{ transform:translateY(-50%) scale(0.5); opacity:0; } to{ transform:translateY(-50%) scale(1); opacity:1; } }
+.msgBubble{ transition: transform 0.2s ease, opacity 0.2s ease; }
+.myMessage, .otherMessage{ touch-action: pan-y; }
+#msgActionMenu{ max-height:80vh; overflow-y:auto; }
+#msgMenuCloseX:hover{ background:#333 !important; }
