@@ -199,7 +199,7 @@ function doSecurityReset(reason){
 }
 document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ if(typeof isHiddenMode!=="undefined" && isHiddenMode) return; if(isPickingFile || _photoPicking) return; doSecurityReset("visibility hidden"); } });
 window.addEventListener("pagehide", ()=>{ if(typeof isHiddenMode!=="undefined" && isHiddenMode) return; doSecurityReset("pagehide"); });
-window.addEventListener("blur", ()=>{ setTimeout(()=>{ if(typeof isHiddenMode!=="undefined" && isHiddenMode) return; if(isPickingFile || _photoPicking) return; if(document.hidden){ doSecurityReset("blur+hidden"); } }, 1000); });
+window.addEventListener("blur", ()=>{ setTimeout(()=>{ if(isPickingFile || _photoPicking) return; if(document.hidden){ doSecurityReset("blur+hidden"); } }, 1000); });
 document.addEventListener("freeze", ()=>{ if(typeof isHiddenMode!=="undefined" && isHiddenMode) return; doSecurityReset("freeze"); });
 
 function renderFakeLists(){
@@ -464,7 +464,18 @@ function getExpireFromSelect(){
   }catch(e){ console.log("getExpire hata", e); }
   return defaultExpire;
 }
-sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); input.value=""; socket.emit('typing',false); isTyping=false; };
+sendBtn.onclick=async()=>{
+  // Bağlantı kontrolü - V26
+  if(typeof socket!=="undefined" && !socket.connected){
+    showConnectionLostModal();
+    if(typeof showToast==="function") showToast("⚠️ Bağlantı koptu, sayfayı yenile");
+    return;
+  }
+  if(typeof connectionLost!=="undefined" && connectionLost){
+    showConnectionLostModal();
+    return;
+  }
+  const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); input.value=""; socket.emit('typing',false); isTyping=false; };
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{
   addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt);
@@ -1512,8 +1523,94 @@ function showToast(msg){
   setTimeout(()=>{ toast.style.opacity='0'; setTimeout(()=>toast.style.display='none', 300); }, 3000);
 }
 
+
+
+// ===== V26 - GORUNTULU/SESLI BASLAYINCA MESAJ PANOSU KAPANSIN =====
+function closeChatPanelIfOpen(){
+  const chatPanel = document.getElementById("chatPanel");
+  const body = document.body;
+  if(chatPanel && body.classList.contains("chat-open")){
+    body.classList.remove("chat-open");
+    chatPanel.style.display = "none";
+    console.log("Mesaj panosu kapatildi - gorusme basladi");
+    if(typeof showToast==="function") showToast("📹 Görüşme başladı, mesaj panosu kapatıldı");
+  }
+}
+
+// ===== V26 - GELISMIS ONLINE STATUS + SON GORULME =====
+let opponentLastSeen = null;
+let myStatus = "online"; // online, busy, offline
+let statusCheckInterval = null;
+
+function updateOpponentDisplay(username, status){
+  const nameEl = document.getElementById("opponentNameDisplay");
+  const statusEl = document.getElementById("opponentStatusText");
+  const dotEl = document.getElementById("opponentDot");
+  if(!nameEl || !statusEl || !dotEl) return;
+  nameEl.textContent = username || "-";
+  if(status === "online" || status === "çevrimiçi" || status === "varım"){
+    statusEl.textContent = "çevrimiçi - aktif";
+    statusEl.style.color = "#00ff88";
+    dotEl.className = "onlineDot online";
+    opponentLastSeen = Date.now();
+  }else if(status === "busy" || status === "meşgul"){
+    statusEl.textContent = "meşgul - sekme kapalı";
+    statusEl.style.color = "#ffcc00";
+    dotEl.className = "onlineDot busy";
+  }else if(status === "offline" || status === "çevrimdışı" || status === "yokum"){
+    statusEl.textContent = opponentLastSeen ? `çevrimdışı - son görülme ${formatLastSeen(opponentLastSeen)}` : "çevrimdışı";
+    statusEl.style.color = "#ff4444";
+    dotEl.className = "onlineDot offline";
+  }else{
+    statusEl.textContent = status;
+  }
+}
+function formatLastSeen(ts){
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff/60000);
+  if(mins < 1) return "az önce";
+  if(mins < 60) return `${mins} dk önce`;
+  const hours = Math.floor(mins/60);
+  if(hours < 24) return `${hours} saat önce`;
+  return new Date(ts).toLocaleString('tr-TR');
+}
+function initOnlineStatus(){
+  // Kendi statusumu takip et
+  document.addEventListener("visibilitychange", ()=>{
+    if(document.hidden){
+      myStatus = "busy";
+      try{ socket.emit("user-busy", {user: myRealUsername, busy: true}); socket.emit("status-change", {user: myRealUsername, status: "meşgul"}); }catch(e){}
+      const statusEl = document.getElementById("opponentStatusText");
+      // Kendi için değil karşı taraf için ama log
+      console.log("Sekme gizlendi - mesgul");
+    }else{
+      myStatus = "online";
+      try{ socket.emit("user-active", {user: myRealUsername}); socket.emit("status-change", {user: myRealUsername, status: "varım"}); }catch(e){}
+      console.log("Sekme aktif - online");
+    }
+  });
+  window.addEventListener("blur", ()=>{
+    if(!document.hidden){
+      myStatus = "busy";
+      try{ socket.emit("user-busy", {user: myRealUsername, busy: true}); }catch(e){}
+    }
+  });
+  window.addEventListener("focus", ()=>{
+    myStatus = "online";
+    try{ socket.emit("user-active", {user: myRealUsername}); }catch(e){}
+  });
+  // Her 30sn'de aktif ping
+  if(statusCheckInterval) clearInterval(statusCheckInterval);
+  statusCheckInterval = setInterval(()=>{
+    if(!document.hidden && myStatus === "online"){
+      try{ socket.emit("user-active", {user: myRealUsername}); }catch(e){}
+    }
+  }, 30000);
+}
+
 // V19 INIT
 document.addEventListener('DOMContentLoaded', ()=>{
+  try{ initOnlineStatus(); }catch(e){ console.log(e); }
   initScreenshotProtection();
   initReactions();
   initReadReceipts();
@@ -1529,6 +1626,42 @@ document.addEventListener("DOMContentLoaded", ()=>{ const privacySelect=document
 // V19 CSS injection
 (function(){ const style=document.createElement('style'); style.textContent=` .screenshot-blur-active { filter: blur(12px) !important; pointer-events:none; } .voice-message .voice-bubble{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #333;border-radius:16px;padding:8px 12px;} .voice-wave span{display:inline-block;width:3px;height:12px;background:#00ff88;margin:0 1px;border-radius:2px;animation:wave 1s infinite;} @keyframes wave{0%,100%{height:8px}50%{height:20px}} .reactions{animation:fadeIn 0.3s} #reactionBar{animation:pop 0.2s} @keyframes pop{0%{transform:scale(0.5)}100%{transform:scale(1)}} `; document.head.appendChild(style); })();
 
+socket.on('user-busy', data=>{
+  if(data && data.user && data.user !== myRealUsername){
+    updateOpponentDisplay(data.user, data.busy ? "meşgul" : "çevrimiçi");
+  }
+});
+socket.on('user-active', data=>{
+  if(data && data.user && data.user !== myRealUsername){
+    opponentLastSeen = data.ts || Date.now();
+    updateOpponentDisplay(data.user, "çevrimiçi");
+  }
+});
+socket.on('user-last-seen', data=>{
+  if(data && data.user && data.user !== myRealUsername){
+    opponentLastSeen = data.ts;
+    if(!data.online){
+      updateOpponentDisplay(data.user, "çevrimdışı");
+    }else{
+      updateOpponentDisplay(data.user, "çevrimiçi");
+    }
+  }
+});
+socket.on('last-seen-list', list=>{
+  try{
+    for(const [user, ts] of Object.entries(list)){
+      if(user !== myRealUsername){
+        opponentLastSeen = ts;
+        const now = Date.now();
+        if(now - ts < 60000){
+          updateOpponentDisplay(user, "çevrimiçi");
+        }else{
+          updateOpponentDisplay(user, "çevrimdışı");
+        }
+      }
+    }
+  }catch(e){}
+});
 socket.on("opponent-info", data=>{
   if(data && data.username && data.username !== myRealUsername){
     updateOpponentDisplay(data.username, data.status || "çevrimiçi");
@@ -1536,13 +1669,15 @@ socket.on("opponent-info", data=>{
 });
 
 
-/* ===== V22.3 GIZLI MOD - 0000 + ANTI-SLEEP - Ilk 40'a dokunulmedi ===== */
+/* ===== V26 GIZLI MOD - 0000 + 25SN PING + AUTO REJOIN + BAGLANTI KONTROL ===== */
 let isHiddenMode = false;
 let hasNewMessageWhileHidden = false;
 let hiddenCalcBuf = "";
 let keepAliveInterval = null;
 let wakeLock = null;
 let blinkInterval = null;
+let lastConnectionCheck = Date.now();
+let connectionLost = false;
 
 function hiddenCalcPress(v){
   if(['SHIFT','ALPHA','REPLAY','MODE','EXP','DEL'].includes(v)){
@@ -1561,7 +1696,7 @@ function hiddenCalcEqual(){
   try{ let r=eval(hiddenCalcBuf); if(d) d.value=r; hiddenCalcBuf=r.toString(); }catch(e){ if(d) d.value="Hata"; hiddenCalcBuf=""; }
 }
 function enterHiddenMode(){
-  isHiddenMode=true; hasNewMessageWhileHidden=false;
+  isHiddenMode=true; hasNewMessageWhileHidden=false; connectionLost=false;
   try{
     const mainEl = document.getElementById("mainScreen");
     if(mainEl) mainEl.style.display="none";
@@ -1570,6 +1705,8 @@ function enterHiddenMode(){
     else { console.error("hiddenCalc bulunamadi!"); alert("Gizli hesap makinesi bulunamadi, sayfayi yenileyin"); return; }
     const ind = document.getElementById("hiddenNewMsgIndicator");
     if(ind) ind.style.display="none";
+    const lostModal = document.getElementById("connectionLostModal");
+    if(lostModal) lostModal.style.display="none";
     stopBlinking();
     startKeepAlive();
     try{ if('wakeLock' in navigator){ navigator.wakeLock.request('screen').then(l=>{wakeLock=l;}).catch(()=>{}); } }catch(e){}
@@ -1588,15 +1725,18 @@ function exitHiddenMode(){
     const ind = document.getElementById("hiddenNewMsgIndicator");
     if(ind) ind.style.display="none";
     if(typeof messages!=="undefined" && messages) messages.scrollTop=messages.scrollHeight;
-    // Socket kopmus mu kontrol et
+    // Bağlantı kontrolü
+    checkConnectionAndWarn();
     try{
       if(typeof socket!=="undefined"){
         if(!socket.connected){
           console.log("Cikis: socket kopuk, yeniden baglaniyor");
+          showConnectionLostModal();
           socket.connect();
           setTimeout(()=>{
             if(currentRoom && myUsername){
               socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
+              hideConnectionLostModal();
               if(typeof showToast==="function") showToast("🔄 Bağlantı yenilendi");
             }
           }, 800);
@@ -1604,12 +1744,38 @@ function exitHiddenMode(){
           if(currentRoom){
             socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
           }
+          // Ping test
+          const pingStart = Date.now();
+          socket.emit("ping-check", pingStart);
+          setTimeout(()=>{
+            if(Date.now() - pingStart > 5000 && !socket.connected){
+              showConnectionLostModal();
+            }
+          }, 5000);
         }
       }
-    }catch(e){ console.log("exitHiddenMode rejoin hata", e); }
+    }catch(e){ console.log("exitHiddenMode rejoin hata", e); showConnectionLostModal(); }
     if(typeof showToast==="function") showToast("🔓 Geri döndün");
     console.log("GIZLI MOD CIKIS - reconnect kontrol edildi");
   }catch(e){ console.error("exitHiddenMode hata", e); }
+}
+function showConnectionLostModal(){
+  const modal = document.getElementById("connectionLostModal");
+  if(modal){ modal.style.display="flex"; connectionLost=true; }
+}
+function hideConnectionLostModal(){
+  const modal = document.getElementById("connectionLostModal");
+  if(modal){ modal.style.display="none"; connectionLost=false; }
+}
+function checkConnectionAndWarn(){
+  try{
+    if(typeof socket!=="undefined" && !socket.connected){
+      console.log("Baglanti kopuk - uyari goster");
+      showConnectionLostModal();
+      return false;
+    }
+    return true;
+  }catch(e){ return false; }
 }
 function startBlinking2580(){
   ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add("hc-blink"); });
@@ -1635,10 +1801,12 @@ function doKeepAlivePing(){
       if(!socket.connected){
         console.log("Socket bagli degil, yeniden baglaniyor...");
         try{ socket.connect(); }catch(e){}
+        if(isHiddenMode){ hasNewMessageWhileHidden=true; }
       }else{
         socket.emit("ping-check", Date.now());
         socket.emit("keepalive-ping", {from: (typeof myRealUsername!=="undefined"?myRealUsername:"gizli"), time: Date.now(), hidden: isHiddenMode});
         socket.emit("keepalive", {room: (typeof currentRoom!=="undefined"?currentRoom:""), user: (typeof myRealUsername!=="undefined"?myRealUsername:"")});
+        lastConnectionCheck = Date.now();
       }
     }
     try{ fetch('/health', {keepalive:true}).catch(()=>{}); fetch('/keepalive', {keepalive:true}).catch(()=>{}); }catch(e){}
@@ -1647,28 +1815,4 @@ function doKeepAlivePing(){
     }
   }catch(e){ console.log("keepalive hata", e); }
 }
-document.addEventListener("DOMContentLoaded", ()=>{
-  const hideBtn=document.getElementById("hideChatBtn");
-  if(hideBtn) hideBtn.onclick=enterHiddenMode;
-  startKeepAlive();
-  document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ doKeepAlivePing(); } });
-  try{
-    socket.on("chat-message", ()=>{ if(isHiddenMode){ hasNewMessageWhileHidden=true; startBlinking2580(); if(navigator.vibrate) navigator.vibrate([200,100,200]); } });
-    socket.on("chat-media", ()=>{ if(isHiddenMode){ hasNewMessageWhileHidden=true; startBlinking2580(); } });
-    socket.on("chat-voice", ()=>{ if(isHiddenMode){ hasNewMessageWhileHidden=true; startBlinking2580(); } });
-  }catch(e){}
-});
-socket.on('connect', ()=>{
-  console.log("Socket baglandi");
-  if(currentRoom && myUsername && typeof isHiddenMode!=="undefined" && !isHiddenMode){
-    console.log("Odaya otomatik rejoin", currentRoom);
-    socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
-  }
-});
-socket.on('disconnect', (reason)=>{
-  console.log("Socket koptu", reason);
-  if(typeof isHiddenMode!=="undefined" && isHiddenMode){
-    setTimeout(()=>{ try{ if(!socket.connected) socket.connect(); }catch(e){} }, 5000);
-  }
-});
-console.log("V25.1 FIX - gizli gorusme + wheel + Genel mod koruma + 25sn ping yuklendi");
+

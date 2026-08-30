@@ -1,5 +1,12 @@
-/* GORGOR V25.1 - 3 NOKTA DOT MENU + ANKET + WHEEL + GIZLI MOD + GENEL MOD FIX */
-console.log("V25.1 DOT MENU + TUM FIXLER YUKLENDI");
+/* GORGOR V26 FINAL - 3 NOKTA DOT MENU HER MESAJDA + SURE + BAGLANTI + ONLINE STATUS
+   - Dot menu HER mesajda (benim + karşı taraf) - 15dk sonra kaybolmuyor
+   - Karşı taraf mesajı alıntılanabiliyor
+   - Düzenle sadece kendi mesajımda (karşı tarafınki düzenlenemez)
+   - Süreler sağlam - startSelfDestruct fix
+   - Bağlantı koptu uyarısı entegre
+   - Mesaj fontu küçültüldü CSS ile
+*/
+console.log("V26 FINAL DOT MENU + TUM FIXLER YUKLENDI");
 
 let replyToData = null;
 let editingMsgId = null;
@@ -77,26 +84,24 @@ function initHarmanUI(){
   if(liveLocationBtn) liveLocationBtn.onclick = startLiveLocation;
   const translateClose = document.getElementById("translateClose");
   if(translateClose) translateClose.onclick = ()=>{ document.getElementById("translatePopup").style.display="none"; };
-  const quickReactBar = document.getElementById("quickReactBar");
-  if(quickReactBar){
-    quickReactBar.querySelectorAll("span").forEach(s=>{
-      s.onclick = ()=>{
-        if(window._lastReactTarget){
-          const emoji = s.dataset.react;
-          try{ socket.emit('fly-emoji',{emoji, effect:'heart'}); }catch(e){}
-          if(typeof createFlyingEmoji==="function") createFlyingEmoji(emoji,'heart',true);
-          quickReactBar.style.display="none";
-        }
-      };
-    });
-  }
   document.addEventListener("click", (e)=>{
     const menu = document.getElementById("msgActionMenu");
     const dotBtn = e.target.closest(".msgDotBtn");
     if(menu && menu.style.display!="none" && !menu.contains(e.target) && !dotBtn){
-      if(!e.target.closest(".myMessage") && !e.target.closest(".otherMessage")){
-        menu.style.display="none";
-      }
+      menu.style.display="none";
+    }
+  });
+  // Her 2 saniyede bir dot menu kontrolü - kaybolursa geri ekle (V26)
+  setInterval(()=>{ ensureAllMessagesHaveDotMenu(); }, 2000);
+}
+
+function ensureAllMessagesHaveDotMenu(){
+  const all = document.querySelectorAll(".myMessage, .otherMessage");
+  all.forEach(el=>{
+    if(!el.querySelector(".msgDotBtn")){
+      const isMine = el.classList.contains("myMessage");
+      const txt = el.querySelector(".msgText")?.textContent || el.querySelector(".pollQuestion")?.textContent || "";
+      addDotMenuButton(el, el.id, isMine, txt);
     }
   });
 }
@@ -233,21 +238,23 @@ function addPollMessage(msgId, payload, isMine, sentAt, expireSec){
 }
 
 function addDotMenuButton(msgEl, msgId, isMine, textContent){
+  if(!msgEl || !msgId) return;
   if(msgEl.querySelector(".msgDotBtn")) return;
   const realIsMine = isMine || msgEl.classList.contains("myMessage");
   const dot = document.createElement("button");
   dot.className = "msgDotBtn";
   dot.innerHTML = "⋯";
-  dot.title = "Seçenekler";
+  dot.title = "Seçenekler - Alıntıla, Kopyala, Sil";
   dot.onclick = (e)=>{
     e.stopPropagation();
     openActionMenu(msgId, realIsMine, textContent, msgEl, e);
   };
   msgEl.appendChild(dot);
+  // Long press
   let pressTimer=null;
   const startPress = (e)=>{
-    if(e.target.closest(".msgDotBtn") || e.target.closest(".pollOption") || e.target.closest("input")) return;
-    pressTimer = setTimeout(()=>{ openActionMenu(msgId, realIsMine, textContent, msgEl, e); }, 600);
+    if(e.target.closest(".msgDotBtn") || e.target.closest(".pollOption") || e.target.closest("input") || e.target.closest("a")) return;
+    pressTimer = setTimeout(()=>{ openActionMenu(msgId, realIsMine, textContent, msgEl, e); }, 500);
   };
   const cancelPress = ()=>{ if(pressTimer) clearTimeout(pressTimer); };
   msgEl.addEventListener("touchstart", startPress, {passive:true});
@@ -269,7 +276,7 @@ function wrapMessageFunctions(){
     const isRich = replyToData || viewOnceEnabled;
     const finalText = isRich ? `__GORGOR_JSON__${jsonText}` : text;
     const msgId = await _origAddMy.call(this, finalText, expireSec, realName);
-    setTimeout(()=>enhanceMessageDOM(msgId, payload, true), 50);
+    setTimeout(()=>enhanceMessageDOM(msgId, payload, true), 100);
     if(replyToData){ replyToData=null; hideReplyBar(); }
     if(viewOnceEnabled){
       viewOnceEnabled=false;
@@ -299,7 +306,7 @@ function wrapMessageFunctions(){
           const data = JSON.parse(inner);
           const text = data.t || "";
           const res = await _origAddLocked.call(this, msgId, expireSec, await encryptText(text, currentPassword), mediaType, senderReal, sentAt);
-          setTimeout(()=>enhanceMessageDOM(msgId, data, false), 100);
+          setTimeout(()=>enhanceMessageDOM(msgId, data, false), 150);
           return res;
         }catch(e){}
       }
@@ -323,14 +330,16 @@ function wrapMessageFunctions(){
           }
         }else{
           const el = document.getElementById(msgId);
-          if(el && !el.querySelector(".msgDotBtn")){
+          if(el){
             const isMyEl = el.classList.contains("myMessage");
             const txt = el.querySelector(".msgText")?.textContent || p || "";
-            addDotMenuButton(el, msgId, isMyEl, txt);
+            if(!el.querySelector(".msgDotBtn")){
+              addDotMenuButton(el, msgId, isMyEl, txt);
+            }
           }
         }
       }catch(e){}
-    }, 150);
+    }, 200);
     return res;
   };
 }
@@ -400,7 +409,7 @@ function handleMessageAction(act, msgId, isMine, text, msgEl){
         try{ socket.emit("delete-message", {msgId}); }catch(e){}
         showToast("Mesaj geri çekildi");
       }else{
-        showToast("Sadece kendi mesajını silebilirsin");
+        showToast("Sadece kendi mesajını silebilirsin - karşı tarafın mesajı silinemez");
       }
       break;
   }
@@ -410,6 +419,7 @@ function openActionMenu(msgId, isMine, text, msgEl, ev){
   const menu = document.getElementById("msgActionMenu");
   if(!menu) return;
   menu.innerHTML="";
+  // Herkes için ortak
   const actions = [
     {icon:"↩️", label:"Alıntıla / Yanıtla", act:"reply"},
     {icon:"📌", label:"Sabitle", act:"pin"},
@@ -418,8 +428,9 @@ function openActionMenu(msgId, isMine, text, msgEl, ev){
     {icon:"🌐", label:"Çevir", act:"translate"},
     {icon:"📋", label:"Kopyala", act:"copy"},
   ];
+  // Sadece kendi mesajımda düzenle ve sil var - karşı tarafın mesajında yok
   if(isMine){
-    actions.unshift({icon:"✏️", label:"Düzenle", act:"edit"});
+    actions.unshift({icon:"✏️", label:"Düzenle (15dk)", act:"edit"});
     actions.push({icon:"🗑️", label:"Geri çek / Sil", act:"delete"});
   }
   actions.forEach(a=>{
@@ -712,6 +723,7 @@ function initSocketHarman(){
             }
           }catch(e){}
         }
+        setTimeout(()=>ensureAllMessagesHaveDotMenu(), 500);
       }, 500);
     });
   }catch(e){ console.log("harman socket init hata", e); }
@@ -727,6 +739,6 @@ if(typeof showToast!=="function"){
 }
 document.addEventListener("DOMContentLoaded", ()=>{
   initHarmanUI();
-  setTimeout(()=>{ wrapMessageFunctions(); initSocketHarman(); }, 300);
+  setTimeout(()=>{ wrapMessageFunctions(); initSocketHarman(); ensureAllMessagesHaveDotMenu(); }, 500);
 });
-console.log("V25.1 DOT MENU + TUM FIXLER - 3 nokta aktif, wheel, gizli mod, genel mod duzeltildi");
+console.log("V26 FINAL - DOT MENU HER MESAJDA, SURELER SAGLAM, BAGLANTI KONTROL");

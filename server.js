@@ -8,7 +8,7 @@ app.use(express.static('public'));
 app.use(express.static(__dirname));
 app.use(express.static(__dirname + '/public'));
 // V22.2 ANTI-SLEEP
-app.get('/health', (req,res)=>{ res.status(200).send('OK HESAPLAMA V25 STABLE - '+new Date().toISOString()); });
+app.get('/health', (req,res)=>{ res.status(200).send('OK HESAPLAMA V26 STABLE - '+new Date().toISOString()); });
 app.get('/keepalive', (req,res)=>{ res.status(200).send('alive '+Date.now()); });
 app.get('/ping', (req,res)=>{ res.status(200).send('pong '+Date.now()); });
 app.get('/api/ping', (req,res)=>{ res.json({status:'alive', time: Date.now()}); });
@@ -59,6 +59,9 @@ io.on('connection', socket=>{
   socket.on('background-blur', data=>{ if(!socket.room) return; socket.to(socket.room).emit('background-blur',data); });
   socket.on('keepalive-ping', data=>{ if(socket.room && rooms[socket.room]){ rooms[socket.room].lastSeen[socket.realUsername]=Date.now(); } socket.emit('keepalive-pong', {time: Date.now()}); });
   socket.on('keepalive', data=>{ if(socket.room && rooms[socket.room]){ rooms[socket.room].lastSeen[data.user||socket.realUsername]=Date.now(); } });
+  socket.on('user-busy', data=>{ if(!socket.room) return; io.to(socket.room).emit('user-busy', {user: data.user||socket.realUsername, busy: data.busy, ts: Date.now()}); });
+  socket.on('user-active', data=>{ if(!socket.room) return; if(rooms[socket.room]) rooms[socket.room].lastSeen[data.user||socket.realUsername]=Date.now(); io.to(socket.room).emit('user-active', {user: data.user||socket.realUsername, ts: Date.now()}); });
+
   // V22.1 HARMAN - 41-54 events - ViewOnce pasif
   socket.on('chat-edit', data=>{ if(!socket.room) return; const room=socket.room; if(rooms[room]?.messages.has(data.msgId)){ const m=rooms[room].messages.get(data.msgId); m.enc=data.enc; } let idx=persistedMessages.findIndex(m=>m.msgId===data.msgId&&m.room===room); if(idx>=0) persistedMessages[idx].enc=data.enc; debouncedSave(); socket.to(room).emit('chat-edit', data); io.to(room).emit('message-edit', data); });
   socket.on('message-edit', data=>{ if(!socket.room) return; const room=socket.room; if(rooms[room]?.messages.has(data.msgId)){ const m=rooms[room].messages.get(data.msgId); m.enc=data.enc; } let idx=persistedMessages.findIndex(m=>m.msgId===data.msgId&&m.room===room); if(idx>=0) persistedMessages[idx].enc=data.enc; debouncedSave(); socket.to(room).emit('chat-edit', data); socket.to(room).emit('message-edit', data); });
@@ -163,4 +166,4 @@ io.on('connection', socket=>{
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
 });
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', ()=> console.log(`HESAPLAMA V25 STABLE - tum ozellikler - FINAL STABIL - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim`));
+server.listen(PORT, '0.0.0.0', ()=> console.log(`HESAPLAMA V26 STABLE - tum ozellikler - FINAL STABIL - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim`));
