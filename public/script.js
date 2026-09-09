@@ -110,9 +110,9 @@ let _photoPicking = false;
 const MAX_SEC = 86400;
 
 const REAL_ROOM = "oda1";
-const FAKE_ROOMS = ["oda","oda2","oda3","oda4","oda5","oda6","oda7","oda8","oda9"];
+const FAKE_ROOMS = ["oda","oda2"];
 const REAL_USERS = ["varım","yokum"];
-const FAKE_USERS = ["buradayım","geldim","bekliyorum","hazırım","uyuyorum","meşgulüm","çevrimiçiyim","çevrimdışıyım","yoldayım","müsaitim","dinleniyorum","çalışıyorum"];
+const FAKE_USERS = ["uçtum","geldim"];
 
 function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
 function formatClock(d=new Date()){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
