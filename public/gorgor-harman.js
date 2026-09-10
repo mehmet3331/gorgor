@@ -877,4 +877,4 @@ if(typeof showToast!=="function"){
   };
 }
 
-console.log("V22 HARMAN - tum ozellikler yuklendi: reply, edit 15dk, pin, star, search, forward, viewOnce, translate, poll/checklist, live location, quick react");
+console.log("V22 HARMAN - tum ozellikler yuklendi: reply, edit 15dk, pin, star, search, forward, viewOnce, translate, poll/checklist, live location, quick react");}
