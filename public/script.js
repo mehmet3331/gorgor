@@ -268,12 +268,12 @@ async function startCamera(height=720, facingMode=currentFacingMode, withAudio=f
   const hadStream = !!localStream;
   try{
     if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }
-    // FIX: Sadece video, ses sadece call'da - müzik/bluetooth kesilmesin (WhatsApp/Instagram gibi)
+    // FIX: Sadece video, ses sadece call'da - müzik/bluetooth kesilmesin
     const constraints = {
       video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}}
     };
     const _withAudio = (typeof arguments[2] !== 'undefined' ? arguments[2] : false);
-    if(_withAudio){
+    if(_withAudio || withAudio){
       constraints.audio={echoCancellation:true, noiseSuppression:true, autoGainControl:true};
     }
     localStream=await navigator.mediaDevices.getUserMedia(constraints);
@@ -310,14 +310,15 @@ async function ensureAudioTrack(){
     if(!localStream){
       await startCamera(currentQuality, currentFacingMode, true);
       micEnabled=true;
-      if(typeof micBtn!=="undefined" && micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+      if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
       return true;
     }
     if(localStream.getAudioTracks().length===0){
       const aStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
       const aTrack = aStream.getAudioTracks()[0];
       localStream.addTrack(aTrack);
-      if(typeof peer!=="undefined" && peer && peer._pc){
+      // Peer'a ekle veya replace et
+      if(peer && peer._pc){
         const audioSenders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==='audio');
         if(audioSenders.length>0){
           for(const sender of audioSenders){
@@ -325,10 +326,14 @@ async function ensureAudioTrack(){
           }
         }else{
           try{ peer._pc.addTrack(aTrack, localStream); }catch(e){}
+          // renegotiate if needed
+          if(peer && typeof peer.negotiate==="function"){
+            try{ peer.negotiate(); }catch(e){}
+          }
         }
       }
       micEnabled=true;
-      if(typeof micBtn!=="undefined" && micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+      if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
       return true;
     }
     return true;
@@ -337,34 +342,6 @@ async function ensureAudioTrack(){
     return false;
   }
 }
-
-// FIX: Görüşme bitince mikrofonu tamamen kapat - ilk açıldığı gibi, müzik kesilmesin
-function disableAudioTrack(){
-  try{
-    if(localStream){
-      localStream.getAudioTracks().forEach(track=>{
-        try{ track.enabled=false; track.stop(); localStream.removeTrack(track); }catch(e){}
-      });
-    }
-    micEnabled=false;
-    if(typeof micBtn!=="undefined" && micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
-    // Peer'dan audio sender'ı kaldır
-    if(typeof peer!=="undefined" && peer && peer._pc){
-      const senders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==='audio');
-      for(const sender of senders){
-        try{ peer._pc.removeTrack(sender); }catch(e){ try{ sender.replaceTrack(null); }catch(e2){} }
-      }
-    }
-    // Sadece video ile yeniden başlat - müzik geri gelsin
-    if(localStream && localStream.getVideoTracks().length>0){
-      // video kalsın
-    }else{
-      // video yoksa bile sadece video ile başlat
-      try{ startCamera(currentQuality, currentFacingMode, false); }catch(e){}
-    }
-  }catch(e){ console.log("disableAudioTrack hata", e); }
-}
-
 
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=>socket.emit("ping-check",Date.now()),3000); }
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
@@ -382,10 +359,31 @@ joinBtn.onclick=async()=>{
 };
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{ roomScreen.style.display="none"; mainScreen.style.display="block"; if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } if(remoteVideo) remoteVideo.style.display="block"; if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; } if(currentUserBox) currentUserBox.textContent=`Ben: ${data.username}`; myRealUsername=data.username; myUsername=normalize(data.username); startPingMonitor(); if(!localStream){ startCamera(currentQuality, currentFacingMode, false).then(()=>{ if(myVideoContainer) myVideoContainer.style.display="block"; }); } if(data.count===2) createPeer(true); });
-socket.on("message-ack", (data)=>{ document.getElementById(data.msgId).querySelector(".ticks").textContent=" ✓✓"; });
+socket.on("message-ack", (data)=>{
+  if(!data||!data.msgId) return;
+  const d=document.getElementById(data.msgId);
+  if(!d) return;
+  const t=d.querySelector(".ticks");
+  if(t){ t.textContent=" ✓✓"; t.style.color="#aaa"; }
+});
 socket.on("connect", ()=>{
   const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
-  if(q.length){ q.forEach(item=>{ try{ if(item.enc){ socket.emit("chat-message",{msgId:item.msgId, enc:item.enc, expireSec:item.expire, sentAt:item.sentAt||Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000}); } }catch(e){} }); localStorage.removeItem("gorgor_pending_q"); }
+  if(q.length){
+    (async ()=>{
+      for(const item of q){
+        try{
+          if(item.enc && item.msgId){
+            socket.emit("chat-message",{msgId:item.msgId, enc:item.enc, expireSec:item.expire, sentAt:item.sentAt||Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000});
+          }else if(item.text){
+            const msgId = await addMyMessage(item.text, item.expire||43200, myRealUsername);
+            const enc = await encryptText(item.text, currentPassword);
+            socket.emit("chat-message",{msgId, enc, expireSec:item.expire||43200, sentAt:Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000});
+          }
+        }catch(e){}
+      }
+    })();
+    localStorage.removeItem("gorgor_pending_q");
+  }
 });
 socket.on("user-connected",(d)=>{ if(!peer) createPeer(false); const oppName=d.username||d.realUsername||"Bilinmeyen"; updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
 function createPeer(initiator){ peer=new SimplePeer({initiator,trickle:false,stream:localStream,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}}); peer.on("signal",signal=>socket.emit("signal",{room:currentRoom,signal})); peer.on("stream",stream=>{ remoteVideo.srcObject=stream; remoteVideo.play().catch(()=>{}); if(candleContainer) candleContainer.classList.remove("show"); if(isPhoneMode){ remoteVideo.style.display="none"; } else { remoteVideo.style.display="block"; } }); peer.on("close",()=>{ if(remoteVideo){ remoteVideo.pause(); try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.load(); remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } }); }
@@ -482,15 +480,7 @@ input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{
   addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt);
   const isMine = (data.realUsername||data.username) === myRealUsername || data.username === myUsername;
-  if(!isMine){
-    if(typeof isHiddenMode!=="undefined" && isHiddenMode){
-      hasNewMessageWhileHidden=true;
-      if(typeof startBlinking2580==="function") startBlinking2580();
-      const ind=document.getElementById("hiddenNewMsgIndicator");
-      if(ind) ind.style.display="block";
-    }
-    if(!document.body.classList.contains("chat-open")){ if(typeof triggerNewMessageBlink==='function') triggerNewMessageBlink(); }
-  }
+  if(!isMine && !document.body.classList.contains("chat-open")){ if(typeof triggerNewMessageBlink==='function') triggerNewMessageBlink(); }
 });
 socket.on("chat-media", data=>{
   addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username,data.sentAt);
@@ -524,7 +514,7 @@ if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.t
 document.querySelectorAll('.flyEmoji').forEach(emoji=>{ if(emoji.id==='addCustomEmoji') return; emoji.onclick=(e)=>{ e.stopPropagation(); const emojiText=emoji.textContent; const effect=emoji.dataset.effect; socket.emit('fly-emoji',{emoji:emojiText,effect}); createFlyingEmoji(emojiText,effect,true); emojiPanel.classList.remove("show"); }; });
 socket.on('fly-emoji',(data)=>createFlyingEmoji(data.emoji,data.effect,false));
 function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.innerWidth-120:80; const baseY=140; if(effect==='big-kiss'){ const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋'; big.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;z-index:9999;animation:explodeBoom 1s forwards;'; document.body.appendChild(big); setTimeout(()=>big.remove(),1000); return; } if(effect==='water'){ for(let i=0;i<10;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji water'; d.textContent='💧'; d.style.left=(window.innerWidth/2+Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='fireRainFall 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*60); } return; } let count=1; let animClass=effect||'heart'; if(effect==='heart'||effect==='kiss') count=8; else if(['kiss-rain','heart-rain','money-rain','star-rain','fire-rain','laugh-rain','angry-rain','emoji-rain'].includes(effect)) count=14; else if(['flower','sparkle','star'].includes(effect)) count=6; else if(['fire','explode'].includes(effect)) count=3; else if(['party','confetti'].includes(effect)) count=20; else if(['money','thumbs','wow','skull','heart-burst'].includes(effect)) count=1; for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+animClass; fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90+i*12)+'px'; fly.style.bottom=(baseY+Math.random()*60)+'px'; fly.style.fontSize=(effect==='explode'||effect==='heart-burst')?'90px':(effect==='fire'?'72px':(52+Math.random()*28)+'px'); document.body.appendChild(fly); setTimeout(()=>fly.remove(),3500); }, i*80); } if(['fire','explode','party','confetti','rocket','rocket-fly'].includes(effect)){ document.body.classList.add('mega-shake'); setTimeout(()=>document.body.classList.remove('mega-shake'),700); } }
-micBtn.onclick=async()=>{ if(!localStream || localStream.getAudioTracks().length===0){ await ensureAudioTrack(); } micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
+micBtn.onclick=async()=>{ if(!localStream || localStream.getAudioTracks().length===0){ await ensureAudioTrack(); } micEnabled=!micEnabled; if(localStream) localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
 camBtn.onclick=async()=>{
   if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
   if(!camEnabled){
@@ -586,7 +576,6 @@ if(phoneModeBtn){
       document.body.classList.remove("phone-mode");
       if(phoneCallUI) phoneCallUI.style.display="none";
       if(phoneModeBtn) phoneModeBtn.classList.remove("active");
-      disableAudioTrack();
       if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
       micEnabled=false;
       if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
@@ -628,7 +617,6 @@ socket.on("phone-call-end", ()=>{
   document.body.classList.remove("phone-mode");
   if(phoneModeBtn) phoneModeBtn.classList.remove("active");
   phoneCallUI.style.display="none";
-  disableAudioTrack();
   if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
   micEnabled=false;
   if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
@@ -807,7 +795,7 @@ socket.on("video-call-request", async (data)=>{
     const kabul = confirm(`${from} kameralı arama başlattı${withMic?" (sesli)":""}. Kabul edip sen de kameranı açmak ister misin?\\nTamam = Kabul et`);
     if(kabul){
       try{
-        if(!localStream){ await startCamera(currentQuality, currentFacingMode); }
+        if(withMic){ await ensureAudioTrack(); await startCamera(currentQuality, currentFacingMode, true); } else { if(!localStream) await startCamera(currentQuality, currentFacingMode, false); }
         localStream.getVideoTracks().forEach(t=>t.enabled=true);
         camEnabled=true; if(camBtn) camBtn.classList.remove("offIcon");
         if(withMic){ localStream.getAudioTracks().forEach(t=>t.enabled=true); micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } }
@@ -840,7 +828,6 @@ socket.on("video-call-decline", (data)=>{
     camEnabled=false; if(camBtn) camBtn.classList.add("offIcon");
   });
 socket.on("video-call-end", ()=>{
-    disableAudioTrack();
     if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); localStream.getAudioTracks().forEach(t=>t.enabled=false); }
     camEnabled=false; micEnabled=false;
     if(camBtn) camBtn.classList.add("offIcon");
@@ -989,7 +976,7 @@ function skullPanicFullDelete(){
       if(flame){
         const smoke = document.createElement("div");
         smoke.className = "candle-smoke";
-        candleContainer.querySelector(".candle").appendChild(smoke);
+        candleContainer.querySelector(".candle")?.appendChild(smoke);
         setTimeout(()=>{ try{smoke.remove();}catch(e){} }, 2000);
       }
     }
@@ -1103,14 +1090,14 @@ function triggerFlipPanic(){
 
 let securityConfigCache = null;
 function defaultSecurityConfig(){ return {skullAction:'full',redAction:'escape',flipAction:'red',confirmSkull:true,confirmRed:false,confirmFlip:false,triggers:{flip:true,shake:false,volDown3:false,volUp3:false,power2:false,volBoth:false,threeFinger:false,pocket:false}}; }
-function loadSecurityConfig(){ try{const saved=localStorage.getItem("gorgor_security_config"); if(saved){const parsed=JSON.parse(saved); const base=defaultSecurityConfig(); const merged=Object.assign({}, base, parsed); merged.triggers=Object.assign({}, base.triggers, (parsed.triggers||{})); return merged;}}catch(e){} return defaultSecurityConfig(); }
+function loadSecurityConfig(){ try{const saved=localStorage.getItem("gorgor_security_config"); if(saved){const parsed=JSON.parse(saved); return{...defaultSecurityConfig(),...parsed,triggers:{...defaultSecurityConfig().triggers,...(parsed.triggers||{})}};}}catch(e){} return defaultSecurityConfig(); }
 function saveSecurityConfig(cfg){ try{localStorage.setItem("gorgor_security_config",JSON.stringify(cfg)); securityConfigCache=cfg;}catch(e){} }
 function initSecuritySettings(){
   const panel=document.getElementById("securitySettingsPanel"); const btn=document.getElementById("securitySettingsBtn"); const closeBtn=document.getElementById("closeSecurityPanel"); const saveBtn=document.getElementById("saveSecuritySettings");
   if(btn&&panel){btn.onclick=()=>{showSecurityPanel();};}
   if(closeBtn){closeBtn.onclick=()=>{hideSecurityPanel();};}
   if(panel){panel.addEventListener("click",(e)=>{if(e.target===panel) hideSecurityPanel();});}
-  if(saveBtn){saveBtn.onclick=()=>{const cfg={skullAction:document.getElementById("skullActionSelect").value||'full',redAction:document.getElementById("redActionSelect").value||'escape',flipAction:document.getElementById("flipActionSelect").value||'red',confirmSkull:!!document.getElementById("confirmSkull").checked,confirmRed:!!document.getElementById("confirmRed").checked,confirmFlip:!!document.getElementById("confirmFlip").checked,triggers:{flip:!!document.getElementById("triggerFlip").checked,shake:!!document.getElementById("triggerShake").checked,volDown3:!!document.getElementById("triggerVolDown3").checked,volUp3:!!document.getElementById("triggerVolUp3").checked,power2:!!document.getElementById("triggerPower2").checked,volBoth:!!document.getElementById("triggerVolBoth").checked,threeFinger:!!document.getElementById("triggerThreeFinger").checked,pocket:!!document.getElementById("triggerPocket").checked}}; saveSecurityConfig(cfg); applySecurityTriggers(cfg); hideSecurityPanel(); showToast("🛡 Kaydedildi");};}
+  if(saveBtn){saveBtn.onclick=()=>{const cfg={skullAction:document.getElementById("skullActionSelect").value||'full',redAction:document.getElementById("redActionSelect").value||'escape',flipAction:document.getElementById("flipActionSelect").value||'red',confirmSkull:!!document.getElementById("confirmSkull")?.checked,confirmRed:!!document.getElementById("confirmRed")?.checked,confirmFlip:!!document.getElementById("confirmFlip")?.checked,triggers:{flip:!!document.getElementById("triggerFlip")?.checked,shake:!!document.getElementById("triggerShake")?.checked,volDown3:!!document.getElementById("triggerVolDown3")?.checked,volUp3:!!document.getElementById("triggerVolUp3")?.checked,power2:!!document.getElementById("triggerPower2")?.checked,volBoth:!!document.getElementById("triggerVolBoth")?.checked,threeFinger:!!document.getElementById("triggerThreeFinger")?.checked,pocket:!!document.getElementById("triggerPocket")?.checked}}; saveSecurityConfig(cfg); applySecurityTriggers(cfg); hideSecurityPanel(); showToast("🛡 Kaydedildi");};}
   const perMsgSelect=document.getElementById("perMessageTimerSelect"); if(perMsgSelect){perMsgSelect.addEventListener("change",()=>{if(perMsgSelect.value==="custom_wheel"){if(typeof openWheel==='function') openWheel();}});}
   const cfg=loadSecurityConfig(); applySecuritySettingsToUI(cfg); applySecurityTriggers(cfg);
   setTimeout(()=>{ const m=document.getElementById("panicConfirmModal"); if(m){m.style.display="none"; m.classList.remove("show");} const s=document.getElementById("securitySettingsPanel"); if(s){s.style.display="none"; s.classList.remove("show");} },100);
@@ -1246,7 +1233,7 @@ async function startVoiceRecording(){
         const base64 = reader.result.split(',')[1];
         const enc = await encryptText(base64, currentPassword);
         const msgId = 'voice_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
-        const expireSec = parseInt(perMessageTimerSelect && perMessageTimerSelect.value || defaultExpire || '14400');
+        const expireSec = parseInt(perMessageTimerSelect.value || defaultExpire || '14400');
         socket.emit('chat-voice', {msgId, enc, expireSec, duration, mediaType:'voice'});
         // kendi ekrana ekle
         addVoiceMessageToUI(msgId, base64, true, duration, expireSec);
@@ -1944,7 +1931,7 @@ function handleMessageAction(act, msgId, isMine, text, msgEl){
         msgId,
         snippet: text.substring(0,80),
         text: text,
-        sender: isMine ? (myRealUsername||"Ben") : (msgEl.querySelector(".msgAvatar").textContent||"Karşı")
+        sender: isMine ? (myRealUsername||"Ben") : (msgEl.querySelector(".msgAvatar")?.textContent||"Karşı")
       };
       showReplyBar(replyToData);
       document.getElementById("messageInput").focus();
@@ -2102,7 +2089,7 @@ function hidePinBar(){ const bar=document.getElementById("pinBar"); if(bar) bar.
 function toggleStar(msgId, text, isMine, msgEl){
   if(starredMessages.has(msgId)){
     starredMessages.delete(msgId);
-    msgEl.querySelector(".starIcon").remove();
+    msgEl.querySelector(".starIcon")?.remove();
     showToast("⭐ Yıldız kaldırıldı");
   }else{
     const data = {id:msgId, text, sender: isMine ? "Ben" : "Karşı", time: Date.now(), isMine};
@@ -2163,7 +2150,7 @@ async function translateText(text){
     const lang = /[ığüşöçİĞÜŞÖÇ]/.test(text) ? "tr|en" : "en|tr";
     const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${lang}`);
     const data = await res.json();
-    const translated = data.responseData && data.responseData.translatedText || "Çeviri bulunamadı";
+    const translated = data.responseData?.translatedText || "Çeviri bulunamadı";
     document.getElementById("translateResult").textContent = translated;
   }catch(e){
     // fallback simple

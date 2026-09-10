@@ -58,7 +58,7 @@ io.on('connection', socket=>{
   socket.on('voice-start', data=>{ if(!socket.room) return; socket.to(socket.room).emit('voice-start',{from:socket.realUsername}); });
   socket.on('background-blur', data=>{ if(!socket.room) return; socket.to(socket.room).emit('background-blur',data); });
   socket.on('keepalive-ping', data=>{ if(socket.room && rooms[socket.room]){ if(!rooms[socket.room].lastSeen) rooms[socket.room].lastSeen={}; rooms[socket.room].lastSeen[data.from||socket.realUsername]=Date.now(); rooms[socket.room].lastSeen[socket.realUsername]=Date.now(); } socket.emit('keepalive-pong', {time: Date.now()}); });
-socket.on('keepalive', data=>{ if(socket.room && rooms[socket.room]){ if(!rooms[socket.room].lastSeen) rooms[socket.room].lastSeen={}; rooms[socket.room].lastSeen[data.user||socket.realUsername||data.from]=Date.now(); } });
+  socket.on('keepalive', data=>{ if(socket.room && rooms[socket.room]){ rooms[socket.room].lastSeen[data.user||socket.realUsername]=Date.now(); } });
   socket.on('user-busy', data=>{ if(!socket.room) return; io.to(socket.room).emit('user-busy', {user: data.user||socket.realUsername, busy: data.busy, ts: Date.now()}); });
   socket.on('user-active', data=>{ if(!socket.room) return; if(rooms[socket.room]) rooms[socket.room].lastSeen[data.user||socket.realUsername]=Date.now(); io.to(socket.room).emit('user-active', {user: data.user||socket.realUsername, ts: Date.now()}); });
 
@@ -72,7 +72,6 @@ socket.on('keepalive', data=>{ if(socket.room && rooms[socket.room]){ if(!rooms[
   socket.on('join-room', data=>{
     const room=data.room; const requestedUsername=data.username;
     if(!rooms[room]) rooms[room]={users:{},messages:new Map(), lastSeen:{}};
-    if(!rooms[room].lastSeen) rooms[room].lastSeen={};
     if(!rooms[room].lastSeen) rooms[room].lastSeen={};
     for(const [sid, uname] of Object.entries(rooms[room].users)){
       const alive = io.sockets.sockets.get(sid);
@@ -105,7 +104,7 @@ socket.on('keepalive', data=>{ if(socket.room && rooms[socket.room]){ if(!rooms[
   socket.on('chat-media', async data=>{
     const room=socket.room; if(!room||!rooms[room]) return; const now=Date.now();
     const msg={msgId:data.msgId,enc:data.enc,expireSec:data.expireSec,type:data.mediaType,username:socket.username,realUsername:socket.realUsername,opened:false,room,expireAt:now+data.expireSec*1000,deleteAt:now+data.expireSec*1000};
-    rooms[room].messages.set(data.msgId,msg); persistedMessages.push(msg); debouncedSave();
+        rooms[room].messages.set(data.msgId,msg); persistedMessages.push(msg); debouncedSave();
     socket.emit('message-ack',{msgId:data.msgId, status:'sent', ts: Date.now()});
     socket.to(room).emit('chat-media',Object.assign({}, data, {username: socket.username, realUsername: socket.realUsername}));
   });

@@ -15,7 +15,7 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; overflow: 
 .userTag:hover { background: #222; color: #aaa; border-color: #444; }
 #mainScreen { display: none; width: 100%; height: 100vh; }
 #remoteVideo { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 1; touch-action: pinch-zoom!important; -webkit-touch-callout: none; }
-#myVideoContainer { position: fixed; top: 25px; right: 15px; width: 180px; height: 240px; border-radius: 12px; border: 2px solid #fff; background: #000; z-index: 100; touch-action: none; cursor: move; }
+#myVideoContainer { position: fixed; top: 33px; right: 15px; width: 180px; height: 240px; border-radius: 12px; border: 2px solid #fff; background: #000; z-index: 100; touch-action: none; cursor: move; }
 #myVideo { width: 100%; height: 100%; border-radius: 10px; object-fit: cover; transform: scaleX(-1); }
 .cameraOverlayBtn { position: absolute; width: 32px; height: 32px; border: none; border-radius: 50%; background: rgba(0,0,0,.7); color: white; font-size: 16px; cursor: pointer; z-index: 120; }
 #switchCameraBtn { bottom: 5px; left: 5px; } #fullscreenBtn { top: 5px; right: 5px; }
@@ -363,9 +363,9 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #perMessagePersistSelect{display:none !important;}
 #perMessageWheelBtn{display:none !important;}
 
-@keyframes newMessageBlinkRedWhite{0%{background:#ff0000 !important; box-shadow:0 0 20px #ff0000 !important;}50%{background:#ffffff !important; box-shadow:0 0 25px #ffffff !important; color:#ff0000 !important;}100%{background:#ff0000 !important; box-shadow:0 0 20px #ff0000 !important;}} /* FIX: sadece kırmızı yanıp sönme, oynama yok */
-#chatToggle.hasNewMessage{animation:newMessageBlinkRedWhite 0.6s infinite !important; background:#ff0000 !important; border:2px solid #fff !important; box-shadow:0 0 20px #ff0000 !important; /* FIX: sağa sola oynamasın */ transform:none !important;}
-#floatingPill.hasNewMessage{animation:newMessageBlinkRedWhite 0.8s infinite !important; border-color:#ff0000 !important; transform:none !important;}
+@keyframes newMessageBlinkRedWhite{0%{background:#ff0000 !important; box-shadow:0 0 20px #ff0000 !important; transform:scale(1.05);}50%{background:#ffffff !important; box-shadow:0 0 25px #ffffff !important; transform:scale(1.15); color:#ff0000 !important;}100%{background:#ff0000 !important;}}
+#chatToggle.hasNewMessage{animation:newMessageBlinkRedWhite 0.6s infinite !important; background:#ff0000 !important; border:2px solid #fff !important; box-shadow:0 0 20px #ff0000 !important; transform:scale(1.1) !important;}
+#floatingPill.hasNewMessage{animation:newMessageBlinkRedWhite 0.8s infinite !important; border-color:#ff0000 !important;}
 
 .message{position:relative !important; margin-bottom:8px !important;}
 .message .messageTime{font-size:9px !important; color:#666 !important; margin-top:4px !important; display:flex !important; align-items:center !important; gap:4px !important;}
@@ -395,7 +395,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #soundUnderPrivacy #volumeSlider{width:70px !important; height:3px !important; accent-color:#00c853 !important;}
 #soundUnderPrivacy #soundBtn{background:transparent !important; border:none !important; color:#aaa !important; font-size:12px !important; width:auto !important; height:auto !important;}
 #floatingPill{height:auto !important; min-height:56px !important; padding:6px 8px !important; align-items:flex-start !important;}
-#leftStackContainer{top:85px !important;}
+#leftStackContainer{top:93px !important;}
 #settingsContainer{top:210px !important;}
 #wheelPersistModal{position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100001; display:none; align-items:center; justify-content:center;}
 #wheelPersistModal.show{display:flex !important;}
@@ -657,8 +657,8 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 @media (max-width: 480px){
   #leftStackContainer{ top:80px !important; }
   #settingsContainer{ top:270px !important; }
-  #myVideoContainer{ top:85px !important; }
-  #myVideoUnderBar{ top:85px !important; margin-top:155px !important; }
+  #myVideoContainer{ top:93px !important; }
+  #myVideoUnderBar{ top:93px !important; margin-top:155px !important; }
 }
 
 
@@ -795,7 +795,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 /* Sağ video */
 #myVideoContainer{
-  top:85px !important;
+  top:93px !important;
   right:10px !important;
   width:110px !important;
   height:145px !important;
@@ -804,8 +804,8 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   z-index:20 !important;
 }
 #myVideoUnderBar{
-  top:85px !important;
-  margin-top:170px !important;
+  top:93px !important;
+  margin-top:178px !important;
   right:10px !important;
   width:110px !important;
   display:flex !important;
@@ -918,8 +918,8 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   #floatingPill{ left:6px !important; right:6px !important; padding:8px 10px !important; }
   #leftStackContainer{ top:80px !important; left:6px !important; }
   #settingsContainer{ top:280px !important; left:6px !important; }
-  #myVideoContainer{ top:80px !important; width:95px !important; height:125px !important; right:6px !important; }
-  #myVideoUnderBar{ top:80px !important; margin-top:150px !important; width:95px !important; right:6px !important; }
+  #myVideoContainer{ top:88px !important; width:95px !important; height:125px !important; right:6px !important; }
+  #myVideoUnderBar{ top:88px !important; margin-top:158px !important; width:95px !important; right:6px !important; }
   .msgText{ font-size:11px !important; }
   #msgActionMenu{ min-width:240px !important; }
 }
@@ -927,3 +927,8 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 /* FIX - yildiz ve sesli mesaj iptal */
 #starredToggleBtn{ display:none!important; }
 #voiceRecordBtn{ display:none!important; }
+
+/* FIX 4 - 0258 kırmızı */
+@keyframes hcRedBlink { 0%{ background:#ff0000; box-shadow:0 0 12px #ff0000; } 100%{ background:#880000; box-shadow:0 0 4px #550000; } }
+.hc-blink{ background:#ff0000!important; color:#fff!important; box-shadow:0 0 12px #ff0000!important; animation:hcRedBlink 0.6s infinite alternate!important; }
+.hc-blink-red{ background:#ff0000!important; color:#fff!important; }
