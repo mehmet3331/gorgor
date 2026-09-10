@@ -80,6 +80,8 @@ let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "4
 let activeTimers = new Map();
 let offlineTimer = null;
 const FOURTEEN_MIN = 14*60*1000;
+let backgroundDisconnectTimer = null;
+const SEVEN_MIN = 7.5*60*1000; // YENİ
 
 function startExpireTimer(msgId, deleteAt, expireSec){
   const remaining = deleteAt - Date.now();
@@ -115,62 +117,6 @@ const REAL_USERS = ["varım","yokum"];
 const FAKE_USERS = ["uçtum","geldim"];
 
 function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
-function formatClock(d=new Date()){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
-
-let securityMode = localStorage.getItem("gorgor_security_mode") || "private";
-function doSecurityReset(reason){
-  if(isPickingFile || _photoPicking){ console.log("FOTO IPTAL", reason); return; }
-  if(securityMode === "general"){
-    console.log("GENEL MOD - kamera ve ses iki tarafta kapaniyor - mum", reason);
-    try{
-      if(localStream){
-        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
-        localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
-      }
-      micEnabled=false; camEnabled=false;
-      if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
-      if(camBtn){ camBtn.classList.add("offIcon"); }
-      if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; try{remoteVideo.volume=0;}catch(e){} remoteVideo.style.display="none"; try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.removeAttribute("src");}catch(e){} try{remoteVideo.load();}catch(e){} }
-      if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
-      isPhoneMode=false;
-      document.body.classList.remove("phone-mode");
-      if(phoneCallUI) phoneCallUI.style.display="none";
-      if(socket && currentRoom){
-        socket.emit("paused");
-        socket.emit("general-pause");
-        socket.emit("phone-mode", false);
-      }
-    }catch(e){ console.log(e); }
-    return;
-  }
-  console.log("OZEL MOD KAPANIS", reason);
-  try{
-    if(peer){ try{peer.destroy();}catch(e){} peer=null; }
-    if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); localStream=null; }
-    if(pingTimer){ clearInterval(pingTimer); pingTimer=null; }
-    if(socket && currentRoom){ socket.emit("leave-room", currentRoom); }
-    currentRoom=""; currentPassword=""; myUsername=""; myRealUsername="";
-    micEnabled=false; camEnabled=false; isPhoneMode=false; opponentUsername=""; opponentStatus="offline";
-    messageIdCounter=0;
-    if(messages) messages.innerHTML="";
-    sentMessages.clear();
-    activeTimers.forEach(t=>{ if(t.interval) clearInterval(t.interval); if(t.timeout) clearTimeout(t.timeout); }); activeTimers.clear();
-    if(roomName) roomName.value="";
-    if(roomPassword) roomPassword.value="";
-    if(userName) userName.value="";
-    if(mainScreen) mainScreen.style.display="none";
-    if(roomScreen) roomScreen.style.display="none";
-    const fakeCalcEl = document.getElementById("fakeCalc");
-    if(fakeCalcEl) fakeCalcEl.style.display="flex";
-    if(typeof calcBuf!=="undefined"){ calcBuf=""; const cd=document.getElementById("calcDisplay"); if(cd) cd.value=""; }
-    document.body.classList.remove("phone-mode");
-    document.body.classList.remove("chat-open");
-    if(phoneCallUI) phoneCallUI.style.display="none";
-    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-    if(remoteVideo){ try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.removeAttribute("src"); remoteVideo.style.display="none"; }
-    if(myVideoContainer) myVideoContainer.style.display="none";
-  }catch(e){ console.log(e); }
-}
 document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ if(isPickingFile || _photoPicking) return; doSecurityReset("visibility hidden"); } });
 window.addEventListener("pagehide", ()=>{ doSecurityReset("pagehide"); });
 window.addEventListener("blur", ()=>{ setTimeout(()=>{ if(isPickingFile || _photoPicking) return; if(document.hidden){ doSecurityReset("blur+hidden"); } }, 1000); });
@@ -183,6 +129,97 @@ function renderFakeLists(){
 renderFakeLists();
 let opponentUsername=""; let opponentStatus="offline";
 let lastSeenTimes = {};
+try{ const _k="gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1"); const _v=localStorage.getItem(_k); if(_v) Object.assign(lastSeenTimes, JSON.parse(_v)); }catch(e){}
+
+
+function formatLastSeen(ts){
+  if(!ts) return "";
+  const d = new Date(ts);
+  const day = String(d.getDate()).padStart(2,'0');
+  const month = String(d.getMonth()+1).padStart(2,'0');
+  const year = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${day}/${month}/${year} - ${hh}:${mm}`;
+}
+function formatClockShort(ts){
+  try{
+    const d = new Date(ts);
+    const day = String(d.getDate()).padStart(2,'0');
+    const month = String(d.getMonth()+1).padStart(2,'0');
+    const year = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    return `${day}/${month}/${year} - ${hh}:${mm}`;
+  }catch(e){ return ""; }
+}
+function formatClock(d=new Date()){
+  const hh=String(d.getHours()).padStart(2,'0');
+  const mm=String(d.getMinutes()).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+
+function updateOpponentDisplay(name,status){
+  if(name && (name === myRealUsername || name === myUsername)) return;
+  if(!name && typeof opponentUsername!=="undefined" && opponentUsername && (opponentUsername === myRealUsername || opponentUsername === myUsername)) return;
+  if(typeof opponentUsername!=="undefined") opponentUsername=name||opponentUsername;
+  if(typeof opponentUsername!=="undefined" && (opponentUsername === myRealUsername || opponentUsername === myUsername)){
+    opponentUsername = "";
+    return;
+  }
+  if(typeof opponentStatus!=="undefined") opponentStatus=status||opponentStatus;
+  const nameEl = document.getElementById("opponentNameDisplay");
+  const statusEl = document.getElementById("opponentStatusText");
+  const dotEl = document.getElementById("opponentDot");
+  if(nameEl && typeof opponentUsername!=="undefined" && opponentUsername && opponentUsername !== myRealUsername && opponentUsername !== myUsername){
+    nameEl.textContent = opponentUsername;
+  }
+  if(dotEl && typeof opponentStatus!=="undefined"){
+    dotEl.className = "onlineDot "+(opponentStatus==="varım"||opponentStatus==="online"||opponentStatus==="çevrimiçi"?"online":"offline");
+  }
+  if(statusEl){
+    if(status==="varım"||status==="online"||status==="çevrimiçi"){
+      statusEl.textContent = "çevrimiçi";
+      statusEl.style.color = "#00ff88";
+      if(typeof stopWaitingDots==="function") stopWaitingDots();
+    }else{
+      let ts = null;
+      if(typeof lastSeenTimes!=="undefined"){
+        ts = lastSeenTimes[opponentUsername] || lastSeenTimes[name] || (typeof opponentLastSeen!=="undefined"?opponentLastSeen:null);
+      }
+      if(!ts){
+        try{
+          const saved = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1"));
+          if(saved){
+            const obj = JSON.parse(saved);
+            ts = obj[opponentUsername] || obj[name] || null;
+          }
+        }catch(e){}
+      }
+      if(ts){
+        const abs = formatLastSeen(ts);
+        statusEl.textContent = `En son ${abs} de aktifti`;
+      }else{
+        statusEl.textContent = "çevrimdışı";
+      }
+      statusEl.style.color = "#888";
+      if(dotEl) dotEl.className = "onlineDot offline";
+      if(typeof stopWaitingDots==="function") stopWaitingDots();
+    }
+  }
+  const phoneNameDisplay=document.getElementById("phoneNameDisplay");
+  if(phoneNameDisplay && typeof opponentUsername!=="undefined" && opponentUsername && opponentUsername !== myRealUsername){ phoneNameDisplay.textContent=opponentUsername; }
+}
+
+
+// FIX - son görülme localStorage'dan yükle (çıkıp girince kaybolmasın)
+try{
+  const savedLS = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1"));
+  if(savedLS){
+    const obj = JSON.parse(savedLS);
+    Object.assign(lastSeenTimes, obj);
+  }
+}catch(e){}
 // V19 NEW FEATURES GLOBALS
 let isBlurEnabled = false;
 let autoReconnectAttempts = 0;
@@ -198,65 +235,8 @@ let isCollaborativeDrawing = false;
 let collaborativeDrawColor = "#00ff88";
 let fakeNotifEnabled = true;
 let screenshotProtectionEnabled = true;
-function formatLastSeen(ts){
-  if(!ts) return "";
-  const diff = Math.floor((Date.now()-ts)/1000);
-  if(diff<10) return "az önce";
-  if(diff<60) return `${diff}sn önce`;
-  if(diff<3600) return `${Math.floor(diff/60)}dk önce`;
-  if(diff<86400) return `bugün ${formatClock(new Date(ts))}`;
-  return `${formatClock(new Date(ts))}`;
-}
 
-function updateOpponentDisplay(name,status){ 
-  // Guard: kendi adınsa karşı taraf değil, güncelleme yapma
-  if(name && (name === myRealUsername || name === myUsername)) return;
-  if(!name && opponentUsername && (opponentUsername === myRealUsername || opponentUsername === myUsername)) return;
-  opponentUsername=name||opponentUsername; 
-  // Ekstra guard: opponentUsername kendi adın olmuşsa temizle
-  if(opponentUsername === myRealUsername || opponentUsername === myUsername){
-    opponentUsername = "";
-    return;
-  }
-  opponentStatus=status||opponentStatus; 
-  if(opponentNameDisplay){ 
-    // Sadece karşı tarafın adı, kendi adın değil
-    if(opponentUsername && opponentUsername !== myRealUsername && opponentUsername !== myUsername){
-      opponentNameDisplay.textContent=opponentUsername; 
-    }
-  } 
-  if(opponentDot){ opponentDot.className="onlineDot "+(opponentStatus==="varım"||opponentStatus==="online"?"online":"offline"); } 
-  if(opponentStatusText){ 
-    if(opponentStatus==="varım"||opponentStatus==="online"){ 
-      opponentStatusText.textContent="içerde"; 
-      opponentStatusText.style.color="#00ff88"; 
-      opponentStatusText.classList.remove("waiting");
-      if(typeof stopWaitingDots==="function") stopWaitingDots();
-    } else { 
-      const ts = lastSeenTimes[opponentUsername] || lastSeenTimes[name] || null;
-      if(ts){
-        // Son görülme saatini gerçek saat olarak göster: 22:42 gibi
-        const d = new Date(ts);
-        const hh = String(d.getHours()).padStart(2,'0');
-        const mm = String(d.getMinutes()).padStart(2,'0');
-        const clock = `${hh}:${mm}`;
-        const rel = formatLastSeen(ts);
-        // Eğer az önce ise "son görülme az önce" değil "son görülme 22:42" + relative
-        if(rel === "az önce"){
-          opponentStatusText.textContent=`son görülme ${clock}`;
-        } else {
-          opponentStatusText.textContent=`son görülme ${clock} • ${rel}`;
-        }
-      } else {
-        opponentStatusText.textContent="son görülme -";
-      }
-      opponentStatusText.style.color="#888"; 
-      if(typeof stopWaitingDots==="function") stopWaitingDots();
-    } 
-  } 
-  const phoneNameDisplay=document.getElementById("phoneNameDisplay"); 
-  if(phoneNameDisplay && opponentUsername && opponentUsername !== myRealUsername){ phoneNameDisplay.textContent=opponentUsername; } 
-}
+
 roomName.addEventListener("input",()=>{ const v=normalize(roomName.value); if(v.length>0){ if(fakeRoomsHint) fakeRoomsHint.style.display="block"; } else { if(fakeRoomsHint) fakeRoomsHint.style.display="none"; } if(v===REAL_ROOM || v.length>=2){ userName.style.display="block"; userListBox.style.display="block"; } else { userName.style.display="none"; userListBox.style.display="none"; } });
 
 // V19 PBKDF2 + backward compatibility
@@ -282,16 +262,21 @@ async function encryptText(text,password){ const key=await deriveKey(password); 
 async function decryptText(b64,password){ try{ const key=await deriveKey(password); const combined=b64ToBuf(b64); const iv=combined.slice(0,12); const ct=combined.slice(12); const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct); return new TextDecoder().decode(pt); }catch(e){ return null; } }
 if(defaultSelfDestructSelect) defaultSelfDestructSelect.value="43200";
 if(micBtn) micBtn.textContent="🎤"; if(camBtn) camBtn.textContent="📹";
-async function startCamera(height=720, facingMode=currentFacingMode){
+async function startCamera(height=720, facingMode=currentFacingMode, withAudio=false){
   const prevMicEnabled = (typeof micEnabled !== 'undefined') ? micEnabled : false;
   const prevCamEnabled = (typeof camEnabled !== 'undefined') ? camEnabled : false;
   const hadStream = !!localStream;
   try{
     if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }
-    localStream=await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}},
-      audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}
-    });
+    // FIX: Sadece video, ses sadece call'da - müzik/bluetooth kesilmesin (WhatsApp/Instagram gibi)
+    const constraints = {
+      video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}}
+    };
+    const _withAudio = (typeof arguments[2] !== 'undefined' ? arguments[2] : false);
+    if(_withAudio){
+      constraints.audio={echoCancellation:true, noiseSuppression:true, autoGainControl:true};
+    }
+    localStream=await navigator.mediaDevices.getUserMedia(constraints);
     myVideo.srcObject=localStream;
     myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)";
     if(!hadStream){
@@ -319,6 +304,40 @@ async function startCamera(height=720, facingMode=currentFacingMode){
     return true;
   }catch(err){ console.log("kamera hata",err); return false; }
 }
+// FIX: Sesli/görüntülü aramada mikrofondan ses gitmeme - WhatsApp gibi sadece call'da ses ekle
+async function ensureAudioTrack(){
+  try{
+    if(!localStream){
+      await startCamera(currentQuality, currentFacingMode, true);
+      micEnabled=true;
+      if(typeof micBtn!=="undefined" && micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+      return true;
+    }
+    if(localStream.getAudioTracks().length===0){
+      const aStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+      const aTrack = aStream.getAudioTracks()[0];
+      localStream.addTrack(aTrack);
+      if(typeof peer!=="undefined" && peer && peer._pc){
+        const audioSenders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==='audio');
+        if(audioSenders.length>0){
+          for(const sender of audioSenders){
+            try{ await sender.replaceTrack(aTrack); }catch(e){}
+          }
+        }else{
+          try{ peer._pc.addTrack(aTrack, localStream); }catch(e){}
+        }
+      }
+      micEnabled=true;
+      if(typeof micBtn!=="undefined" && micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+      return true;
+    }
+    return true;
+  }catch(e){
+    console.log("ensureAudioTrack hata", e);
+    return false;
+  }
+}
+
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=>socket.emit("ping-check",Date.now()),3000); }
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
 
@@ -334,7 +353,12 @@ joinBtn.onclick=async()=>{
     socket.emit("join-room",{room,password,username:uname});
 };
 socket.on("room-error", msg=>alert(msg));
-socket.on("joined-room", data=>{ roomScreen.style.display="none"; mainScreen.style.display="block"; if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } if(remoteVideo) remoteVideo.style.display="block"; if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; } if(currentUserBox) currentUserBox.textContent=`Ben: ${data.username}`; myRealUsername=data.username; myUsername=normalize(data.username); startPingMonitor(); if(!localStream){ startCamera(currentQuality, currentFacingMode).then(()=>{ if(myVideoContainer) myVideoContainer.style.display="block"; }); } if(data.count===2) createPeer(true); });
+socket.on("joined-room", data=>{ roomScreen.style.display="none"; mainScreen.style.display="block"; if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } if(remoteVideo) remoteVideo.style.display="block"; if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; } if(currentUserBox) currentUserBox.textContent=`Ben: ${data.username}`; myRealUsername=data.username; myUsername=normalize(data.username); startPingMonitor(); if(!localStream){ startCamera(currentQuality, currentFacingMode, false).then(()=>{ if(myVideoContainer) myVideoContainer.style.display="block"; }); } if(data.count===2) createPeer(true); });
+socket.on("message-ack", (data)=>{ document.getElementById(data.msgId).querySelector(".ticks").textContent=" ✓✓"; });
+socket.on("connect", ()=>{
+  const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
+  if(q.length){ q.forEach(item=>{ try{ if(item.enc){ socket.emit("chat-message",{msgId:item.msgId, enc:item.enc, expireSec:item.expire, sentAt:item.sentAt||Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000}); } }catch(e){} }); localStorage.removeItem("gorgor_pending_q"); }
+});
 socket.on("user-connected",(d)=>{ if(!peer) createPeer(false); const oppName=d.username||d.realUsername||"Bilinmeyen"; updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
 function createPeer(initiator){ peer=new SimplePeer({initiator,trickle:false,stream:localStream,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}}); peer.on("signal",signal=>socket.emit("signal",{room:currentRoom,signal})); peer.on("stream",stream=>{ remoteVideo.srcObject=stream; remoteVideo.play().catch(()=>{}); if(candleContainer) candleContainer.classList.remove("show"); if(isPhoneMode){ remoteVideo.style.display="none"; } else { remoteVideo.style.display="block"; } }); peer.on("close",()=>{ if(remoteVideo){ remoteVideo.pause(); try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.load(); remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } }); }
 socket.on("signal",signal=>{ if(!peer) createPeer(false); peer.signal(signal); });
@@ -342,7 +366,7 @@ socket.on("user-status",(data)=>{ const {user,status,online}=data; if(user===myR
 socket.on("user-last-seen",(data)=>{
   const {user, ts, online} = data;
   if(user===myRealUsername) return;
-  if(ts) lastSeenTimes[user]=ts;
+  if(ts){ lastSeenTimes[user]=ts; try{ localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes)); }catch(e){} }
   if(online===false || online===undefined){
     if(user===opponentUsername || !opponentUsername){
       updateOpponentDisplay(user,"yokum");
@@ -352,6 +376,7 @@ socket.on("user-last-seen",(data)=>{
 socket.on("last-seen-list",(list)=>{
   if(!list) return;
   Object.assign(lastSeenTimes, list);
+  try{ localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes)); }catch(e){}
   if(opponentUsername && lastSeenTimes[opponentUsername] && opponentStatus!=="varım"){
     updateOpponentDisplay(opponentUsername,"yokum");
   }
@@ -371,7 +396,60 @@ async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){ const no
 async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal,sentAt){ if(document.getElementById(msgId)) return; expireSec=Math.min(expireSec||defaultExpire,MAX_SEC); const sent=sentAt||Date.now(); const deleteAt=sent+expireSec*1000; try{ const plain=await decryptText(enc,currentPassword); if(!plain) return; const div=document.createElement("div"); div.className="otherMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=sent; div._deleteAt=deleteAt; const remaining=Math.max(1,Math.floor((deleteAt-Date.now())/1000)); const initial=(senderReal||"V").trim().charAt(0).toUpperCase()||"V"; const clock=formatClock(new Date(sent)); div._clock=clock; if(mediaType==="text"||!mediaType){ const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span><div class="msgText">${linked}</div><span class="ticks double"> ✓✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks double"; tick.textContent=" ✓✓"; bubble.appendChild(tick); } messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); startSelfDestruct(div,msgId,remaining,deleteAt); startExpireTimer(msgId, deleteAt, expireSec); socket.emit("message-opened",{msgId}); socket.emit("message-read",{msgId,reader:myRealUsername}); if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); } return; }catch(e){ console.log(e); } }
 
 function getExpireFromSelect(){ let val=perMessageTimerSelect.value; if(val==="default") return defaultExpire; if(val==="custom"){ let custom=prompt(`Manuel süre saniye:`); if(!custom) return defaultExpire; let num=parseInt(custom.replace(/[^0-9]/g,'')); if(isNaN(num)||num<=0) return defaultExpire; if(num>MAX_SEC) num=MAX_SEC; return num; } return Math.min(parseInt(val),MAX_SEC); }
-sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); input.value=""; socket.emit('typing',false); isTyping=false; };
+sendBtn.onclick=async()=>{
+  const text=input.value.trim(); if(!text) return;
+  let expire=getExpireFromSelect();
+  const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once";
+  if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); }
+  if(typeof socket!=="undefined" && !socket.connected){
+    try{
+      const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
+      q.push({text, expire, time:Date.now()});
+      localStorage.setItem("gorgor_pending_q", JSON.stringify(q));
+    }catch(e){}
+    if(typeof showToast==="function") showToast("⚠️ Bağlantı kopuk, mesaj kuyruğa alındı");
+    const modal=document.getElementById("connectionLostModal"); if(modal) modal.style.display="flex";
+    try{ socket.connect(); }catch(e){}
+    return;
+  }
+  const msgId=await addMyMessage(text,expire,myRealUsername);
+  const div = document.getElementById(msgId);
+  const ticks = div ? div.querySelector(".ticks") : null;
+  if(ticks){ ticks.textContent=" ⌛"; ticks.style.color="#888"; ticks.title="Gönderiliyor..."; }
+  const enc=await encryptText(text,currentPassword);
+  const sentAt=Date.now();
+  let acked=false;
+  const failTimer = setTimeout(()=>{
+    if(!acked){
+      if(ticks){ ticks.textContent=" ❗"; ticks.style.color="#ff4444"; ticks.title="Gitmedi - dokun tekrar dene"; }
+      if(typeof showToast==="function") showToast("Mesaj gitmedi, kuyruğa alındı");
+      try{
+        const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
+        q.push({msgId, text, enc, expire, sentAt, time:Date.now()});
+        localStorage.setItem("gorgor_pending_q", JSON.stringify(q));
+      }catch(e){}
+    }
+  },4000);
+  try{
+    socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000});
+  }catch(e){
+    clearTimeout(failTimer);
+    if(ticks){ ticks.textContent=" ❗"; ticks.style.color="#ff4444"; }
+  }
+  const ackHandler = (data)=>{
+    if(data && data.msgId===msgId){
+      clearTimeout(failTimer);
+      acked=true;
+      if(ticks){ ticks.textContent=" ✓✓"; ticks.style.color="#aaa"; ticks.title="Gönderildi"; }
+      try{ socket.off("message-ack", ackHandler); }catch(e){}
+    }
+  };
+  socket.on("message-ack", ackHandler);
+  setTimeout(()=>{ try{ socket.off("message-ack", ackHandler); }catch(e){} },8000);
+  input.value=""; 
+  try{ socket.emit('typing',false); }catch(e){}
+  isTyping=false;
+};
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{
   addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt);
@@ -410,7 +488,7 @@ if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.t
 document.querySelectorAll('.flyEmoji').forEach(emoji=>{ if(emoji.id==='addCustomEmoji') return; emoji.onclick=(e)=>{ e.stopPropagation(); const emojiText=emoji.textContent; const effect=emoji.dataset.effect; socket.emit('fly-emoji',{emoji:emojiText,effect}); createFlyingEmoji(emojiText,effect,true); emojiPanel.classList.remove("show"); }; });
 socket.on('fly-emoji',(data)=>createFlyingEmoji(data.emoji,data.effect,false));
 function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.innerWidth-120:80; const baseY=140; if(effect==='big-kiss'){ const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋'; big.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;z-index:9999;animation:explodeBoom 1s forwards;'; document.body.appendChild(big); setTimeout(()=>big.remove(),1000); return; } if(effect==='water'){ for(let i=0;i<10;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji water'; d.textContent='💧'; d.style.left=(window.innerWidth/2+Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='fireRainFall 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*60); } return; } let count=1; let animClass=effect||'heart'; if(effect==='heart'||effect==='kiss') count=8; else if(['kiss-rain','heart-rain','money-rain','star-rain','fire-rain','laugh-rain','angry-rain','emoji-rain'].includes(effect)) count=14; else if(['flower','sparkle','star'].includes(effect)) count=6; else if(['fire','explode'].includes(effect)) count=3; else if(['party','confetti'].includes(effect)) count=20; else if(['money','thumbs','wow','skull','heart-burst'].includes(effect)) count=1; for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+animClass; fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90+i*12)+'px'; fly.style.bottom=(baseY+Math.random()*60)+'px'; fly.style.fontSize=(effect==='explode'||effect==='heart-burst')?'90px':(effect==='fire'?'72px':(52+Math.random()*28)+'px'); document.body.appendChild(fly); setTimeout(()=>fly.remove(),3500); }, i*80); } if(['fire','explode','party','confetti','rocket','rocket-fly'].includes(effect)){ document.body.classList.add('mega-shake'); setTimeout(()=>document.body.classList.remove('mega-shake'),700); } }
-micBtn.onclick=async()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
+micBtn.onclick=async()=>{ if(!localStream || localStream.getAudioTracks().length===0){ await ensureAudioTrack(); } micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
 camBtn.onclick=async()=>{
   if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
   if(!camEnabled){
@@ -480,6 +558,7 @@ if(phoneModeBtn){
       return;
     }
     _phoneCallOutgoing = true;
+    await ensureAudioTrack();
     const origText = phoneModeBtn.textContent;
     phoneModeBtn.textContent="⏳";
     socket.emit("phone-call-request", {from: myRealUsername, room: currentRoom});
@@ -540,6 +619,8 @@ function autoLockToGoogle(reason){
   currentRoom=""; isPhoneMode=false; document.body.classList.remove("phone-mode");
 }
 function startOfflineCountdown(){ clearOfflineTimer(); offlineTimer = setTimeout(()=>{ autoLockToGoogle("14dk offline"); }, FOURTEEN_MIN); }
+function clearBackgroundDisconnectTimer(){ if(backgroundDisconnectTimer){ clearTimeout(backgroundDisconnectTimer); backgroundDisconnectTimer=null; } }
+function startBackgroundDisconnectCountdown(){ clearBackgroundDisconnectTimer(); backgroundDisconnectTimer = setTimeout(()=>{ if(document.hidden){ showConnectionLostModal(); autoLockToGoogle("7.5dk arkaplan"); } }, SEVEN_MIN); }
 window.addEventListener('popstate', ()=>{
   const fakeCalcEl = document.getElementById("fakeCalc");
   if(fakeCalcEl && fakeCalcEl.style.display!=="none"){
@@ -648,7 +729,7 @@ socket.on("phone-call-request", async (data)=>{
   const kabul = confirm(`${from} sesli arama başlattı. Kabul ediyor musun?\\n\\nTamam = Kabul et, mikrofonun açılsın\\nİptal = Reddet`);
   if(kabul){
     try{
-      if(!localStream){ try{ await startCamera(currentQuality, currentFacingMode); }catch(e){} }
+      await ensureAudioTrack();
       if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} }); }
       micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
       volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false;
@@ -706,7 +787,8 @@ socket.on("video-call-request", async (data)=>{
     }
     _videoRequestPending = false;
   });
-socket.on("video-call-accept", (data)=>{
+socket.on("video-call-accept", async (data)=>{
+    await ensureAudioTrack();
     if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=true); localStream.getAudioTracks().forEach(t=>t.enabled=true); }
     camEnabled=true; micEnabled=true;
     if(camBtn) camBtn.classList.remove("offIcon");
@@ -868,7 +950,7 @@ function skullPanicFullDelete(){
       if(flame){
         const smoke = document.createElement("div");
         smoke.className = "candle-smoke";
-        candleContainer.querySelector(".candle")?.appendChild(smoke);
+        candleContainer.querySelector(".candle").appendChild(smoke);
         setTimeout(()=>{ try{smoke.remove();}catch(e){} }, 2000);
       }
     }
@@ -982,14 +1064,14 @@ function triggerFlipPanic(){
 
 let securityConfigCache = null;
 function defaultSecurityConfig(){ return {skullAction:'full',redAction:'escape',flipAction:'red',confirmSkull:true,confirmRed:false,confirmFlip:false,triggers:{flip:true,shake:false,volDown3:false,volUp3:false,power2:false,volBoth:false,threeFinger:false,pocket:false}}; }
-function loadSecurityConfig(){ try{const saved=localStorage.getItem("gorgor_security_config"); if(saved){const parsed=JSON.parse(saved); return{...defaultSecurityConfig(),...parsed,triggers:{...defaultSecurityConfig().triggers,...(parsed.triggers||{})}};}}catch(e){} return defaultSecurityConfig(); }
+function loadSecurityConfig(){ try{const saved=localStorage.getItem("gorgor_security_config"); if(saved){const parsed=JSON.parse(saved); const base=defaultSecurityConfig(); const merged=Object.assign({}, base, parsed); merged.triggers=Object.assign({}, base.triggers, (parsed.triggers||{})); return merged;}}catch(e){} return defaultSecurityConfig(); }
 function saveSecurityConfig(cfg){ try{localStorage.setItem("gorgor_security_config",JSON.stringify(cfg)); securityConfigCache=cfg;}catch(e){} }
 function initSecuritySettings(){
   const panel=document.getElementById("securitySettingsPanel"); const btn=document.getElementById("securitySettingsBtn"); const closeBtn=document.getElementById("closeSecurityPanel"); const saveBtn=document.getElementById("saveSecuritySettings");
   if(btn&&panel){btn.onclick=()=>{showSecurityPanel();};}
   if(closeBtn){closeBtn.onclick=()=>{hideSecurityPanel();};}
   if(panel){panel.addEventListener("click",(e)=>{if(e.target===panel) hideSecurityPanel();});}
-  if(saveBtn){saveBtn.onclick=()=>{const cfg={skullAction:document.getElementById("skullActionSelect")?.value||'full',redAction:document.getElementById("redActionSelect")?.value||'escape',flipAction:document.getElementById("flipActionSelect")?.value||'red',confirmSkull:!!document.getElementById("confirmSkull")?.checked,confirmRed:!!document.getElementById("confirmRed")?.checked,confirmFlip:!!document.getElementById("confirmFlip")?.checked,triggers:{flip:!!document.getElementById("triggerFlip")?.checked,shake:!!document.getElementById("triggerShake")?.checked,volDown3:!!document.getElementById("triggerVolDown3")?.checked,volUp3:!!document.getElementById("triggerVolUp3")?.checked,power2:!!document.getElementById("triggerPower2")?.checked,volBoth:!!document.getElementById("triggerVolBoth")?.checked,threeFinger:!!document.getElementById("triggerThreeFinger")?.checked,pocket:!!document.getElementById("triggerPocket")?.checked}}; saveSecurityConfig(cfg); applySecurityTriggers(cfg); hideSecurityPanel(); showToast("🛡 Kaydedildi");};}
+  if(saveBtn){saveBtn.onclick=()=>{const cfg={skullAction:document.getElementById("skullActionSelect").value||'full',redAction:document.getElementById("redActionSelect").value||'escape',flipAction:document.getElementById("flipActionSelect").value||'red',confirmSkull:!!document.getElementById("confirmSkull").checked,confirmRed:!!document.getElementById("confirmRed").checked,confirmFlip:!!document.getElementById("confirmFlip").checked,triggers:{flip:!!document.getElementById("triggerFlip").checked,shake:!!document.getElementById("triggerShake").checked,volDown3:!!document.getElementById("triggerVolDown3").checked,volUp3:!!document.getElementById("triggerVolUp3").checked,power2:!!document.getElementById("triggerPower2").checked,volBoth:!!document.getElementById("triggerVolBoth").checked,threeFinger:!!document.getElementById("triggerThreeFinger").checked,pocket:!!document.getElementById("triggerPocket").checked}}; saveSecurityConfig(cfg); applySecurityTriggers(cfg); hideSecurityPanel(); showToast("🛡 Kaydedildi");};}
   const perMsgSelect=document.getElementById("perMessageTimerSelect"); if(perMsgSelect){perMsgSelect.addEventListener("change",()=>{if(perMsgSelect.value==="custom_wheel"){if(typeof openWheel==='function') openWheel();}});}
   const cfg=loadSecurityConfig(); applySecuritySettingsToUI(cfg); applySecurityTriggers(cfg);
   setTimeout(()=>{ const m=document.getElementById("panicConfirmModal"); if(m){m.style.display="none"; m.classList.remove("show");} const s=document.getElementById("securitySettingsPanel"); if(s){s.style.display="none"; s.classList.remove("show");} },100);
@@ -1088,6 +1170,7 @@ document.addEventListener('DOMContentLoaded', initFakeNotifications);
 
 // 4. SESLI MESAJ (yok olan)
 function initVoiceMessage(){
+  return; // DISABLED - sesli mesaj iptal - YENİ
   // UI: sendBtn yanina mic basili tut butonu ekle
   const inputArea = document.getElementById('inputArea');
   const bottomRow = document.querySelector('.inputBottomRow');
@@ -1124,7 +1207,7 @@ async function startVoiceRecording(){
         const base64 = reader.result.split(',')[1];
         const enc = await encryptText(base64, currentPassword);
         const msgId = 'voice_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
-        const expireSec = parseInt(perMessageTimerSelect?.value || defaultExpire || '14400');
+        const expireSec = parseInt(perMessageTimerSelect && perMessageTimerSelect.value || defaultExpire || '14400');
         socket.emit('chat-voice', {msgId, enc, expireSec, duration, mediaType:'voice'});
         // kendi ekrana ekle
         addVoiceMessageToUI(msgId, base64, true, duration, expireSec);
@@ -1381,32 +1464,17 @@ function initBackgroundBlur(){
 
 // 9. OTO RECONNECT - mum yanarken oto baglan
 function initAutoReconnect(){
-  socket.on('user-disconnected', ()=>{
-    if(autoReconnectAttempts >= maxReconnectAttempts) return;
-    if(reconnectTimer) clearTimeout(reconnectTimer);
-    autoReconnectAttempts++;
-    let count = 3;
-    if(opponentStatusText){
-      opponentStatusText.textContent = `Yeniden bağlanıyor... ${count}`;
-      opponentStatusText.style.color = '#ffcc00';
-    }
-    if(candleContainer){
-      candleContainer.classList.add('show');
-      candleContainer.style.display = 'flex';
-    }
-    const interval = setInterval(()=>{
-      count--;
-      if(opponentStatusText) opponentStatusText.textContent = `Yeniden bağlanıyor... ${count}`;
-      if(count<=0){
-        clearInterval(interval);
-        if(socket && currentRoom){
-          socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
-          showToast(`🔄 Yeniden bağlanma denemesi ${autoReconnectAttempts}/${maxReconnectAttempts}`);
-        }
-      }
-    }, 1000);
-    reconnectTimer = setTimeout(()=>{}, 4000);
-  });
+  socket.on("user-last-seen",(data)=>{
+  const user=data.user; const ts=data.ts;
+  if(user===myRealUsername) return;
+  lastSeenTimes[user]=ts;
+  localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes));
+  updateOpponentDisplay(user,"yokum");
+});
+socket.on("last-seen-list",(list)=>{
+  Object.assign(lastSeenTimes, list);
+  localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes));
+});
   socket.on('user-connected', ()=>{
     autoReconnectAttempts = 0;
     if(reconnectTimer) clearTimeout(reconnectTimer);
@@ -1837,7 +1905,7 @@ function handleMessageAction(act, msgId, isMine, text, msgEl){
         msgId,
         snippet: text.substring(0,80),
         text: text,
-        sender: isMine ? (myRealUsername||"Ben") : (msgEl.querySelector(".msgAvatar")?.textContent||"Karşı")
+        sender: isMine ? (myRealUsername||"Ben") : (msgEl.querySelector(".msgAvatar").textContent||"Karşı")
       };
       showReplyBar(replyToData);
       document.getElementById("messageInput").focus();
@@ -1995,7 +2063,7 @@ function hidePinBar(){ const bar=document.getElementById("pinBar"); if(bar) bar.
 function toggleStar(msgId, text, isMine, msgEl){
   if(starredMessages.has(msgId)){
     starredMessages.delete(msgId);
-    msgEl.querySelector(".starIcon")?.remove();
+    msgEl.querySelector(".starIcon").remove();
     showToast("⭐ Yıldız kaldırıldı");
   }else{
     const data = {id:msgId, text, sender: isMine ? "Ben" : "Karşı", time: Date.now(), isMine};
@@ -2056,7 +2124,7 @@ async function translateText(text){
     const lang = /[ığüşöçİĞÜŞÖÇ]/.test(text) ? "tr|en" : "en|tr";
     const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${lang}`);
     const data = await res.json();
-    const translated = data.responseData?.translatedText || "Çeviri bulunamadı";
+    const translated = data.responseData && data.responseData.translatedText || "Çeviri bulunamadı";
     document.getElementById("translateResult").textContent = translated;
   }catch(e){
     // fallback simple
@@ -2486,11 +2554,22 @@ function checkConnectionAndWarn(){
   }catch(e){ return false; }
 }
 function startBlinking2580(){
-  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add("hc-blink"); });
-  const ind=document.getElementById("hiddenNewMsgIndicator"); if(ind) ind.style.display="block";
-  let blink=false;
-  if(blinkInterval) clearInterval(blinkInterval);
-  blinkInterval=setInterval(()=>{ if(!isHiddenMode){clearInterval(blinkInterval); return;} document.title=blink?"💬 Yeni Mesaj":"HESAPLAMA"; blink=!blink; },1000);
+  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.background="#ff0000"; el.style.boxShadow="0 0 12px #ff0000"; el.style.animation="hcRedBlink 0.6s infinite alternate";
+  });
+  blinkInterval=setInterval(()=>{
+    if(!isHiddenMode){clearInterval(blinkInterval); return;}
+    document.title=blink?"💬 Yeni Mesaj":"HESAPLAMA";
+    ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){
+        el.style.background = blink? "#ff0000" : "#880000";
+        el.style.boxShadow = blink? "0 0 15px #ff4444" : "0 0 5px #550000";
+      }
+    });
+    blink=!blink;
+  },600);
 }
 function stopBlinking(){
   ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove("hc-blink"); });
@@ -2524,80 +2603,14 @@ function doKeepAlivePing(){
 }
 // ===== V27 - GELISMIS ONLINE STATUS + GENEL MOD FIX =====
 let opponentLastSeen = null;
+// restore opponentLastSeen from localStorage if exists
+try{ const ls = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1")); if(ls){ const o=JSON.parse(ls); const keys=Object.keys(o); if(keys.length) opponentLastSeen=o[keys[0]]; } }catch(e){}
 let myStatus = "online";
 let statusCheckInterval = null;
 
-function formatLastSeen(ts){
-  if(!ts) return "";
-  const now = Date.now();
-  const diffMs = now - ts;
-  if(diffMs < 0) return "az önce";
-  const diffSec = Math.floor(diffMs/1000);
-  if(diffSec < 10) return "az önce";
-  if(diffSec < 60) return `${diffSec} sn önce`;
-  const mins = Math.floor(diffSec/60);
-  if(mins < 60) return `${mins} dk önce`;
-  const hours = Math.floor(mins/60);
-  if(hours < 24) return `${hours} sa önce`;
-  const days = Math.floor(hours/24);
-  return `${days} gün önce`;
-}
-function formatClockShort(ts){
-  try{
-    const d = new Date(ts);
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mm = String(d.getMinutes()).padStart(2,'0');
-    return `${hh}:${mm}`;
-  }catch(e){ return ""; }
-}
-function updateOpponentDisplay(username, status){
-  const nameEl = document.getElementById("opponentNameDisplay");
-  const statusEl = document.getElementById("opponentStatusText");
-  const dotEl = document.getElementById("opponentDot");
-  if(!nameEl || !statusEl || !dotEl) return;
-  if(username && typeof myRealUsername!=="undefined" && username===myRealUsername) return;
-  if(username){ nameEl.textContent = username; if(typeof opponentUsername!=="undefined") opponentUsername=username; }
-  const secMode = localStorage.getItem("gorgor_security_mode")||"private";
-  if(status === "online" || status === "çevrimiçi" || status === "varım"){
-    statusEl.textContent = "çevrimiçi";
-    statusEl.style.color = "#00ff88";
-    dotEl.className = "onlineDot online";
-    opponentLastSeen = Date.now();
-    if(username && typeof lastSeenTimes!=="undefined") lastSeenTimes[username]=Date.now();
-  }else if(status === "busy" || status === "meşgul"){
-    if(secMode==="general"){
-      statusEl.textContent = "çevrimiçi";
-      statusEl.style.color = "#00ff88";
-      dotEl.className = "onlineDot online";
-    }else{
-      statusEl.textContent = "meşgul";
-      statusEl.style.color = "#ffcc00";
-      dotEl.className = "onlineDot busy";
-    }
-  }else if(status === "offline" || status === "çevrimdışı" || status === "yokum"){
-    let ts = opponentLastSeen;
-    if(username && typeof lastSeenTimes!=="undefined" && lastSeenTimes[username]) ts = lastSeenTimes[username];
-    if(ts){
-      const clock = formatClockShort(ts);
-      const rel = formatLastSeen(ts);
-      if(clock && rel && rel!=="az önce"){
-        statusEl.textContent = `son görülme ${clock} • ${rel}`;
-      }else if(clock){
-        statusEl.textContent = `son görülme ${clock}`;
-      }else{
-        statusEl.textContent = `son görülme ${rel}`;
-      }
-    }else{
-      statusEl.textContent = "çevrimdışı";
-    }
-    statusEl.style.color = "#888";
-    dotEl.className = "onlineDot offline";
-  }else{
-    statusEl.textContent = status;
-  }
-}
 function initOnlineStatus(){
   document.addEventListener("visibilitychange", ()=>{
+    if(document.hidden){ startBackgroundDisconnectCountdown(); }else{ clearBackgroundDisconnectTimer(); }
     const secMode = localStorage.getItem("gorgor_security_mode")||"private";
     if(secMode==="general"){
       console.log("GENEL MOD - status degistirilmiyor");
@@ -2643,4 +2656,3 @@ function closeChatPanelIfOpen(){
     if(typeof showToast==="function") showToast("📹 Görüşme başladı, mesaj panosu kapatıldı");
   }
 }
-
