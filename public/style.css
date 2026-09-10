@@ -363,9 +363,9 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #perMessagePersistSelect{display:none !important;}
 #perMessageWheelBtn{display:none !important;}
 
-@keyframes newMessageBlinkRedWhite{0%{background:#ff0000 !important; box-shadow:0 0 20px #ff0000 !important; transform:scale(1.05);}50%{background:#ffffff !important; box-shadow:0 0 25px #ffffff !important; transform:scale(1.15); color:#ff0000 !important;}100%{background:#ff0000 !important;}}
-#chatToggle.hasNewMessage{animation:newMessageBlinkRedWhite 0.6s infinite !important; background:#ff0000 !important; border:2px solid #fff !important; box-shadow:0 0 20px #ff0000 !important; transform:scale(1.1) !important;}
-#floatingPill.hasNewMessage{animation:newMessageBlinkRedWhite 0.8s infinite !important; border-color:#ff0000 !important;}
+@keyframes newMessageBlinkRedWhite{0%{background:#ff0000 !important; box-shadow:0 0 20px #ff0000 !important;}50%{background:#ffffff !important; box-shadow:0 0 25px #ffffff !important; color:#ff0000 !important;}100%{background:#ff0000 !important; box-shadow:0 0 20px #ff0000 !important;}} /* FIX: sadece kırmızı yanıp sönme, oynama yok */
+#chatToggle.hasNewMessage{animation:newMessageBlinkRedWhite 0.6s infinite !important; background:#ff0000 !important; border:2px solid #fff !important; box-shadow:0 0 20px #ff0000 !important; /* FIX: sağa sola oynamasın */ transform:none !important;}
+#floatingPill.hasNewMessage{animation:newMessageBlinkRedWhite 0.8s infinite !important; border-color:#ff0000 !important; transform:none !important;}
 
 .message{position:relative !important; margin-bottom:8px !important;}
 .message .messageTime{font-size:9px !important; color:#666 !important; margin-top:4px !important; display:flex !important; align-items:center !important; gap:4px !important;}
@@ -923,3 +923,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   .msgText{ font-size:11px !important; }
   #msgActionMenu{ min-width:240px !important; }
 }
+
+/* FIX - yildiz ve sesli mesaj iptal */
+#starredToggleBtn{ display:none!important; }
+#voiceRecordBtn{ display:none!important; }

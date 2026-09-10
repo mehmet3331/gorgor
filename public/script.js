@@ -338,6 +338,34 @@ async function ensureAudioTrack(){
   }
 }
 
+// FIX: Görüşme bitince mikrofonu tamamen kapat - ilk açıldığı gibi, müzik kesilmesin
+function disableAudioTrack(){
+  try{
+    if(localStream){
+      localStream.getAudioTracks().forEach(track=>{
+        try{ track.enabled=false; track.stop(); localStream.removeTrack(track); }catch(e){}
+      });
+    }
+    micEnabled=false;
+    if(typeof micBtn!=="undefined" && micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+    // Peer'dan audio sender'ı kaldır
+    if(typeof peer!=="undefined" && peer && peer._pc){
+      const senders = peer._pc.getSenders().filter(s=>s.track && s.track.kind==='audio');
+      for(const sender of senders){
+        try{ peer._pc.removeTrack(sender); }catch(e){ try{ sender.replaceTrack(null); }catch(e2){} }
+      }
+    }
+    // Sadece video ile yeniden başlat - müzik geri gelsin
+    if(localStream && localStream.getVideoTracks().length>0){
+      // video kalsın
+    }else{
+      // video yoksa bile sadece video ile başlat
+      try{ startCamera(currentQuality, currentFacingMode, false); }catch(e){}
+    }
+  }catch(e){ console.log("disableAudioTrack hata", e); }
+}
+
+
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=>socket.emit("ping-check",Date.now()),3000); }
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
 
@@ -454,7 +482,15 @@ input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{
   addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt);
   const isMine = (data.realUsername||data.username) === myRealUsername || data.username === myUsername;
-  if(!isMine && !document.body.classList.contains("chat-open")){ if(typeof triggerNewMessageBlink==='function') triggerNewMessageBlink(); }
+  if(!isMine){
+    if(typeof isHiddenMode!=="undefined" && isHiddenMode){
+      hasNewMessageWhileHidden=true;
+      if(typeof startBlinking2580==="function") startBlinking2580();
+      const ind=document.getElementById("hiddenNewMsgIndicator");
+      if(ind) ind.style.display="block";
+    }
+    if(!document.body.classList.contains("chat-open")){ if(typeof triggerNewMessageBlink==='function') triggerNewMessageBlink(); }
+  }
 });
 socket.on("chat-media", data=>{
   addLockedMessage(data.msgId,data.expireSec,data.enc,data.mediaType||"image",data.realUsername||data.username,data.sentAt);
@@ -550,6 +586,7 @@ if(phoneModeBtn){
       document.body.classList.remove("phone-mode");
       if(phoneCallUI) phoneCallUI.style.display="none";
       if(phoneModeBtn) phoneModeBtn.classList.remove("active");
+      disableAudioTrack();
       if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
       micEnabled=false;
       if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
@@ -591,6 +628,7 @@ socket.on("phone-call-end", ()=>{
   document.body.classList.remove("phone-mode");
   if(phoneModeBtn) phoneModeBtn.classList.remove("active");
   phoneCallUI.style.display="none";
+  disableAudioTrack();
   if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
   micEnabled=false;
   if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
@@ -802,6 +840,7 @@ socket.on("video-call-decline", (data)=>{
     camEnabled=false; if(camBtn) camBtn.classList.add("offIcon");
   });
 socket.on("video-call-end", ()=>{
+    disableAudioTrack();
     if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=false); localStream.getAudioTracks().forEach(t=>t.enabled=false); }
     camEnabled=false; micEnabled=false;
     if(camBtn) camBtn.classList.add("offIcon");
