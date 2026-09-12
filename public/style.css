@@ -953,3 +953,48 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 /* Istek 3: sadece kamera ve galeri kalsin, diger attach butonlari gizle */
 #drawBtn, #locationBtn, #pollBtn, #checklistBtn, #liveLocationBtn { display:none !important; }
 #attachMenu .pollOptionInput { display:none; }
+
+/* Istek: sol ustteki vida sag tarafa tasindigi icin solda gizle */
+#settingsBtn, #leftStackContainer #settingsBtn {
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+/* Istek: mesaj kutusu en alt ortada, solunda 3 nokta, saginda Gonder, tek satir */
+#inputArea {
+  display:flex !important;
+  flex-direction:column !important;
+  gap:10px !important;
+}
+.inputBottomRow {
+  display:flex !important;
+  flex-direction:row !important;
+  gap:10px !important;
+  align-items:center !important;
+  justify-content:center !important;
+  flex-wrap:nowrap !important;
+  width:100% !important;
+  order:10;
+}
+.inputBottomRow > div[style*="position:relative"] {
+  order:1;
+  flex-shrink:0;
+}
+#attachMenuBtn {
+  order:1;
+  width:48px !important;
+  min-width:48px !important;
+  height:48px !important;
+}
+#messageInput {
+  order:2;
+  flex:1 !important;
+  min-width:0 !important;
+}
+#sendBtn {
+  order:3;
+  width:80px !important;
+  min-width:80px !important;
+  flex-shrink:0 !important;
+}
