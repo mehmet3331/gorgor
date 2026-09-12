@@ -1131,7 +1131,7 @@ function triggerNewMessageBlink(){
     hasNewMessageWhileHidden=true;
     startBlinking2580();
     const ind=document.getElementById("hiddenNewMsgIndicator");
-    if(ind){ ind.style.display="block"; ind.textContent="💬 Yeni Mesaj Geldi!"; }
+    if(ind){ ind.style.display="block"; ind.textContent="2+2=3!"; }
     return;
   }
   const ct=document.getElementById("chatToggle");
