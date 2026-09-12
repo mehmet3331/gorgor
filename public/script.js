@@ -551,14 +551,26 @@ remoteVideo.muted=false; remoteVideo.volume=0.1; volumeSlider.value=0.1;
 volumeSlider.oninput=()=>{ const v=parseFloat(volumeSlider.value); remoteVideo.volume=v; remoteVideo.muted=v<=0; soundBtn.textContent=v<=0?"🔇":"🔊"; };
 soundBtn.onclick=()=>{ remoteVideo.muted=!remoteVideo.muted; if(!remoteVideo.muted&&parseFloat(volumeSlider.value)===0){ volumeSlider.value=0.5; remoteVideo.volume=0.5; } soundBtn.textContent=remoteVideo.muted?"🔇":"🔊"; };
 changePasswordBtn.onclick=()=>{ const p=prompt("Yeni sifre"); if(!p) return; currentPassword=p; socket.emit("change-password",p); };
+const changePasswordBtnSecurity = document.getElementById("changePasswordBtnSecurity");
+if(changePasswordBtnSecurity){
+  changePasswordBtnSecurity.onclick=()=>{
+    const p=prompt("Yeni giriş şifresini gir:");
+    if(!p) return;
+    currentPassword=p;
+    try{ socket.emit("change-password",p); }catch(e){}
+    if(typeof showToast==="function") showToast("🔑 Şifre değiştirildi");
+    const panel=document.getElementById("securitySettingsPanel");
+    if(panel){ panel.style.display="none"; panel.classList.remove("show"); }
+  };
+}
 let isDragging=false,sx,sy,sl,st;
 myVideoContainer.addEventListener("touchstart",(e)=>{ if(isPhoneMode) return; if(e.touches.length===1){ isDragging=true; sx=e.touches[0].clientX; sy=e.touches[0].clientY; sl=myVideoContainer.offsetLeft; st=myVideoContainer.offsetTop; } });
 myVideoContainer.addEventListener("touchmove",(e)=>{ if(isPhoneMode) return; if(e.touches.length===1&&isDragging){ e.preventDefault(); myVideoContainer.style.left=sl+(e.touches[0].clientX-sx)+"px"; myVideoContainer.style.top=st+(e.touches[0].clientY-sy)+"px"; myVideoContainer.style.right="auto"; } });
 myVideoContainer.addEventListener("touchend",()=>isDragging=false);
 if(attachMenuBtn){ attachMenuBtn.onclick=(e)=>{ e.stopPropagation(); attachMenu.classList.toggle("show"); }; }
 mediaBtn.onclick=(e)=>{ e.preventDefault(); isPickingFile=true; _photoPicking=true; attachMenu.classList.remove("show"); setTimeout(()=>{ mediaInput.click(); }, 100); };
-drawBtn.onclick=()=>{ attachMenu.classList.remove("show"); drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
-locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt}); }); };
+if(drawBtn) drawBtn.onclick=()=>{ if(attachMenu) attachMenu.classList.remove("show"); if(drawOverlay) drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
+if(locationBtn) locationBtn.onclick=async()=>{ if(attachMenu) attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt}); }); };
 if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); isPickingFile=true; _photoPicking=true; attachMenu.classList.remove("show"); setTimeout(()=>{ cameraInput.click(); }, 100); }; }
 cameraInput.onchange=async()=>{ isPickingFile=true; _photoPicking=true; try{ const file=cameraInput.files[0]; if(!file){ isPickingFile=false; _photoPicking=false; return; } if(file.size>20*1024*1024){ alert("Max 20MB"); isPickingFile=false; _photoPicking=false; return; } let expire=getExpireFromSelect(); let dataUrl=""; try{ const img=await createImageBitmap(file); const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.75)); dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); }); }catch(e){ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } const enc=await encryptText(dataUrl,currentPassword); const sentAt=Date.now(); const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg"); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image",sentAt,deleteAt:Date.now()+expire*1000}); cameraInput.value=""; }catch(err){} setTimeout(()=>{ isPickingFile=false; _photoPicking=false; },1500); };
 mediaInput.onchange=async()=>{ isPickingFile=true; _photoPicking=true; try{ const file=mediaInput.files[0]; if(!file){ isPickingFile=false; _photoPicking=false; return; } if(file.size>20*1024*1024){ alert("Max 20MB"); isPickingFile=false; _photoPicking=false; return; } let expire=getExpireFromSelect(); let dataUrl=""; if(file.type.startsWith('image/')){ try{ const img=await createImageBitmap(file); const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.7)); dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); }); }catch(e){ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } }else{ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } const enc=await encryptText(dataUrl,currentPassword); const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file'; const sentAt=Date.now(); const msgId=await addMyMediaMessage(dataUrl,mediaType,expire,file.name); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType,sentAt,deleteAt:Date.now()+expire*1000}); mediaInput.value=""; }catch(e){} setTimeout(()=>{ isPickingFile=false; _photoPicking=false; },1500); };
@@ -1114,7 +1126,26 @@ function handlePowerDouble(){if(document.hidden){const now=Date.now(); if(now-la
 function handleThreeFinger(e){if(e.touches&&e.touches.length>=3){e.preventDefault(); triggerSecurityAction("threeFinger");}}
 function triggerSecurityAction(source){const cfg=loadSecurityConfig(); document.body.classList.add("flip-blur-active"); showToast("🛡 "+source+" - buğulandi"); try{if(navigator.vibrate) navigator.vibrate([100,50,100]);}catch(e){} setTimeout(()=>{document.body.classList.remove("flip-blur-active"); const needConfirm=cfg.confirmRed; const doAction=()=>{enhancedPanic();}; if(needConfirm){showPanicConfirm(source+" tetiklendi - panik?",doAction);}else{doAction();}},1200);}
 function showPanicConfirm(text,onConfirm){const modal=document.getElementById("panicConfirmModal"); const txt=document.getElementById("panicConfirmText"); const ok=document.getElementById("panicConfirmOk"); const cancel=document.getElementById("panicConfirmCancel"); if(!modal){onConfirm();return;} if(txt) txt.textContent=text; modal.style.display="flex"; modal.classList.add("show"); const cleanup=()=>{modal.style.display="none"; modal.classList.remove("show"); if(ok) ok.onclick=null; if(cancel) cancel.onclick=null; modal.onclick=null;}; if(ok) ok.onclick=()=>{cleanup(); onConfirm();}; if(cancel) cancel.onclick=()=>{cleanup();}; if(modal) modal.onclick=(e)=>{if(e.target===modal) cleanup();};}
-function triggerNewMessageBlink(){const ct=document.getElementById("chatToggle"); const fp=document.getElementById("floatingPill"); const left=document.getElementById("floatingPillLeft"); if(ct) ct.classList.add("hasNewMessage"); if(fp) fp.classList.add("hasNewMessage"); if(left) left.classList.add("hasNewMessage"); setTimeout(()=>{ if(ct) ct.classList.remove("hasNewMessage"); if(fp) fp.classList.remove("hasNewMessage"); if(left) left.classList.remove("hasNewMessage"); },8000);}
+function triggerNewMessageBlink(){
+  if(typeof isHiddenMode!=="undefined" && isHiddenMode){
+    hasNewMessageWhileHidden=true;
+    startBlinking2580();
+    const ind=document.getElementById("hiddenNewMsgIndicator");
+    if(ind){ ind.style.display="block"; ind.textContent="💬 Yeni Mesaj Geldi!"; }
+    return;
+  }
+  const ct=document.getElementById("chatToggle");
+  const fp=document.getElementById("floatingPill");
+  const left=document.getElementById("floatingPillLeft");
+  if(ct) ct.classList.add("hasNewMessage");
+  if(fp) fp.classList.add("hasNewMessage");
+  if(left) left.classList.add("hasNewMessage");
+  setTimeout(()=>{
+    if(ct) ct.classList.remove("hasNewMessage");
+    if(fp) fp.classList.remove("hasNewMessage");
+    if(left) left.classList.remove("hasNewMessage");
+  },8000);
+}
 function initWheelPersistFeature(){
   const modal = document.getElementById("wheelPersistModal");
   const yesBtn = document.getElementById("wheelPersistYes");
@@ -2480,6 +2511,7 @@ let hiddenCalcBuf = "";
 let keepAliveInterval = null;
 let wakeLock = null;
 let blinkInterval = null;
+let blink = true;
 let lastConnectionCheck = Date.now();
 let connectionLost = false;
 
@@ -2580,13 +2612,22 @@ function checkConnectionAndWarn(){
   }catch(e){ return false; }
 }
 function startBlinking2580(){
+  if(blinkInterval) clearInterval(blinkInterval);
+  blink = true;
   ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{
     const el=document.getElementById(id);
-    el.style.background="#ff0000"; el.style.boxShadow="0 0 12px #ff0000"; el.style.animation="hcRedBlink 0.6s infinite alternate";
+    if(el){
+      el.style.background="#ff0000";
+      el.style.color="#fff";
+      el.style.boxShadow="0 0 12px #ff0000";
+      el.classList.add("hc-blink");
+    }
   });
+  const ind=document.getElementById("hiddenNewMsgIndicator");
+  if(ind){ ind.style.display="block"; ind.textContent="💬 Yeni Mesaj Geldi!"; ind.style.background="rgba(255,0,0,0.9)"; ind.style.color="#fff"; }
   blinkInterval=setInterval(()=>{
-    if(!isHiddenMode){clearInterval(blinkInterval); return;}
-    document.title=blink?"💬 Yeni Mesaj":"HESAPLAMA";
+    if(typeof isHiddenMode!=="undefined" && !isHiddenMode){clearInterval(blinkInterval); blinkInterval=null; return;}
+    try{ document.title=blink?"💬 Yeni Mesaj":"HESAPLAMA"; }catch(e){}
     ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{
       const el=document.getElementById(id);
       if(el){
@@ -2598,9 +2639,21 @@ function startBlinking2580(){
   },600);
 }
 function stopBlinking(){
-  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove("hc-blink"); });
+  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.classList.remove("hc-blink");
+      el.style.background="";
+      el.style.boxShadow="";
+      el.style.color="";
+      el.style.animation="";
+    }
+  });
   if(blinkInterval){ clearInterval(blinkInterval); blinkInterval=null; }
-  document.title="HESAPLAMA";
+  try{ document.title="HESAPLAMA"; }catch(e){}
+  const ind=document.getElementById("hiddenNewMsgIndicator");
+  if(ind) ind.style.display="none";
+  hasNewMessageWhileHidden=false;
 }
 function startKeepAlive(){
   if(keepAliveInterval) clearInterval(keepAliveInterval);

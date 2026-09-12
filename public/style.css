@@ -363,9 +363,12 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #perMessagePersistSelect{display:none !important;}
 #perMessageWheelBtn{display:none !important;}
 
-@keyframes newMessageBlinkRedWhite{0%{background:#ff0000 !important; box-shadow:0 0 20px #ff0000 !important; transform:scale(1.05);}50%{background:#ffffff !important; box-shadow:0 0 25px #ffffff !important; transform:scale(1.15); color:#ff0000 !important;}100%{background:#ff0000 !important;}}
-#chatToggle.hasNewMessage{animation:newMessageBlinkRedWhite 0.6s infinite !important; background:#ff0000 !important; border:2px solid #fff !important; box-shadow:0 0 20px #ff0000 !important; transform:scale(1.1) !important;}
-#floatingPill.hasNewMessage{animation:newMessageBlinkRedWhite 0.8s infinite !important; border-color:#ff0000 !important;}
+/* FIX - Istek 4: sadece kirmizi yanip sonsun, buyume kuculme olmasin */
+@keyframes newMessageBlinkRedWhite{0%{background:#000 !important; box-shadow:0 0 0 rgba(255,0,0,0) !important;}50%{background:#ff0000 !important; box-shadow:0 0 18px #ff0000 !important;}100%{background:#000 !important;}}
+@keyframes chatRedBlinkSimple{0%{background:#000 !important; box-shadow:0 0 0 rgba(255,0,0,0) !important;}50%{background:#ff0000 !important; box-shadow:0 0 18px #ff0000 !important;}100%{background:#000 !important;}}
+#chatToggle.hasNewMessage{animation:chatRedBlinkSimple 0.9s infinite alternate !important; background:#ff0000 !important; border:1px solid #ff0000 !important; box-shadow:0 0 18px #ff0000 !important; transform:none !important;}
+#floatingPill.hasNewMessage{animation:chatRedBlinkSimple 0.9s infinite alternate !important; border-color:#ff0000 !important; box-shadow:0 0 12px rgba(255,0,0,0.6) !important; transform:none !important;}
+#floatingPillLeft.hasNewMessage{animation:chatRedBlinkSimple 0.9s infinite alternate !important; box-shadow:0 0 12px rgba(255,0,0,0.6) !important; transform:none !important;}
 
 .message{position:relative !important; margin-bottom:8px !important;}
 .message .messageTime{font-size:9px !important; color:#666 !important; margin-top:4px !important; display:flex !important; align-items:center !important; gap:4px !important;}
@@ -932,3 +935,21 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 @keyframes hcRedBlink { 0%{ background:#ff0000; box-shadow:0 0 12px #ff0000; } 100%{ background:#880000; box-shadow:0 0 4px #550000; } }
 .hc-blink{ background:#ff0000!important; color:#fff!important; box-shadow:0 0 12px #ff0000!important; animation:hcRedBlink 0.6s infinite alternate!important; }
 .hc-blink-red{ background:#ff0000!important; color:#fff!important; }
+#hiddenNewMsgIndicator{
+  position:absolute;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(255,0,0,0.9);
+  color:#fff;
+  padding:6px 14px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:bold;
+  z-index:10011;
+  box-shadow:0 0 12px #ff0000;
+}
+
+/* Istek 3: sadece kamera ve galeri kalsin, diger attach butonlari gizle */
+#drawBtn, #locationBtn, #pollBtn, #checklistBtn, #liveLocationBtn { display:none !important; }
+#attachMenu .pollOptionInput { display:none; }

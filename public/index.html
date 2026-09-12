@@ -58,8 +58,8 @@
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <select id="privacyModeSelect" title="Güvenlik Modu" style="background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 8px; height:22px;">
-          <option value="private" selected>🔒 Özel</option>
-          <option value="general">🔓 Genel</option>
+          <option value="general" selected>🔓 Genel</option>
+	  <option value="private">🔒 Özel</option>
         </select>
       </div>
       <div id="floatingPillRight" style="display:flex; gap:6px;">
@@ -127,6 +127,10 @@
           <label><input type="checkbox" id="triggerThreeFinger"> 👆 3 Parmak</label>
           <label><input type="checkbox" id="triggerPocket"> 👖 Cebe koyma</label>
         </div>
+      </div>
+            <div class="securitySection">
+        <h4>🔑 Şifre İşlemleri</h4>
+        <button id="changePasswordBtnSecurity" style="width:100%; height:40px; background:#1a1a1a; border:1px solid #444; color:#fff; border-radius:10px; font-size:13px; cursor:pointer; margin-bottom:8px;">🔑 Giriş Şifresini Değiştir</button>
       </div>
       <button id="saveSecuritySettings">Kaydet</button>
     </div>
@@ -205,13 +209,7 @@
           <div id="attachMenu">
             <button id="cameraBtn">📷 Kameradan Çek</button>
             <button id="mediaBtn">🖼 Galeriden Seç (20MB)</button>
-            <button id="drawBtn">✏ Çizim</button>
-            <button id="locationBtn">📍 Konum</button>
-            <div style="height:1px; background:#333; margin:4px 0;"></div>
-            <!-- ViewOnce pasif - 48 -->
-            <button id="pollBtn">📊 Anket (49)</button>
-            <button id="checklistBtn">✅ Yapılacaklar Listesi (50)</button>
-            <button id="liveLocationBtn">🗺️ Canlı Konum 5dk (51)</button>
+          </div>
           </div>
         </div>
         <input id="messageInput" placeholder="Mesaj..." autocomplete="off" />
