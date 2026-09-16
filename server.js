@@ -57,7 +57,7 @@ io.on('connection', socket=>{
   socket.on('draw-clear', ()=>{ if(!socket.room) return; io.to(socket.room).emit('draw-clear'); });
   socket.on('voice-start', data=>{ if(!socket.room) return; socket.to(socket.room).emit('voice-start',{from:socket.realUsername}); });
   socket.on('background-blur', data=>{ if(!socket.room) return; socket.to(socket.room).emit('background-blur',data); });
-  socket.on('keepalive-ping', data=>{ if(socket.room && rooms[socket.room]){ rooms[socket.room].lastSeen[socket.realUsername]=Date.now(); } socket.emit('keepalive-pong', {time: Date.now()}); });
+  socket.on('keepalive-ping', data=>{ if(socket.room && rooms[socket.room]){ if(!rooms[socket.room].lastSeen) rooms[socket.room].lastSeen={}; rooms[socket.room].lastSeen[data.from||socket.realUsername]=Date.now(); rooms[socket.room].lastSeen[socket.realUsername]=Date.now(); } socket.emit('keepalive-pong', {time: Date.now()}); });
   socket.on('keepalive', data=>{ if(socket.room && rooms[socket.room]){ rooms[socket.room].lastSeen[data.user||socket.realUsername]=Date.now(); } });
   socket.on('user-busy', data=>{ if(!socket.room) return; io.to(socket.room).emit('user-busy', {user: data.user||socket.realUsername, busy: data.busy, ts: Date.now()}); });
   socket.on('user-active', data=>{ if(!socket.room) return; if(rooms[socket.room]) rooms[socket.room].lastSeen[data.user||socket.realUsername]=Date.now(); io.to(socket.room).emit('user-active', {user: data.user||socket.realUsername, ts: Date.now()}); });
@@ -86,10 +86,20 @@ io.on('connection', socket=>{
     rooms[room].lastSeen[socket.realUsername]=Date.now();
     socket.join(room);
     const count=Object.keys(rooms[room].users).length;
-    socket.emit('joined-room',{username:data.username,count});
+    // FIX: mevcut kullanicilari yeni girene gonder
+    const otherUsers = Object.entries(rooms[room].users).filter(([sid])=>sid!==socket.id).map(([sid,uname])=>{ 
+      const s = io.sockets.sockets.get(sid); 
+      return {username: uname, realUsername: s ? s.realUsername : uname}; 
+    });
+    socket.emit('joined-room',{username:data.username,count, otherUsers});
+    socket.emit('room-users', otherUsers);
     socket.to(room).emit('user-connected',{username:data.username,realUsername:socket.realUsername});
     socket.emit('last-seen-list', rooms[room].lastSeen);
     socket.to(room).emit('user-last-seen',{user:socket.realUsername, ts: Date.now(), online:true});
+    // Yeni girene mevcut online kullanicilari da user-connected olarak gonder
+    for(const ou of otherUsers){
+      socket.emit('user-connected',{username:ou.username, realUsername:ou.realUsername});
+    }
     const now2=Date.now(); const pending=persistedMessages.filter(m=>m.room===room && (m.deleteAt||m.expireAt||0)>now2);
     if(pending.length) socket.emit('pending-messages',pending);
     console.log(`ODA: ${room} - ${data.username} girdi ${count} - lastSeen guncellendi`);
@@ -98,19 +108,22 @@ io.on('connection', socket=>{
     const room=socket.room; if(!room||!rooms[room]) return; const now=Date.now();
     const msg={msgId:data.msgId,enc:data.enc,expireSec:data.expireSec,type:'text',username:socket.username,realUsername:socket.realUsername,opened:false,room,expireAt:now+data.expireSec*1000,deleteAt:now+data.expireSec*1000};
     rooms[room].messages.set(data.msgId,msg); persistedMessages.push(msg); debouncedSave();
-    socket.to(room).emit('chat-message',{...data,username:socket.username,realUsername:socket.realUsername});
+    socket.emit('message-ack',{msgId:data.msgId, status:'sent', ts: Date.now()});
+    socket.to(room).emit('chat-message',Object.assign({}, data, {username: socket.username, realUsername: socket.realUsername}));
   });
   socket.on('chat-media', async data=>{
     const room=socket.room; if(!room||!rooms[room]) return; const now=Date.now();
     const msg={msgId:data.msgId,enc:data.enc,expireSec:data.expireSec,type:data.mediaType,username:socket.username,realUsername:socket.realUsername,opened:false,room,expireAt:now+data.expireSec*1000,deleteAt:now+data.expireSec*1000};
-    rooms[room].messages.set(data.msgId,msg); persistedMessages.push(msg); debouncedSave();
-    socket.to(room).emit('chat-media',{...data,username:socket.username,realUsername:socket.realUsername});
+        rooms[room].messages.set(data.msgId,msg); persistedMessages.push(msg); debouncedSave();
+    socket.emit('message-ack',{msgId:data.msgId, status:'sent', ts: Date.now()});
+    socket.to(room).emit('chat-media',Object.assign({}, data, {username: socket.username, realUsername: socket.realUsername}));
   });
   socket.on('chat-voice', async data=>{
     const room=socket.room; if(!room||!rooms[room]) return; const now=Date.now();
     const msg={msgId:data.msgId,enc:data.enc,expireSec:data.expireSec,type:'voice',username:socket.username,realUsername:socket.realUsername,opened:false,room,expireAt:now+data.expireSec*1000,deleteAt:now+data.expireSec*1000,duration:data.duration};
     rooms[room].messages.set(data.msgId,msg); persistedMessages.push(msg); debouncedSave();
-    socket.to(room).emit('chat-voice',{...data,username:socket.username,realUsername:socket.realUsername});
+    socket.emit('message-ack',{msgId:data.msgId, status:'sent', ts: Date.now()});
+    socket.to(room).emit('chat-voice',Object.assign({}, data, {username: socket.username, realUsername: socket.realUsername}));
   });
   socket.on('message-opened', async ({msgId})=>{
     const room=socket.room; if(!room) return;

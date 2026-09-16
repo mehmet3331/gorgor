@@ -72,6 +72,9 @@ const cameraBtn = document.getElementById("cameraBtn");
 const cameraInput = document.getElementById("cameraInput");
 
 let peer = null; let localStream = null; let currentRoom = ""; let currentPassword = ""; let myUsername = ""; let myRealUsername = "";
+// WebRTC: simple-peer ile senkron tutulan son gonderim trackleri
+let peerAudioTrack = null;
+let peerVideoTrack = null;
 let micEnabled = false; let camEnabled = false; // FIX: açılışta kapalı
 let currentQuality = 720; let currentFacingMode = "user"; let pingTimer = null; let currentMediaData = null;
 let typingTimer; let isTyping = false; let messageIdCounter = 0;
@@ -80,6 +83,8 @@ let defaultExpire = parseInt(localStorage.getItem("gorgor_default_expire") || "4
 let activeTimers = new Map();
 let offlineTimer = null;
 const FOURTEEN_MIN = 14*60*1000;
+let backgroundDisconnectTimer = null;
+const SEVEN_MIN = 7.5*60*1000; // YENİ
 
 function startExpireTimer(msgId, deleteAt, expireSec){
   const remaining = deleteAt - Date.now();
@@ -115,62 +120,6 @@ const REAL_USERS = ["varım","yokum"];
 const FAKE_USERS = ["uçtum","geldim"];
 
 function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
-function formatClock(d=new Date()){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
-
-let securityMode = localStorage.getItem("gorgor_security_mode") || "private";
-function doSecurityReset(reason){
-  if(isPickingFile || _photoPicking){ console.log("FOTO IPTAL", reason); return; }
-  if(securityMode === "general"){
-    console.log("GENEL MOD - kamera ve ses iki tarafta kapaniyor - mum", reason);
-    try{
-      if(localStream){
-        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
-        localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
-      }
-      micEnabled=false; camEnabled=false;
-      if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
-      if(camBtn){ camBtn.classList.add("offIcon"); }
-      if(remoteVideo){ try{remoteVideo.pause();}catch(e){} remoteVideo.muted=true; try{remoteVideo.volume=0;}catch(e){} remoteVideo.style.display="none"; try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.removeAttribute("src");}catch(e){} try{remoteVideo.load();}catch(e){} }
-      if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
-      isPhoneMode=false;
-      document.body.classList.remove("phone-mode");
-      if(phoneCallUI) phoneCallUI.style.display="none";
-      if(socket && currentRoom){
-        socket.emit("paused");
-        socket.emit("general-pause");
-        socket.emit("phone-mode", false);
-      }
-    }catch(e){ console.log(e); }
-    return;
-  }
-  console.log("OZEL MOD KAPANIS", reason);
-  try{
-    if(peer){ try{peer.destroy();}catch(e){} peer=null; }
-    if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); localStream=null; }
-    if(pingTimer){ clearInterval(pingTimer); pingTimer=null; }
-    if(socket && currentRoom){ socket.emit("leave-room", currentRoom); }
-    currentRoom=""; currentPassword=""; myUsername=""; myRealUsername="";
-    micEnabled=false; camEnabled=false; isPhoneMode=false; opponentUsername=""; opponentStatus="offline";
-    messageIdCounter=0;
-    if(messages) messages.innerHTML="";
-    sentMessages.clear();
-    activeTimers.forEach(t=>{ if(t.interval) clearInterval(t.interval); if(t.timeout) clearTimeout(t.timeout); }); activeTimers.clear();
-    if(roomName) roomName.value="";
-    if(roomPassword) roomPassword.value="";
-    if(userName) userName.value="";
-    if(mainScreen) mainScreen.style.display="none";
-    if(roomScreen) roomScreen.style.display="none";
-    const fakeCalcEl = document.getElementById("fakeCalc");
-    if(fakeCalcEl) fakeCalcEl.style.display="flex";
-    if(typeof calcBuf!=="undefined"){ calcBuf=""; const cd=document.getElementById("calcDisplay"); if(cd) cd.value=""; }
-    document.body.classList.remove("phone-mode");
-    document.body.classList.remove("chat-open");
-    if(phoneCallUI) phoneCallUI.style.display="none";
-    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-    if(remoteVideo){ try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.removeAttribute("src"); remoteVideo.style.display="none"; }
-    if(myVideoContainer) myVideoContainer.style.display="none";
-  }catch(e){ console.log(e); }
-}
 document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ if(isPickingFile || _photoPicking) return; doSecurityReset("visibility hidden"); } });
 window.addEventListener("pagehide", ()=>{ doSecurityReset("pagehide"); });
 window.addEventListener("blur", ()=>{ setTimeout(()=>{ if(isPickingFile || _photoPicking) return; if(document.hidden){ doSecurityReset("blur+hidden"); } }, 1000); });
@@ -183,6 +132,113 @@ function renderFakeLists(){
 renderFakeLists();
 let opponentUsername=""; let opponentStatus="offline";
 let lastSeenTimes = {};
+try{ const _k="gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1"); const _v=localStorage.getItem(_k); if(_v) Object.assign(lastSeenTimes, JSON.parse(_v)); }catch(e){}
+
+
+function formatLastSeen(ts){
+  if(!ts) return "";
+  const d = new Date(ts);
+  const day = String(d.getDate()).padStart(2,'0');
+  const month = String(d.getMonth()+1).padStart(2,'0');
+  const year = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${day}/${month}/${year} - ${hh}:${mm}`;
+}
+function formatClockShort(ts){
+  try{
+    const d = new Date(ts);
+    const day = String(d.getDate()).padStart(2,'0');
+    const month = String(d.getMonth()+1).padStart(2,'0');
+    const year = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    return `${day}/${month}/${year} - ${hh}:${mm}`;
+  }catch(e){ return ""; }
+}
+function formatClock(d=new Date()){
+  const hh=String(d.getHours()).padStart(2,'0');
+  const mm=String(d.getMinutes()).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+
+function updateOpponentDisplay(name,status){
+  // FIX: kendi adini gosterme, her zaman diger kullaniciyi goster
+  const norm = (s)=> (s||"").toString().trim().toLowerCase();
+  const myNorm = norm(myRealUsername||myUsername);
+  const incomingNorm = norm(name);
+  if(name && incomingNorm && myNorm && incomingNorm===myNorm) return; // kendi adin ise gorme
+  if(!name && typeof opponentUsername!=="undefined" && opponentUsername){
+    if(norm(opponentUsername)===myNorm) return;
+  }
+  // Eger name bos ise mevcut opponentUsername koru, ama kendi adin degilse
+  if(typeof opponentUsername!=="undefined"){
+    if(name && norm(name)!==myNorm){
+      opponentUsername = name;
+    } else if(!opponentUsername && name){
+      opponentUsername = name;
+    }
+    // Hala kendi adin ise temizle
+    if(norm(opponentUsername)===myNorm){
+      opponentUsername = "";
+      return;
+    }
+  } else {
+    if(name && norm(name)!==myNorm) opponentUsername = name;
+  }
+  if(typeof opponentStatus!=="undefined") opponentStatus=status||opponentStatus;
+  const nameEl = document.getElementById("opponentNameDisplay");
+  const statusEl = document.getElementById("opponentStatusText");
+  const dotEl = document.getElementById("opponentDot");
+  if(nameEl && typeof opponentUsername!=="undefined" && opponentUsername && opponentUsername !== myRealUsername && opponentUsername !== myUsername){
+    nameEl.textContent = opponentUsername;
+  }
+  if(dotEl && typeof opponentStatus!=="undefined"){
+    dotEl.className = "onlineDot "+(opponentStatus==="varım"||opponentStatus==="online"||opponentStatus==="çevrimiçi"?"online":"offline");
+  }
+  if(statusEl){
+    if(status==="varım"||status==="online"||status==="çevrimiçi"){
+      statusEl.textContent = "çevrimiçi";
+      statusEl.style.color = "#00ff88";
+      if(typeof stopWaitingDots==="function") stopWaitingDots();
+    }else{
+      let ts = null;
+      if(typeof lastSeenTimes!=="undefined"){
+        ts = lastSeenTimes[opponentUsername] || lastSeenTimes[name] || (typeof opponentLastSeen!=="undefined"?opponentLastSeen:null);
+      }
+      if(!ts){
+        try{
+          const saved = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1"));
+          if(saved){
+            const obj = JSON.parse(saved);
+            ts = obj[opponentUsername] || obj[name] || null;
+          }
+        }catch(e){}
+      }
+      if(ts){
+        const abs = formatLastSeen(ts);
+        statusEl.textContent = `En son ${abs} de aktifti`;
+      }else{
+        statusEl.textContent = "çevrimdışı";
+      }
+      statusEl.style.color = "#888";
+      if(dotEl) dotEl.className = "onlineDot offline";
+      if(typeof stopWaitingDots==="function") stopWaitingDots();
+    }
+  }
+  const phoneNameDisplay=document.getElementById("phoneNameDisplay");
+  if(phoneNameDisplay && typeof opponentUsername!=="undefined" && opponentUsername && opponentUsername !== myRealUsername){ phoneNameDisplay.textContent=opponentUsername; }
+}
+
+
+// FIX - son görülme localStorage'dan yükle (çıkıp girince kaybolmasın)
+try{
+  const savedLS = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1"));
+  if(savedLS){
+    const obj = JSON.parse(savedLS);
+    Object.assign(lastSeenTimes, obj);
+  }
+}catch(e){}
 // V19 NEW FEATURES GLOBALS
 let isBlurEnabled = false;
 let autoReconnectAttempts = 0;
@@ -197,66 +253,9 @@ let readReceipts = new Map();
 let isCollaborativeDrawing = false;
 let collaborativeDrawColor = "#00ff88";
 let fakeNotifEnabled = true;
-let screenshotProtectionEnabled = true;
-function formatLastSeen(ts){
-  if(!ts) return "";
-  const diff = Math.floor((Date.now()-ts)/1000);
-  if(diff<10) return "az önce";
-  if(diff<60) return `${diff}sn önce`;
-  if(diff<3600) return `${Math.floor(diff/60)}dk önce`;
-  if(diff<86400) return `bugün ${formatClock(new Date(ts))}`;
-  return `${formatClock(new Date(ts))}`;
-}
+let screenshotProtectionEnabled = false // FIX: siyah ekran yapmasin, default kapali;
 
-function updateOpponentDisplay(name,status){ 
-  // Guard: kendi adınsa karşı taraf değil, güncelleme yapma
-  if(name && (name === myRealUsername || name === myUsername)) return;
-  if(!name && opponentUsername && (opponentUsername === myRealUsername || opponentUsername === myUsername)) return;
-  opponentUsername=name||opponentUsername; 
-  // Ekstra guard: opponentUsername kendi adın olmuşsa temizle
-  if(opponentUsername === myRealUsername || opponentUsername === myUsername){
-    opponentUsername = "";
-    return;
-  }
-  opponentStatus=status||opponentStatus; 
-  if(opponentNameDisplay){ 
-    // Sadece karşı tarafın adı, kendi adın değil
-    if(opponentUsername && opponentUsername !== myRealUsername && opponentUsername !== myUsername){
-      opponentNameDisplay.textContent=opponentUsername; 
-    }
-  } 
-  if(opponentDot){ opponentDot.className="onlineDot "+(opponentStatus==="varım"||opponentStatus==="online"?"online":"offline"); } 
-  if(opponentStatusText){ 
-    if(opponentStatus==="varım"||opponentStatus==="online"){ 
-      opponentStatusText.textContent="içerde"; 
-      opponentStatusText.style.color="#00ff88"; 
-      opponentStatusText.classList.remove("waiting");
-      if(typeof stopWaitingDots==="function") stopWaitingDots();
-    } else { 
-      const ts = lastSeenTimes[opponentUsername] || lastSeenTimes[name] || null;
-      if(ts){
-        // Son görülme saatini gerçek saat olarak göster: 22:42 gibi
-        const d = new Date(ts);
-        const hh = String(d.getHours()).padStart(2,'0');
-        const mm = String(d.getMinutes()).padStart(2,'0');
-        const clock = `${hh}:${mm}`;
-        const rel = formatLastSeen(ts);
-        // Eğer az önce ise "son görülme az önce" değil "son görülme 22:42" + relative
-        if(rel === "az önce"){
-          opponentStatusText.textContent=`son görülme ${clock}`;
-        } else {
-          opponentStatusText.textContent=`son görülme ${clock} • ${rel}`;
-        }
-      } else {
-        opponentStatusText.textContent="son görülme -";
-      }
-      opponentStatusText.style.color="#888"; 
-      if(typeof stopWaitingDots==="function") stopWaitingDots();
-    } 
-  } 
-  const phoneNameDisplay=document.getElementById("phoneNameDisplay"); 
-  if(phoneNameDisplay && opponentUsername && opponentUsername !== myRealUsername){ phoneNameDisplay.textContent=opponentUsername; } 
-}
+
 roomName.addEventListener("input",()=>{ const v=normalize(roomName.value); if(v.length>0){ if(fakeRoomsHint) fakeRoomsHint.style.display="block"; } else { if(fakeRoomsHint) fakeRoomsHint.style.display="none"; } if(v===REAL_ROOM || v.length>=2){ userName.style.display="block"; userListBox.style.display="block"; } else { userName.style.display="none"; userListBox.style.display="none"; } });
 
 // V19 PBKDF2 + backward compatibility
@@ -282,43 +281,140 @@ async function encryptText(text,password){ const key=await deriveKey(password); 
 async function decryptText(b64,password){ try{ const key=await deriveKey(password); const combined=b64ToBuf(b64); const iv=combined.slice(0,12); const ct=combined.slice(12); const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct); return new TextDecoder().decode(pt); }catch(e){ return null; } }
 if(defaultSelfDestructSelect) defaultSelfDestructSelect.value="43200";
 if(micBtn) micBtn.textContent="🎤"; if(camBtn) camBtn.textContent="📹";
-async function startCamera(height=720, facingMode=currentFacingMode){
+async function startCamera(height=720, facingMode=currentFacingMode, withAudio=false){
   const prevMicEnabled = (typeof micEnabled !== 'undefined') ? micEnabled : false;
   const prevCamEnabled = (typeof camEnabled !== 'undefined') ? camEnabled : false;
   const hadStream = !!localStream;
+  const prevAudioTrack = hadStream ? (localStream.getAudioTracks()[0] || null) : null;
+  const prevAudioEnabled = prevAudioTrack ? prevAudioTrack.enabled : prevMicEnabled;
   try{
-    if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }
-    localStream=await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}},
-      audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}
-    });
+    if(localStream){
+      const tracksToStop = localStream.getVideoTracks();
+      if(!prevAudioTrack || withAudio || arguments[2]){
+        localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} });
+      }else{
+        tracksToStop.forEach(t=>{ try{t.stop();}catch(e){} });
+      }
+    }
+    const constraints = {
+      video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}}
+    };
+    const _withAudio = (typeof arguments[2] !== 'undefined' ? arguments[2] : false);
+    if(_withAudio || withAudio || (hadStream && prevAudioTrack)){
+      constraints.audio={echoCancellation:true, noiseSuppression:true, autoGainControl:true};
+    }
+    localStream=await navigator.mediaDevices.getUserMedia(constraints);
+    if(prevAudioTrack && localStream.getAudioTracks().length===0){
+      try{ localStream.addTrack(prevAudioTrack); }catch(e){}
+    }
     myVideo.srcObject=localStream;
     myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)";
     if(!hadStream){
-      localStream.getVideoTracks().forEach(t=>t.enabled=false);
-      localStream.getAudioTracks().forEach(t=>t.enabled=false);
-      micEnabled=false; camEnabled=false;
-      if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
-      if(camBtn){ camBtn.classList.add("offIcon"); }
+      if(_withAudio || withAudio){
+        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+        localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+        micEnabled=true; camEnabled=true;
+        if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+        if(camBtn){ camBtn.classList.remove("offIcon"); }
+      } else {
+        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
+        localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
+        micEnabled=false; camEnabled=false;
+        if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+        if(camBtn){ camBtn.classList.add("offIcon"); }
+      }
     } else {
-      localStream.getVideoTracks().forEach(t=>t.enabled=prevCamEnabled);
-      localStream.getAudioTracks().forEach(t=>t.enabled=prevMicEnabled);
+      if(_withAudio || withAudio){
+        localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+      } else {
+        localStream.getVideoTracks().forEach(t=>{ try{t.enabled=prevCamEnabled;}catch(e){} });
+      }
+      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=prevMicEnabled;}catch(e){} });
       micEnabled=prevMicEnabled; camEnabled=prevCamEnabled;
       if(micBtn){ if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } }
       if(camBtn){ if(camEnabled){ camBtn.classList.remove("offIcon"); } else { camBtn.classList.add("offIcon"); } }
-      if(typeof peer !== 'undefined' && peer && peer._pc){
-        try{
-          const videoTrack = localStream.getVideoTracks()[0];
-          const audioTrack = localStream.getAudioTracks()[0];
-          const senders = peer._pc.getSenders();
-          if(videoTrack){ const vSender = senders.find(s=>s.track && s.track.kind==='video'); if(vSender) vSender.replaceTrack(videoTrack); }
-          if(audioTrack){ const aSender = senders.find(s=>s.track && s.track.kind==='audio'); if(aSender) aSender.replaceTrack(audioTrack); }
-        }catch(e){ console.log("replaceTrack hata", e); }
-      }
+    }
+    try{ if(myVideo) myVideo.play().catch(()=>{}); }catch(e){}
+    if(peer) await syncAllTracksToPeer();
+    return true;
+  }catch(err){ 
+    console.log("kamera hata",err); 
+    // Fallback: kamera yoksa sadece ses dene
+    if(err && (err.name==='NotFoundError' || err.name==='OverconstrainedError' || err.name==='NotAllowedError' || err.name==='NotReadableError')){
+      try{
+        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+        if(localStream){ try{ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }catch(e){} }
+        localStream = audioOnlyStream;
+        if(myVideo){ try{ myVideo.srcObject=localStream; }catch(e){} }
+        micEnabled=true; camEnabled=false;
+        if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+        if(camBtn){ camBtn.classList.add("offIcon"); }
+        if(typeof showToast==="function") showToast("📷 Kamera bulunamadı, sadece ses ile devam ediliyor");
+        return true;
+      }catch(e2){ console.log("audio fallback hata", e2); }
+    }
+    return false; 
+  }
+}
+// FIX: Sesli/görüntülü aramada mikrofondan ses gitmeme - WhatsApp gibi sadece call'da ses ekle
+
+
+// FIX: video call icin localStream temizle ve tek audio/video track garantile
+function cleanLocalStreamForCall(){
+  try{
+    if(!localStream) return;
+    const vTracks = localStream.getVideoTracks();
+    const aTracks = localStream.getAudioTracks();
+    if(vTracks.length > 1){ for(let i=1;i<vTracks.length;i++){ try{ vTracks[i].stop(); localStream.removeTrack(vTracks[i]); }catch(e){} } }
+    if(aTracks.length > 1){ for(let i=1;i<aTracks.length;i++){ try{ aTracks[i].stop(); localStream.removeTrack(aTracks[i]); }catch(e){} } }
+    if(myVideo){ myVideo.srcObject=localStream; try{myVideo.play().catch(()=>{});}catch(e){} }
+  }catch(e){ console.log("cleanLocalStream hata", e); }
+}
+
+// WebRTC tracklerini simple-peer'in public API'si ile senkronlar.
+async function syncAllTracksToPeer(){
+  try{
+    if(!peer || !localStream) return false;
+    cleanLocalStreamForCall();
+    const vt=localStream.getVideoTracks()[0]||null;
+    const at=localStream.getAudioTracks()[0]||null;
+    if(vt){
+      if(peerVideoTrack && peerVideoTrack!==vt){ await peer.replaceTrack(peerVideoTrack,vt,localStream); }
+      else if(!peerVideoTrack){ peer.addTrack(vt,localStream); }
+      peerVideoTrack=vt;
+    }
+    if(at){
+      if(peerAudioTrack && peerAudioTrack!==at){ await peer.replaceTrack(peerAudioTrack,at,localStream); }
+      else if(!peerAudioTrack){ peer.addTrack(at,localStream); }
+      peerAudioTrack=at;
     }
     return true;
-  }catch(err){ console.log("kamera hata",err); return false; }
+  }catch(e){ console.log("syncAllTracksToPeer hata",e); return false; }
 }
+
+async function ensureAudioTrack(){
+  try{
+    if(!localStream){
+      const ok=await startCamera(currentQuality,currentFacingMode,true);
+      if(!ok) return false;
+    }
+    let at=localStream.getAudioTracks()[0]||null;
+    if(!at){
+      const aStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+      at=aStream.getAudioTracks()[0]||null;
+      if(!at) return false;
+      at.enabled=true;
+      localStream.addTrack(at);
+    }else at.enabled=true;
+    micEnabled=true;
+    if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+    if(peer) await syncAllTracksToPeer();
+    return true;
+  }catch(e){ console.log('ensureAudioTrack hata',e); return false; }
+}
+
+
 function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=setInterval(()=>socket.emit("ping-check",Date.now()),3000); }
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
 
@@ -334,15 +430,126 @@ joinBtn.onclick=async()=>{
     socket.emit("join-room",{room,password,username:uname});
 };
 socket.on("room-error", msg=>alert(msg));
-socket.on("joined-room", data=>{ roomScreen.style.display="none"; mainScreen.style.display="block"; if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } if(remoteVideo) remoteVideo.style.display="block"; if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; } if(currentUserBox) currentUserBox.textContent=`Ben: ${data.username}`; myRealUsername=data.username; myUsername=normalize(data.username); startPingMonitor(); if(!localStream){ startCamera(currentQuality, currentFacingMode).then(()=>{ if(myVideoContainer) myVideoContainer.style.display="block"; }); } if(data.count===2) createPeer(true); });
-socket.on("user-connected",(d)=>{ if(!peer) createPeer(false); const oppName=d.username||d.realUsername||"Bilinmeyen"; updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
-function createPeer(initiator){ peer=new SimplePeer({initiator,trickle:false,stream:localStream,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}}); peer.on("signal",signal=>socket.emit("signal",{room:currentRoom,signal})); peer.on("stream",stream=>{ remoteVideo.srcObject=stream; remoteVideo.play().catch(()=>{}); if(candleContainer) candleContainer.classList.remove("show"); if(isPhoneMode){ remoteVideo.style.display="none"; } else { remoteVideo.style.display="block"; } }); peer.on("close",()=>{ if(remoteVideo){ remoteVideo.pause(); try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.load(); remoteVideo.style.display="none"; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } }); }
+socket.on("joined-room", data=>{ 
+  roomScreen.style.display="none"; mainScreen.style.display="block";
+  // FIX: oda doluysa diger kullaniciyi goster
+  try{
+    if(data.otherUsers && data.otherUsers.length>0){
+      const other = data.otherUsers[0];
+      const otherName = other.realUsername || other.username;
+      if(otherName && otherName!==myRealUsername && otherName!==myUsername){
+        updateOpponentDisplay(otherName, "varım");
+        if(typeof lastSeenTimes!=="undefined"){
+          lastSeenTimes[otherName] = Date.now();
+        }
+      }
+    }
+    if(data.count && data.count>=2){
+      // odada 2 kisi var, online kabul et
+      if(typeof opponentStatus!=="undefined") opponentStatus="varım";
+      const dotEl = document.getElementById("opponentDot");
+      if(dotEl) dotEl.className="onlineDot online";
+      const statusEl = document.getElementById("opponentStatusText");
+      if(statusEl){ statusEl.textContent="çevrimiçi"; statusEl.style.color="#00ff88"; }
+    }
+  }catch(e){ console.log("joined-room fix hata", e); }
+  if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } if(remoteVideo) remoteVideo.style.display="block"; if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; } if(currentUserBox) currentUserBox.textContent=`Ben: ${data.username}`; myRealUsername=data.username; myUsername=normalize(data.username); startPingMonitor(); if(!localStream){ startCamera(currentQuality, currentFacingMode, false).then(()=>{ if(myVideoContainer) myVideoContainer.style.display="block"; }); } if(data.count===2) createPeer(true); });
+socket.on("message-ack", (data)=>{
+  if(!data||!data.msgId) return;
+  const d=document.getElementById(data.msgId);
+  if(!d) return;
+  const t=d.querySelector(".ticks");
+  if(t){ t.textContent=" ✓✓"; t.style.color="#aaa"; }
+});
+socket.on("connect", ()=>{
+  console.log("Socket baglandi");
+  hideConnectionLostModal();
+  if(typeof showToast==="function") showToast("✅ Bağlantı geri geldi");
+  // Odaya tekrar katıl
+  try{
+    if(currentRoom && myUsername && currentPassword){
+      socket.emit('join-room', {room: currentRoom, password: currentPassword, username: myRealUsername || myUsername});
+    }
+  }catch(e){}
+  const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
+  if(q.length){
+    (async ()=>{
+      for(const item of q){
+        try{
+          if(item.enc && item.msgId){
+            socket.emit("chat-message",{msgId:item.msgId, enc:item.enc, expireSec:item.expire, sentAt:item.sentAt||Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000});
+          }else if(item.text){
+            const msgId = await addMyMessage(item.text, item.expire||43200, myRealUsername);
+            const enc = await encryptText(item.text, currentPassword);
+            socket.emit("chat-message",{msgId, enc, expireSec:item.expire||43200, sentAt:Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000});
+          }
+        }catch(e){}
+      }
+    })();
+    localStorage.removeItem("gorgor_pending_q");
+  }
+});
+socket.on("disconnect", (reason)=>{
+  console.log("Socket koptu", reason);
+  connectionLost=true;
+  showConnectionLostModal();
+  if(typeof showToast==="function") showToast("⚠️ Bağlantı koptu - yeniden bağlanıyor...");
+  // Otomatik reconnect dene
+  setTimeout(()=>{ try{ socket.connect(); }catch(e){} }, 2000);
+});
+socket.on("connect_error", (err)=>{
+  console.log("Baglanti hatasi", err);
+  showConnectionLostModal();
+  if(typeof showToast==="function") showToast("⚠️ Sunucuya bağlanılamıyor");
+});
+
+socket.on("room-users", (users)=>{
+  try{
+    if(users && users.length>0){
+      const other = users[0];
+      const otherName = other.realUsername || other.username;
+      if(otherName && otherName!==myRealUsername && otherName!==myUsername){
+        updateOpponentDisplay(otherName, "varım");
+        if(typeof lastSeenTimes!=="undefined"){ lastSeenTimes[otherName]=Date.now(); }
+      }
+    }
+  }catch(e){}
+});
+socket.on("user-connected",(d)=>{ if(!peer) createPeer(false); const oppName=d.username||d.realUsername||"Bilinmeyen"; 
+  // Kendi adin ise gorme
+  const norm = (s)=> (s||"").toString().trim().toLowerCase();
+  if(norm(oppName)===norm(myRealUsername||myUsername)) return;
+  updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
+function createPeer(initiator){
+  const streamForPeer=localStream||undefined;
+  peer=new SimplePeer({initiator,trickle:false,stream:streamForPeer,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}});
+  peerVideoTrack=streamForPeer ? (streamForPeer.getVideoTracks()[0]||null) : null;
+  peerAudioTrack=streamForPeer ? (streamForPeer.getAudioTracks()[0]||null) : null;
+  peer.on("signal",signal=>socket.emit("signal",{room:currentRoom,signal}));
+  peer.on("stream",async stream=>{
+    try{
+      remoteVideo.autoplay=true; remoteVideo.playsInline=true; remoteVideo.srcObject=stream;
+      remoteVideo.muted=false; remoteVideo.volume=isPhoneMode?0.15:0.6;
+      if(volumeSlider) volumeSlider.value=remoteVideo.volume;
+      if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+      if(isPhoneMode) remoteVideo.style.display="none"; else remoteVideo.style.display="block";
+      try{ await remoteVideo.play(); }catch(e){}
+    }catch(e){ console.log("peer stream hata",e); }
+  });
+  peer.on("close",()=>{
+    peerAudioTrack=null; peerVideoTrack=null;
+    if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.load();}catch(e){} remoteVideo.style.display="none"; }
+    if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
+    peer=null;
+  });
+  peer.on("error",err=>{ console.log("peer error",err); });
+}
 socket.on("signal",signal=>{ if(!peer) createPeer(false); peer.signal(signal); });
 socket.on("user-status",(data)=>{ const {user,status,online}=data; if(user===myRealUsername) return; const isOnline=status==="varım"||online; updateOpponentDisplay(user,isOnline?"varım":"yokum"); if(isOnline) clearOfflineTimer(); else startOfflineCountdown(); });
 socket.on("user-last-seen",(data)=>{
   const {user, ts, online} = data;
   if(user===myRealUsername) return;
-  if(ts) lastSeenTimes[user]=ts;
+  if(ts){ lastSeenTimes[user]=ts; try{ localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes)); }catch(e){} }
   if(online===false || online===undefined){
     if(user===opponentUsername || !opponentUsername){
       updateOpponentDisplay(user,"yokum");
@@ -352,13 +559,38 @@ socket.on("user-last-seen",(data)=>{
 socket.on("last-seen-list",(list)=>{
   if(!list) return;
   Object.assign(lastSeenTimes, list);
+  try{ localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes)); }catch(e){}
   if(opponentUsername && lastSeenTimes[opponentUsername] && opponentStatus!=="varım"){
     updateOpponentDisplay(opponentUsername,"yokum");
   }
 });
 socket.on("user-disconnected",()=>{ if(remoteVideo){ remoteVideo.pause(); try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.removeAttribute("src"); remoteVideo.load(); remoteVideo.style.display="none"; } if(peer){ try{peer.destroy();}catch(e){} peer=null; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } updateOpponentDisplay(opponentUsername||"Bilinmeyen","yokum"); startOfflineCountdown(); });
-qualitySelect.onchange=async()=>{ const wasCamOn=camEnabled; const wasMicOn=micEnabled; currentQuality=parseInt(qualitySelect.value); socket.emit("quality-change", currentQuality); await startCamera(currentQuality, currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn); localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn); camEnabled=wasCamOn; micEnabled=wasMicOn; if(!wasCamOn) camBtn.classList.add("offIcon"); else camBtn.classList.remove("offIcon"); } if(peer&&localStream){ const sender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video"); if(sender) await sender.replaceTrack(localStream.getVideoTracks()[0]); } };
-socket.on("quality-change", async(q)=>{ currentQuality=parseInt(q); if(qualitySelect) qualitySelect.value=currentQuality.toString(); const wasCamOn=camEnabled; const wasMicOn=micEnabled; await startCamera(currentQuality, currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn); localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn); } if(peer&&localStream){ const sender=peer._pc.getSenders().find(s=>s.track&&s.track.kind==="video"); if(sender) await sender.replaceTrack(localStream.getVideoTracks()[0]); } });
+qualitySelect.onchange=async()=>{
+  const wasCamOn=camEnabled;
+  const wasMicOn=micEnabled;
+  const prevAudioTrack=localStream ? localStream.getAudioTracks()[0] : null;
+  currentQuality=parseInt(qualitySelect.value);
+  socket.emit("quality-change",currentQuality);
+  try{ await startCamera(currentQuality,currentFacingMode,!!prevAudioTrack||wasMicOn); }catch(e){ console.log('quality startCamera hata',e); }
+  if(localStream){
+    localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn);
+    localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn);
+    if(prevAudioTrack && localStream.getAudioTracks().length===0){ try{localStream.addTrack(prevAudioTrack); localStream.getAudioTracks()[0].enabled=wasMicOn;}catch(e){} }
+    camEnabled=wasCamOn; micEnabled=wasMicOn;
+    if(!wasCamOn) camBtn.classList.add("offIcon"); else camBtn.classList.remove("offIcon");
+    if(!wasMicOn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } else { micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+  }
+  await syncAllTracksToPeer();
+};
+socket.on("quality-change", async(q)=>{
+  currentQuality=parseInt(q);
+  if(qualitySelect) qualitySelect.value=currentQuality.toString();
+  const wasCamOn=camEnabled; const wasMicOn=micEnabled;
+  await startCamera(currentQuality,currentFacingMode,wasMicOn || !!(localStream && localStream.getAudioTracks().length));
+  if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=wasCamOn); localStream.getAudioTracks().forEach(t=>t.enabled=wasMicOn); }
+  camEnabled=wasCamOn; micEnabled=wasMicOn;
+  await syncAllTracksToPeer();
+});
 
 settingsBtn.onclick=()=>settingsContainer.classList.toggle("menu-open");
 if(fullscreenBtn){ fullscreenBtn.onclick=()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }; }
@@ -371,7 +603,60 @@ async function addMyMediaMessage(dataUrl,mediaType,expireSec,fileName){ const no
 async function addLockedMessage(msgId,expireSec,enc,mediaType,senderReal,sentAt){ if(document.getElementById(msgId)) return; expireSec=Math.min(expireSec||defaultExpire,MAX_SEC); const sent=sentAt||Date.now(); const deleteAt=sent+expireSec*1000; try{ const plain=await decryptText(enc,currentPassword); if(!plain) return; const div=document.createElement("div"); div.className="otherMessage"; div.id=msgId; div._expireSec=expireSec; div._sentAt=sent; div._deleteAt=deleteAt; const remaining=Math.max(1,Math.floor((deleteAt-Date.now())/1000)); const initial=(senderReal||"V").trim().charAt(0).toUpperCase()||"V"; const clock=formatClock(new Date(sent)); div._clock=clock; if(mediaType==="text"||!mediaType){ const linked=plain.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">$1</a>'); div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span><div class="msgText">${linked}</div><span class="ticks double"> ✓✓</span></div>`; }else{ div.innerHTML=`<div class="msgAvatar">${initial}</div><div class="msgBubble"><span class="expireInfo">${clock} • ⏰ ${formatTimeShort(remaining)}</span></div>`; const bubble=div.querySelector(".msgBubble"); if(mediaType==="image"){ const img=document.createElement("img"); img.src=plain; img.className="mediaMessage"; bubble.appendChild(img); } else if(mediaType==="video"){ const v=document.createElement("video"); v.src=plain; v.className="mediaMessage"; v.controls=true; bubble.appendChild(v); } const tick=document.createElement("span"); tick.className="ticks double"; tick.textContent=" ✓✓"; bubble.appendChild(tick); } messages.appendChild(div); setTimeout(()=>{ messages.scrollTop=messages.scrollHeight; },10); startSelfDestruct(div,msgId,remaining,deleteAt); startExpireTimer(msgId, deleteAt, expireSec); socket.emit("message-opened",{msgId}); socket.emit("message-read",{msgId,reader:myRealUsername}); if(chatPanel.style.display!=="flex"){ chatToggle.classList.add("newMessageBlink"); } return; }catch(e){ console.log(e); } }
 
 function getExpireFromSelect(){ let val=perMessageTimerSelect.value; if(val==="default") return defaultExpire; if(val==="custom"){ let custom=prompt(`Manuel süre saniye:`); if(!custom) return defaultExpire; let num=parseInt(custom.replace(/[^0-9]/g,'')); if(isNaN(num)||num<=0) return defaultExpire; if(num>MAX_SEC) num=MAX_SEC; return num; } return Math.min(parseInt(val),MAX_SEC); }
-sendBtn.onclick=async()=>{ const text=input.value.trim(); if(!text) return; let expire=getExpireFromSelect(); const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once"; if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); } const msgId=await addMyMessage(text,expire,myRealUsername); const enc=await encryptText(text,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); input.value=""; socket.emit('typing',false); isTyping=false; };
+sendBtn.onclick=async()=>{
+  const text=input.value.trim(); if(!text) return;
+  let expire=getExpireFromSelect();
+  const persistMode=perMessagePersistSelect?perMessagePersistSelect.value:"once";
+  if(persistMode==="persist"){ defaultExpire=expire; localStorage.setItem("gorgor_default_expire",defaultExpire.toString()); if(defaultSelfDestructSelect) defaultSelfDestructSelect.value=defaultExpire.toString(); }
+  if(typeof socket!=="undefined" && !socket.connected){
+    try{
+      const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
+      q.push({text, expire, time:Date.now()});
+      localStorage.setItem("gorgor_pending_q", JSON.stringify(q));
+    }catch(e){}
+    if(typeof showToast==="function") showToast("⚠️ Bağlantı kopuk, mesaj kuyruğa alındı");
+    const modal=document.getElementById("connectionLostModal"); if(modal) modal.style.display="flex";
+    try{ socket.connect(); }catch(e){}
+    return;
+  }
+  const msgId=await addMyMessage(text,expire,myRealUsername);
+  const div = document.getElementById(msgId);
+  const ticks = div ? div.querySelector(".ticks") : null;
+  if(ticks){ ticks.textContent=" ⌛"; ticks.style.color="#888"; ticks.title="Gönderiliyor..."; }
+  const enc=await encryptText(text,currentPassword);
+  const sentAt=Date.now();
+  let acked=false;
+  const failTimer = setTimeout(()=>{
+    if(!acked){
+      if(ticks){ ticks.textContent=" ❗"; ticks.style.color="#ff4444"; ticks.title="Gitmedi - dokun tekrar dene"; }
+      if(typeof showToast==="function") showToast("Mesaj gitmedi, kuyruğa alındı");
+      try{
+        const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
+        q.push({msgId, text, enc, expire, sentAt, time:Date.now()});
+        localStorage.setItem("gorgor_pending_q", JSON.stringify(q));
+      }catch(e){}
+    }
+  },4000);
+  try{
+    socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000});
+  }catch(e){
+    clearTimeout(failTimer);
+    if(ticks){ ticks.textContent=" ❗"; ticks.style.color="#ff4444"; }
+  }
+  const ackHandler = (data)=>{
+    if(data && data.msgId===msgId){
+      clearTimeout(failTimer);
+      acked=true;
+      if(ticks){ ticks.textContent=" ✓✓"; ticks.style.color="#aaa"; ticks.title="Gönderildi"; }
+      try{ socket.off("message-ack", ackHandler); }catch(e){}
+    }
+  };
+  socket.on("message-ack", ackHandler);
+  setTimeout(()=>{ try{ socket.off("message-ack", ackHandler); }catch(e){} },8000);
+  input.value=""; 
+  try{ socket.emit('typing',false); }catch(e){}
+  isTyping=false;
+};
 input.addEventListener("keydown",e=>{ if(e.key==="Enter") sendBtn.click(); });
 socket.on("chat-message", data=>{
   addLockedMessage(data.msgId,data.expireSec,data.enc,"text",data.realUsername||data.username,data.sentAt);
@@ -410,51 +695,80 @@ if(emojiBtn) emojiBtn.onclick=(e)=>{ e.stopPropagation(); emojiPanel.classList.t
 document.querySelectorAll('.flyEmoji').forEach(emoji=>{ if(emoji.id==='addCustomEmoji') return; emoji.onclick=(e)=>{ e.stopPropagation(); const emojiText=emoji.textContent; const effect=emoji.dataset.effect; socket.emit('fly-emoji',{emoji:emojiText,effect}); createFlyingEmoji(emojiText,effect,true); emojiPanel.classList.remove("show"); }; });
 socket.on('fly-emoji',(data)=>createFlyingEmoji(data.emoji,data.effect,false));
 function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.innerWidth-120:80; const baseY=140; if(effect==='big-kiss'){ const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋'; big.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;z-index:9999;animation:explodeBoom 1s forwards;'; document.body.appendChild(big); setTimeout(()=>big.remove(),1000); return; } if(effect==='water'){ for(let i=0;i<10;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji water'; d.textContent='💧'; d.style.left=(window.innerWidth/2+Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='fireRainFall 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*60); } return; } let count=1; let animClass=effect||'heart'; if(effect==='heart'||effect==='kiss') count=8; else if(['kiss-rain','heart-rain','money-rain','star-rain','fire-rain','laugh-rain','angry-rain','emoji-rain'].includes(effect)) count=14; else if(['flower','sparkle','star'].includes(effect)) count=6; else if(['fire','explode'].includes(effect)) count=3; else if(['party','confetti'].includes(effect)) count=20; else if(['money','thumbs','wow','skull','heart-burst'].includes(effect)) count=1; for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+animClass; fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90+i*12)+'px'; fly.style.bottom=(baseY+Math.random()*60)+'px'; fly.style.fontSize=(effect==='explode'||effect==='heart-burst')?'90px':(effect==='fire'?'72px':(52+Math.random()*28)+'px'); document.body.appendChild(fly); setTimeout(()=>fly.remove(),3500); }, i*80); } if(['fire','explode','party','confetti','rocket','rocket-fly'].includes(effect)){ document.body.classList.add('mega-shake'); setTimeout(()=>document.body.classList.remove('mega-shake'),700); } }
-micBtn.onclick=async()=>{ if(!localStream) return; micEnabled=!micEnabled; localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled); micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇"; try{ if(peer&&peer._pc&&localStream){ const at=localStream.getAudioTracks()[0]; if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } } } }catch(e){} };
+micBtn.onclick=async()=>{
+  if(!localStream || localStream.getAudioTracks().length===0){ if(!(await ensureAudioTrack())) return; }
+  micEnabled=!micEnabled;
+  if(localStream) localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled);
+  micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇";
+  await syncAllTracksToPeer();
+};
 camBtn.onclick=async()=>{
-  if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode); }catch(e){ return; } }
+  if(!camEnabled && !isOpponentOnline()){
+    alert("⚠️ Karşı taraf çevrimdışı olduğundan görüntülü arama yapılamıyor\n\nKarşı taraf offline");
+    if(typeof showToast==="function") showToast("⚠️ Karşı taraf offline - görüntülü arama yapılamıyor");
+    return;
+  }
+  if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode, true); }catch(e){ return; } }
   if(!camEnabled){
-    const sesliAc=confirm("Kamerayı sesli olarak açmak ister misiniz?\\n\\nTamam = Mikrofon da açılsın\\nİptal = Sadece kamera açılsın\\n\\nKarşı tarafa teklif gidecek, kabul ederse iki tarafta da açılacak");
-    camEnabled=true;
-    localStream.getVideoTracks().forEach(t=>t.enabled=true);
-    camBtn.classList.remove("offIcon");
-    if(sesliAc){
-      localStream.getAudioTracks().forEach(t=>t.enabled=true);
-      micEnabled=true; micBtn.classList.remove("offIcon"); micBtn.textContent="🎤";
-    } else {
-      localStream.getAudioTracks().forEach(t=>t.enabled=false);
-      micEnabled=false; micBtn.classList.add("offIcon"); micBtn.textContent="🔇";
+    const sesliAc=true; // FIX: her zaman sesli - iki tarafin da mic ve cam acilmasi icin
+    try{ await ensureAudioTrack(); }catch(e){}
+    try{ await startCamera(currentQuality, currentFacingMode, true); }catch(e){}
+    if(localStream){
+      localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
     }
-    try{
-      if(peer&&peer._pc&&localStream){
-        const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0];
-        if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ await s.replaceTrack(vt); } }
-        if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ await s.replaceTrack(at); } }
-      }
-    }catch(e){}
-    socket.emit("video-call-request", {from: myRealUsername, withMic: sesliAc});
+    camEnabled=true; micEnabled=true;
+    if(camBtn) camBtn.classList.remove("offIcon");
+    if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+    await syncAllTracksToPeer();
+    isPhoneMode=false;
+    document.body.classList.remove("phone-mode");
+    if(phoneModeBtn) phoneModeBtn.classList.remove("active");
+    if(phoneCallUI) phoneCallUI.style.display="none";
+    socket.emit("video-call-request", {from: myRealUsername, withMic: true});
     if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-    if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
+    if(remoteVideo){ 
+      remoteVideo.style.display="block"; 
+      remoteVideo.muted=false;
+      remoteVideo.volume=0.6;
+      try{ await remoteVideo.play(); }catch(e){}
+    }
+    if(myVideo){ 
+      try{ await myVideo.play(); }catch(e){}
+      if(myVideoContainer) myVideoContainer.style.display="block";
+    }
   } else {
     camEnabled=false;
-    localStream.getVideoTracks().forEach(t=>t.enabled=false);
-    camBtn.classList.add("offIcon");
+    if(localStream){ localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
+    if(camBtn) camBtn.classList.add("offIcon");
     socket.emit("video-call-end", {from: myRealUsername});
   }
 };
-if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ try{ const wasCamOn=camEnabled; const wasMicOn=micEnabled; currentFacingMode=currentFacingMode==="user"?"environment":"user"; await startCamera(currentQuality,currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>{ t.enabled=wasCamOn; }); localStream.getAudioTracks().forEach(t=>{ t.enabled=wasMicOn; }); myVideo.srcObject=localStream; myVideo.play().catch(()=>{}); myVideo.style.transform=currentFacingMode==="user"?"scaleX(-1)":"scaleX(1)"; } camEnabled=wasCamOn; micEnabled=wasMicOn; if(camEnabled) camBtn.classList.remove("offIcon"); else camBtn.classList.add("offIcon"); if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(peer&&peer._pc&&localStream){ const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0]; if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} } } if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} } } } }catch(err){ alert("Ikinci kamera yok"); currentFacingMode="user"; try{ await startCamera(currentQuality,"user"); }catch(e){} } }; }
+if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ try{ const wasCamOn=camEnabled; const wasMicOn=micEnabled; currentFacingMode=currentFacingMode==="user"?"environment":"user"; await startCamera(currentQuality,currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>{ t.enabled=wasCamOn; }); localStream.getAudioTracks().forEach(t=>{ t.enabled=wasMicOn; }); myVideo.srcObject=localStream; myVideo.play().catch(()=>{}); myVideo.style.transform=currentFacingMode==="user"?"scaleX(-1)":"scaleX(1)"; } camEnabled=wasCamOn; micEnabled=wasMicOn; if(camEnabled) camBtn.classList.remove("offIcon"); else camBtn.classList.add("offIcon"); if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(peer){ await syncAllTracksToPeer(); } }catch(err){ alert("Ikinci kamera yok"); currentFacingMode="user"; try{ await startCamera(currentQuality,"user"); }catch(e){} } }; }
 remoteVideo.muted=false; remoteVideo.volume=0.1; volumeSlider.value=0.1;
 volumeSlider.oninput=()=>{ const v=parseFloat(volumeSlider.value); remoteVideo.volume=v; remoteVideo.muted=v<=0; soundBtn.textContent=v<=0?"🔇":"🔊"; };
 soundBtn.onclick=()=>{ remoteVideo.muted=!remoteVideo.muted; if(!remoteVideo.muted&&parseFloat(volumeSlider.value)===0){ volumeSlider.value=0.5; remoteVideo.volume=0.5; } soundBtn.textContent=remoteVideo.muted?"🔇":"🔊"; };
 changePasswordBtn.onclick=()=>{ const p=prompt("Yeni sifre"); if(!p) return; currentPassword=p; socket.emit("change-password",p); };
+const changePasswordBtnSecurity = document.getElementById("changePasswordBtnSecurity");
+if(changePasswordBtnSecurity){
+  changePasswordBtnSecurity.onclick=()=>{
+    const p=prompt("Yeni giriş şifresini gir:");
+    if(!p) return;
+    currentPassword=p;
+    try{ socket.emit("change-password",p); }catch(e){}
+    if(typeof showToast==="function") showToast("🔑 Şifre değiştirildi");
+    const panel=document.getElementById("securitySettingsPanel");
+    if(panel){ panel.style.display="none"; panel.classList.remove("show"); }
+  };
+}
 let isDragging=false,sx,sy,sl,st;
 myVideoContainer.addEventListener("touchstart",(e)=>{ if(isPhoneMode) return; if(e.touches.length===1){ isDragging=true; sx=e.touches[0].clientX; sy=e.touches[0].clientY; sl=myVideoContainer.offsetLeft; st=myVideoContainer.offsetTop; } });
 myVideoContainer.addEventListener("touchmove",(e)=>{ if(isPhoneMode) return; if(e.touches.length===1&&isDragging){ e.preventDefault(); myVideoContainer.style.left=sl+(e.touches[0].clientX-sx)+"px"; myVideoContainer.style.top=st+(e.touches[0].clientY-sy)+"px"; myVideoContainer.style.right="auto"; } });
 myVideoContainer.addEventListener("touchend",()=>isDragging=false);
 if(attachMenuBtn){ attachMenuBtn.onclick=(e)=>{ e.stopPropagation(); attachMenu.classList.toggle("show"); }; }
 mediaBtn.onclick=(e)=>{ e.preventDefault(); isPickingFile=true; _photoPicking=true; attachMenu.classList.remove("show"); setTimeout(()=>{ mediaInput.click(); }, 100); };
-drawBtn.onclick=()=>{ attachMenu.classList.remove("show"); drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
-locationBtn.onclick=async()=>{ attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt}); }); };
+if(drawBtn) drawBtn.onclick=()=>{ if(attachMenu) attachMenu.classList.remove("show"); if(drawOverlay) drawOverlay.style.display="flex"; const dpr=window.devicePixelRatio||1; drawCanvas.width=window.innerWidth*dpr; drawCanvas.height=(window.innerHeight-80)*dpr; drawCanvas.style.width=window.innerWidth+"px"; drawCanvas.style.height=(window.innerHeight-80)+"px"; const ctx2=drawCanvas.getContext("2d"); ctx2.scale(dpr,dpr); ctx2.strokeStyle="#00ff88"; ctx2.lineWidth=4; ctx2.lineCap="round"; ctx2.fillStyle="#000"; ctx2.fillRect(0,0,window.innerWidth,window.innerHeight); window._drawCtx=ctx2; };
+if(locationBtn) locationBtn.onclick=async()=>{ if(attachMenu) attachMenu.classList.remove("show"); if(!navigator.geolocation){ alert("Konum yok"); return; } navigator.geolocation.getCurrentPosition(async pos=>{ const url=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`; let expire=getExpireFromSelect(); const msgId=await addMyMessage("📍 Konumum: "+url,expire,myRealUsername); const enc=await encryptText("📍 Konumum: "+url,currentPassword); const sentAt=Date.now(); socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt}); }); };
 if(cameraBtn){ cameraBtn.onclick=(e)=>{ e.preventDefault(); isPickingFile=true; _photoPicking=true; attachMenu.classList.remove("show"); setTimeout(()=>{ cameraInput.click(); }, 100); }; }
 cameraInput.onchange=async()=>{ isPickingFile=true; _photoPicking=true; try{ const file=cameraInput.files[0]; if(!file){ isPickingFile=false; _photoPicking=false; return; } if(file.size>20*1024*1024){ alert("Max 20MB"); isPickingFile=false; _photoPicking=false; return; } let expire=getExpireFromSelect(); let dataUrl=""; try{ const img=await createImageBitmap(file); const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.75)); dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); }); }catch(e){ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } const enc=await encryptText(dataUrl,currentPassword); const sentAt=Date.now(); const msgId=await addMyMediaMessage(dataUrl,"image",expire,"kamera.jpg"); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType:"image",sentAt,deleteAt:Date.now()+expire*1000}); cameraInput.value=""; }catch(err){} setTimeout(()=>{ isPickingFile=false; _photoPicking=false; },1500); };
 mediaInput.onchange=async()=>{ isPickingFile=true; _photoPicking=true; try{ const file=mediaInput.files[0]; if(!file){ isPickingFile=false; _photoPicking=false; return; } if(file.size>20*1024*1024){ alert("Max 20MB"); isPickingFile=false; _photoPicking=false; return; } let expire=getExpireFromSelect(); let dataUrl=""; if(file.type.startsWith('image/')){ try{ const img=await createImageBitmap(file); const canvas=document.createElement('canvas'); const max=1280; let w=img.width,h=img.height; if(w>max){ h=h*max/w; w=max; } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.7)); dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(blob); }); }catch(e){ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } }else{ dataUrl=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(file); }); } const enc=await encryptText(dataUrl,currentPassword); const mediaType=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'file'; const sentAt=Date.now(); const msgId=await addMyMediaMessage(dataUrl,mediaType,expire,file.name); socket.emit("chat-media",{msgId,enc,expireSec:expire,mediaType,sentAt,deleteAt:Date.now()+expire*1000}); mediaInput.value=""; }catch(e){} setTimeout(()=>{ isPickingFile=false; _photoPicking=false; },1500); };
@@ -466,7 +780,12 @@ let _phoneWasCamOn=false; let _phoneWasMicOn=false;
 let _phoneCallOutgoing = false;
 if(phoneModeBtn){
   phoneModeBtn.onclick = async ()=>{
-    if(_phoneCallOutgoing){ _phoneCallOutgoing = false; if(phoneModeBtn) phoneModeBtn.textContent = "📞"; socket.emit("phone-call-cancel", {from: myRealUsername, room: currentRoom}); showToast("📞 İptal"); return; }
+    if(!isOpponentOnline()){
+      alert("⚠️ Karşı taraf çevrimdışı olduğundan arama yapılamıyor\n\nKarşı taraf offline, arama yapılamaz");
+      if(typeof showToast==="function") showToast("⚠️ Karşı taraf offline - arama yapılamıyor");
+      return;
+    }
+    if(_phoneCallOutgoing){ _phoneCallOutgoing = false; if(phoneModeBtn) phoneModeBtn.textContent = "📞"; socket.emit("phone-call-cancel", {from: myRealUsername, room: currentRoom}); if(typeof showToast==="function") showToast("📞 İptal"); return; }
     if(isPhoneMode){
       isPhoneMode=false;
       document.body.classList.remove("phone-mode");
@@ -480,8 +799,18 @@ if(phoneModeBtn){
       return;
     }
     _phoneCallOutgoing = true;
+    try{ await ensureAudioTrack(); }catch(e){}
+    if(localStream){
+      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+    }
+    micEnabled=true;
+    if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
     const origText = phoneModeBtn.textContent;
     phoneModeBtn.textContent="⏳";
+    // FIX: kendi trackini peer'e ekle
+    try{
+      if(peer){ await syncAllTracksToPeer(); }
+    }catch(e){}
     socket.emit("phone-call-request", {from: myRealUsername, room: currentRoom});
     setTimeout(()=>{ _phoneCallOutgoing=false; if(phoneModeBtn) phoneModeBtn.textContent=origText||"📞"; }, 10000);
   };
@@ -540,6 +869,8 @@ function autoLockToGoogle(reason){
   currentRoom=""; isPhoneMode=false; document.body.classList.remove("phone-mode");
 }
 function startOfflineCountdown(){ clearOfflineTimer(); offlineTimer = setTimeout(()=>{ autoLockToGoogle("14dk offline"); }, FOURTEEN_MIN); }
+function clearBackgroundDisconnectTimer(){ if(backgroundDisconnectTimer){ clearTimeout(backgroundDisconnectTimer); backgroundDisconnectTimer=null; } }
+function startBackgroundDisconnectCountdown(){ clearBackgroundDisconnectTimer(); backgroundDisconnectTimer = setTimeout(()=>{ if(document.hidden){ showConnectionLostModal(); autoLockToGoogle("7.5dk arkaplan"); } }, SEVEN_MIN); }
 window.addEventListener('popstate', ()=>{
   const fakeCalcEl = document.getElementById("fakeCalc");
   if(fakeCalcEl && fakeCalcEl.style.display!=="none"){
@@ -645,31 +976,49 @@ socket.on("phone-call-request", async (data)=>{
   if(_phoneRequestPending) return;
   _phoneRequestPending = true;
   const from = data.from || "Karşı taraf";
-  const kabul = confirm(`${from} sesli arama başlattı. Kabul ediyor musun?\\n\\nTamam = Kabul et, mikrofonun açılsın\\nİptal = Reddet`);
+  const kabul = confirm(`${from} sesli arama başlattı. Kabul ediyor musun?\n\nTamam = Kabul et, mikrofonun açılsın\nİptal = Reddet`);
   if(kabul){
     try{
-      if(!localStream){ try{ await startCamera(currentQuality, currentFacingMode); }catch(e){} }
-      if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} }); }
+      await ensureAudioTrack();
+      if(localStream){ 
+        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} }); 
+      }
       micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
-      volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false;
+      volumeSlider.value=0.15; 
+      if(remoteVideo){ remoteVideo.volume=0.15; remoteVideo.muted=false; try{ await remoteVideo.play(); }catch(e){} }
       isPhoneMode=true; document.body.classList.add("phone-mode"); if(phoneModeBtn) phoneModeBtn.classList.add("active");
       if(phoneCallUI) phoneCallUI.style.display="flex";
       if(remoteVideo) remoteVideo.style.display="none";
       if(candleContainer){ candleContainer.classList.remove("show"); }
+      // FIX: karsi tarafa ses gitsin + alinsin
+      try{
+        if(peer){ await syncAllTracksToPeer(); }
+      }catch(e){}
       socket.emit("phone-call-accept", {from: myRealUsername});
-    }catch(e){ socket.emit("phone-call-decline", {from: myRealUsername}); }
+    }catch(e){ console.log("phone-call-request hata", e); socket.emit("phone-call-decline", {from: myRealUsername}); }
   } else {
     socket.emit("phone-call-decline", {from: myRealUsername});
   }
   _phoneRequestPending = false;
 });
-socket.on("phone-call-accept", (data)=>{
+socket.on("phone-call-accept", async (data)=>{
+  try{ await ensureAudioTrack(); }catch(e){}
   if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} }); }
   micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
-  volumeSlider.value=0.15; remoteVideo.volume=0.15; remoteVideo.muted=false;
+  volumeSlider.value=0.15; 
+  if(remoteVideo){ remoteVideo.volume=0.15; remoteVideo.muted=false; try{ await remoteVideo.play(); }catch(e){} }
   isPhoneMode=true; document.body.classList.add("phone-mode"); if(phoneModeBtn) phoneModeBtn.classList.add("active");
   if(phoneCallUI) phoneCallUI.style.display="flex";
   if(remoteVideo) remoteVideo.style.display="none";
+  // FIX: karsi tarafa ses gitsin + karsi ses gelsin
+  try{
+    if(peer){ await syncAllTracksToPeer(); }
+    if(remoteVideo && remoteVideo.srcObject){
+      remoteVideo.muted=false;
+      remoteVideo.volume=0.15;
+      try{ await remoteVideo.play(); }catch(e){}
+    }
+  }catch(e){}
 });
 socket.on("phone-call-decline", (data)=>{
   alert(`${data.from||"Karşı taraf"} sesli aramayı reddetti`);
@@ -684,35 +1033,76 @@ socket.on("video-call-request", async (data)=>{
     if(_videoRequestPending) return;
     _videoRequestPending = true;
     const from = data.from || "Karşı taraf";
-    const withMic = data.withMic;
-    const kabul = confirm(`${from} kameralı arama başlattı${withMic?" (sesli)":""}. Kabul edip sen de kameranı açmak ister misin?\\nTamam = Kabul et`);
+    const withMic = data.withMic !== false; // default sesli
+    const kabul = confirm(`${from} kameralı arama başlattı${withMic?" (sesli)":""}. Kabul edip sen de kameranı açmak ister misin?
+Tamam = Kabul et`);
     if(kabul){
       try{
-        if(!localStream){ await startCamera(currentQuality, currentFacingMode); }
-        localStream.getVideoTracks().forEach(t=>t.enabled=true);
-        camEnabled=true; if(camBtn) camBtn.classList.remove("offIcon");
-        if(withMic){ localStream.getAudioTracks().forEach(t=>t.enabled=true); micEnabled=true; if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } }
-        if(peer&&peer._pc&&localStream){
-          const vt=localStream.getVideoTracks()[0]; const at=localStream.getAudioTracks()[0];
-          if(vt){ const senders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="video"); for(const s of senders){ try{ await s.replaceTrack(vt); }catch(e){} } }
-          if(at){ const aSenders=peer._pc.getSenders().filter(s=>s.track&&s.track.kind==="audio"); for(const s of aSenders){ try{ await s.replaceTrack(at); }catch(e){} } }
+        await ensureAudioTrack();
+        await startCamera(currentQuality, currentFacingMode, true);
+        if(localStream){
+          localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+          localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
         }
+        camEnabled=true; micEnabled=true;
+        if(camBtn) camBtn.classList.remove("offIcon");
+        if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+        await syncAllTracksToPeer();
+        isPhoneMode=false;
+        document.body.classList.remove("phone-mode");
+        if(phoneModeBtn) phoneModeBtn.classList.remove("active");
+        if(phoneCallUI) phoneCallUI.style.display="none";
         if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-        if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
-        socket.emit("video-call-accept", {from: myRealUsername});
-      }catch(e){ socket.emit("video-call-decline", {from: myRealUsername}); }
+        if(remoteVideo){ 
+          remoteVideo.style.display="block"; 
+          remoteVideo.muted=false;
+          remoteVideo.volume=0.6;
+          try{ await remoteVideo.play(); }catch(e){}
+        }
+        if(myVideo){ 
+          try{ await myVideo.play(); }catch(e){}
+          if(myVideoContainer) myVideoContainer.style.display="block";
+          myVideo.style.display="block";
+        }
+        if(myVideoContainer) myVideoContainer.style.display="block";
+        if(myVideoContainer) myVideoContainer.style.display="block";
+        socket.emit("video-call-accept", {from: myRealUsername, withMic: true});
+      }catch(e){ console.log("video-call-request hata", e); socket.emit("video-call-decline", {from: myRealUsername}); }
     } else {
       socket.emit("video-call-decline", {from: myRealUsername});
     }
     _videoRequestPending = false;
   });
-socket.on("video-call-accept", (data)=>{
-    if(localStream){ localStream.getVideoTracks().forEach(t=>t.enabled=true); localStream.getAudioTracks().forEach(t=>t.enabled=true); }
+socket.on("video-call-accept", async (data)=>{
+    try{ await ensureAudioTrack(); }catch(e){}
+    try{ await startCamera(currentQuality, currentFacingMode, true); }catch(e){}
+    if(localStream){
+      localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+    }
     camEnabled=true; micEnabled=true;
     if(camBtn) camBtn.classList.remove("offIcon");
     if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+    isPhoneMode=false;
+    document.body.classList.remove("phone-mode");
+    if(phoneModeBtn) phoneModeBtn.classList.remove("active");
+    if(phoneCallUI) phoneCallUI.style.display="none";
     if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-    if(remoteVideo && remoteVideo.srcObject) remoteVideo.style.display="block";
+    if(remoteVideo){ 
+      remoteVideo.style.display="block"; 
+      remoteVideo.muted=false;
+      remoteVideo.volume=0.6;
+      try{ await remoteVideo.play(); }catch(e){}
+    }
+    if(myVideo){ 
+      try{ await myVideo.play(); }catch(e){}
+      if(myVideoContainer) myVideoContainer.style.display="block";
+      myVideo.style.display="block";
+    }
+    if(myVideoContainer) myVideoContainer.style.display="block";
+    await syncAllTracksToPeer();
+    // Ekstra: 1 saniye sonra tekrar sync, tek yonlu ses bug'ini cozer
+    setTimeout(()=>{ syncAllTracksToPeer(); }, 1000);
   });
 socket.on("video-call-decline", (data)=>{
     alert(`${data.from||"Karşı taraf"} kamera isteğini reddetti`);
@@ -989,7 +1379,7 @@ function initSecuritySettings(){
   if(btn&&panel){btn.onclick=()=>{showSecurityPanel();};}
   if(closeBtn){closeBtn.onclick=()=>{hideSecurityPanel();};}
   if(panel){panel.addEventListener("click",(e)=>{if(e.target===panel) hideSecurityPanel();});}
-  if(saveBtn){saveBtn.onclick=()=>{const cfg={skullAction:document.getElementById("skullActionSelect")?.value||'full',redAction:document.getElementById("redActionSelect")?.value||'escape',flipAction:document.getElementById("flipActionSelect")?.value||'red',confirmSkull:!!document.getElementById("confirmSkull")?.checked,confirmRed:!!document.getElementById("confirmRed")?.checked,confirmFlip:!!document.getElementById("confirmFlip")?.checked,triggers:{flip:!!document.getElementById("triggerFlip")?.checked,shake:!!document.getElementById("triggerShake")?.checked,volDown3:!!document.getElementById("triggerVolDown3")?.checked,volUp3:!!document.getElementById("triggerVolUp3")?.checked,power2:!!document.getElementById("triggerPower2")?.checked,volBoth:!!document.getElementById("triggerVolBoth")?.checked,threeFinger:!!document.getElementById("triggerThreeFinger")?.checked,pocket:!!document.getElementById("triggerPocket")?.checked}}; saveSecurityConfig(cfg); applySecurityTriggers(cfg); hideSecurityPanel(); showToast("🛡 Kaydedildi");};}
+  if(saveBtn){saveBtn.onclick=()=>{const cfg={skullAction:document.getElementById("skullActionSelect").value||'full',redAction:document.getElementById("redActionSelect").value||'escape',flipAction:document.getElementById("flipActionSelect").value||'red',confirmSkull:!!document.getElementById("confirmSkull")?.checked,confirmRed:!!document.getElementById("confirmRed")?.checked,confirmFlip:!!document.getElementById("confirmFlip")?.checked,triggers:{flip:!!document.getElementById("triggerFlip")?.checked,shake:!!document.getElementById("triggerShake")?.checked,volDown3:!!document.getElementById("triggerVolDown3")?.checked,volUp3:!!document.getElementById("triggerVolUp3")?.checked,power2:!!document.getElementById("triggerPower2")?.checked,volBoth:!!document.getElementById("triggerVolBoth")?.checked,threeFinger:!!document.getElementById("triggerThreeFinger")?.checked,pocket:!!document.getElementById("triggerPocket")?.checked}}; saveSecurityConfig(cfg); applySecurityTriggers(cfg); hideSecurityPanel(); showToast("🛡 Kaydedildi");};}
   const perMsgSelect=document.getElementById("perMessageTimerSelect"); if(perMsgSelect){perMsgSelect.addEventListener("change",()=>{if(perMsgSelect.value==="custom_wheel"){if(typeof openWheel==='function') openWheel();}});}
   const cfg=loadSecurityConfig(); applySecuritySettingsToUI(cfg); applySecurityTriggers(cfg);
   setTimeout(()=>{ const m=document.getElementById("panicConfirmModal"); if(m){m.style.display="none"; m.classList.remove("show");} const s=document.getElementById("securitySettingsPanel"); if(s){s.style.display="none"; s.classList.remove("show");} },100);
@@ -1006,7 +1396,26 @@ function handlePowerDouble(){if(document.hidden){const now=Date.now(); if(now-la
 function handleThreeFinger(e){if(e.touches&&e.touches.length>=3){e.preventDefault(); triggerSecurityAction("threeFinger");}}
 function triggerSecurityAction(source){const cfg=loadSecurityConfig(); document.body.classList.add("flip-blur-active"); showToast("🛡 "+source+" - buğulandi"); try{if(navigator.vibrate) navigator.vibrate([100,50,100]);}catch(e){} setTimeout(()=>{document.body.classList.remove("flip-blur-active"); const needConfirm=cfg.confirmRed; const doAction=()=>{enhancedPanic();}; if(needConfirm){showPanicConfirm(source+" tetiklendi - panik?",doAction);}else{doAction();}},1200);}
 function showPanicConfirm(text,onConfirm){const modal=document.getElementById("panicConfirmModal"); const txt=document.getElementById("panicConfirmText"); const ok=document.getElementById("panicConfirmOk"); const cancel=document.getElementById("panicConfirmCancel"); if(!modal){onConfirm();return;} if(txt) txt.textContent=text; modal.style.display="flex"; modal.classList.add("show"); const cleanup=()=>{modal.style.display="none"; modal.classList.remove("show"); if(ok) ok.onclick=null; if(cancel) cancel.onclick=null; modal.onclick=null;}; if(ok) ok.onclick=()=>{cleanup(); onConfirm();}; if(cancel) cancel.onclick=()=>{cleanup();}; if(modal) modal.onclick=(e)=>{if(e.target===modal) cleanup();};}
-function triggerNewMessageBlink(){const ct=document.getElementById("chatToggle"); const fp=document.getElementById("floatingPill"); const left=document.getElementById("floatingPillLeft"); if(ct) ct.classList.add("hasNewMessage"); if(fp) fp.classList.add("hasNewMessage"); if(left) left.classList.add("hasNewMessage"); setTimeout(()=>{ if(ct) ct.classList.remove("hasNewMessage"); if(fp) fp.classList.remove("hasNewMessage"); if(left) left.classList.remove("hasNewMessage"); },8000);}
+function triggerNewMessageBlink(){
+  if(typeof isHiddenMode!=="undefined" && isHiddenMode){
+    hasNewMessageWhileHidden=true;
+    startBlinking2580();
+    const ind=document.getElementById("hiddenNewMsgIndicator");
+    if(ind){ ind.style.display="block"; ind.textContent="2+2=3!"; }
+    return;
+  }
+  const ct=document.getElementById("chatToggle");
+  const fp=document.getElementById("floatingPill");
+  const left=document.getElementById("floatingPillLeft");
+  if(ct) ct.classList.add("hasNewMessage");
+  if(fp) fp.classList.add("hasNewMessage");
+  if(left) left.classList.add("hasNewMessage");
+  setTimeout(()=>{
+    if(ct) ct.classList.remove("hasNewMessage");
+    if(fp) fp.classList.remove("hasNewMessage");
+    if(left) left.classList.remove("hasNewMessage");
+  },8000);
+}
 function initWheelPersistFeature(){
   const modal = document.getElementById("wheelPersistModal");
   const yesBtn = document.getElementById("wheelPersistYes");
@@ -1088,6 +1497,7 @@ document.addEventListener('DOMContentLoaded', initFakeNotifications);
 
 // 4. SESLI MESAJ (yok olan)
 function initVoiceMessage(){
+  return; // DISABLED - sesli mesaj iptal - YENİ
   // UI: sendBtn yanina mic basili tut butonu ekle
   const inputArea = document.getElementById('inputArea');
   const bottomRow = document.querySelector('.inputBottomRow');
@@ -1124,7 +1534,7 @@ async function startVoiceRecording(){
         const base64 = reader.result.split(',')[1];
         const enc = await encryptText(base64, currentPassword);
         const msgId = 'voice_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
-        const expireSec = parseInt(perMessageTimerSelect?.value || defaultExpire || '14400');
+        const expireSec = parseInt(perMessageTimerSelect.value || defaultExpire || '14400');
         socket.emit('chat-voice', {msgId, enc, expireSec, duration, mediaType:'voice'});
         // kendi ekrana ekle
         addVoiceMessageToUI(msgId, base64, true, duration, expireSec);
@@ -1381,32 +1791,17 @@ function initBackgroundBlur(){
 
 // 9. OTO RECONNECT - mum yanarken oto baglan
 function initAutoReconnect(){
-  socket.on('user-disconnected', ()=>{
-    if(autoReconnectAttempts >= maxReconnectAttempts) return;
-    if(reconnectTimer) clearTimeout(reconnectTimer);
-    autoReconnectAttempts++;
-    let count = 3;
-    if(opponentStatusText){
-      opponentStatusText.textContent = `Yeniden bağlanıyor... ${count}`;
-      opponentStatusText.style.color = '#ffcc00';
-    }
-    if(candleContainer){
-      candleContainer.classList.add('show');
-      candleContainer.style.display = 'flex';
-    }
-    const interval = setInterval(()=>{
-      count--;
-      if(opponentStatusText) opponentStatusText.textContent = `Yeniden bağlanıyor... ${count}`;
-      if(count<=0){
-        clearInterval(interval);
-        if(socket && currentRoom){
-          socket.emit('join-room', {room: currentRoom, username: myUsername, realUsername: myRealUsername});
-          showToast(`🔄 Yeniden bağlanma denemesi ${autoReconnectAttempts}/${maxReconnectAttempts}`);
-        }
-      }
-    }, 1000);
-    reconnectTimer = setTimeout(()=>{}, 4000);
-  });
+  socket.on("user-last-seen",(data)=>{
+  const user=data.user; const ts=data.ts;
+  if(user===myRealUsername) return;
+  lastSeenTimes[user]=ts;
+  localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes));
+  updateOpponentDisplay(user,"yokum");
+});
+socket.on("last-seen-list",(list)=>{
+  Object.assign(lastSeenTimes, list);
+  localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes));
+});
   socket.on('user-connected', ()=>{
     autoReconnectAttempts = 0;
     if(reconnectTimer) clearTimeout(reconnectTimer);
@@ -1435,6 +1830,7 @@ function showToast(msg){
 // V19 INIT
 document.addEventListener('DOMContentLoaded', ()=>{
   initScreenshotProtection();
+  initConnectionMonitoring();
   initReactions();
   initReadReceipts();
   initCollaborativeDrawing();
@@ -2386,6 +2782,7 @@ let hiddenCalcBuf = "";
 let keepAliveInterval = null;
 let wakeLock = null;
 let blinkInterval = null;
+let blink = true;
 let lastConnectionCheck = Date.now();
 let connectionLost = false;
 
@@ -2480,22 +2877,133 @@ function checkConnectionAndWarn(){
     if(typeof socket!=="undefined" && !socket.connected){
       console.log("Baglanti kopuk - uyari goster");
       showConnectionLostModal();
+      if(typeof isHiddenMode!=="undefined" && !isHiddenMode){
+        if(typeof showToast==="function") showToast("⚠️ Bağlantı koptu! Mesaj gitmeyebilir");
+      }
       return false;
     }
     return true;
   }catch(e){ return false; }
 }
+// NORMAL MODDA DA BAGLANTI TAKIBI - her 15sn kontrol
+let connectionMonitorInterval = null;
+
+function isOpponentOnline(){
+  try{
+    const norm = (s)=> (s||"").toString().trim().toLowerCase();
+    const myNorm = norm(myRealUsername||myUsername);
+    // Eger opponentUsername yoksa ama odada 2 kisi varsa online say
+    if(typeof opponentUsername!=="undefined" && opponentUsername){
+      if(norm(opponentUsername)===myNorm) return false; // kendi adin degil
+    }
+    // 1. Status direkt online ise
+    if(typeof opponentStatus!=="undefined"){
+      const s = (opponentStatus||"").toString().toLowerCase();
+      if(s==="varım" || s==="online" || s==="çevrimiçi" || s==="varim" || s==="cevrimiçi") return true;
+    }
+    // 2. Dot online class
+    const dot = document.getElementById("opponentDot");
+    if(dot && dot.classList.contains("online")) return true;
+    // 3. Status text cevrimici
+    const statusText = document.getElementById("opponentStatusText");
+    if(statusText && statusText.textContent){
+      const t = statusText.textContent.toLowerCase();
+      if(t.includes("çevrimiçi") || t.includes("cevrimici") || t.includes("online")) return true;
+    }
+    // 4. Eger opponentUsername var ve lastSeen 2dk icinde ise online
+    if(typeof lastSeenTimes!=="undefined" && typeof opponentUsername!=="undefined" && opponentUsername){
+      const ts = lastSeenTimes[opponentUsername];
+      if(ts){
+        const diff = Date.now() - ts;
+        if(diff < 2*60*1000) return true; // 2dk icinde aktif ise online
+      } else {
+        // lastSeen yok ama opponentUsername var ise ve count 2 ise online say
+        if(typeof currentRoom!=="undefined" && currentRoom) return true;
+      }
+    }
+    // 5. Eger hic opponentUsername yoksa ama odada baska biri var gibi gorunuyorsa, false degil true sayma - cunku arama yapilabilmeli
+    // Bu durumda false don, ama joined-room ile duzelecek
+    if(typeof opponentUsername!=="undefined" && opponentUsername && norm(opponentUsername)!==myNorm){
+      return true; // opponent var ise online kabul et
+    }
+    return false;
+  }catch(e){ return false; }
+}
+
+function initConnectionMonitoring(){
+  if(connectionMonitorInterval) clearInterval(connectionMonitorInterval);
+  connectionMonitorInterval = setInterval(()=>{
+    if(typeof socket!=="undefined" && !socket.connected){
+      if(!connectionLost){
+        showConnectionLostModal();
+        if(typeof showToast==="function" && (typeof isHiddenMode==="undefined" || !isHiddenMode)){
+          showToast("⚠️ Bağlantı koptu - yeniden bağlanıyor...");
+        }
+      }
+      try{ socket.connect(); }catch(e){}
+    }
+    // Ping check
+    if(typeof socket!=="undefined" && socket.connected && typeof currentRoom!=="undefined" && currentRoom){
+      try{ socket.emit("ping-check", Date.now()); }catch(e){}
+    }
+  }, 15000);
+  // Online/offline events
+  window.addEventListener('online', ()=>{
+    console.log('Internet geri geldi');
+    hideConnectionLostModal();
+    try{ socket.connect(); }catch(e){}
+    if(typeof showToast==="function") showToast("✅ İnternet geri geldi");
+  });
+  window.addEventListener('offline', ()=>{
+    console.log('Internet kesildi');
+    showConnectionLostModal();
+    if(typeof showToast==="function") showToast("⚠️ İnternet kesildi!");
+  });
+}
+
 function startBlinking2580(){
-  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add("hc-blink"); });
-  const ind=document.getElementById("hiddenNewMsgIndicator"); if(ind) ind.style.display="block";
-  let blink=false;
   if(blinkInterval) clearInterval(blinkInterval);
-  blinkInterval=setInterval(()=>{ if(!isHiddenMode){clearInterval(blinkInterval); return;} document.title=blink?"💬 Yeni Mesaj":"HESAPLAMA"; blink=!blink; },1000);
+  blink = true;
+  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.style.background="#ff0000";
+      el.style.color="#fff";
+      el.style.boxShadow="0 0 12px #ff0000";
+      el.classList.add("hc-blink");
+    }
+  });
+  const ind=document.getElementById("hiddenNewMsgIndicator");
+  if(ind){ ind.style.display="block"; ind.textContent="💬 2+2=5!"; ind.style.background="rgba(255,0,0,0.9)"; ind.style.color="#fff"; }
+  blinkInterval=setInterval(()=>{
+    if(typeof isHiddenMode!=="undefined" && !isHiddenMode){clearInterval(blinkInterval); blinkInterval=null; return;}
+    try{ document.title=blink?"💬 Yeni Mesaj":"HESAPLAMA"; }catch(e){}
+    ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){
+        el.style.background = blink? "#ff0000" : "#880000";
+        el.style.boxShadow = blink? "0 0 15px #ff4444" : "0 0 5px #550000";
+      }
+    });
+    blink=!blink;
+  },600);
 }
 function stopBlinking(){
-  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove("hc-blink"); });
+  ["hc_2","hc_5","hc_8","hc_0"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.classList.remove("hc-blink");
+      el.style.background="";
+      el.style.boxShadow="";
+      el.style.color="";
+      el.style.animation="";
+    }
+  });
   if(blinkInterval){ clearInterval(blinkInterval); blinkInterval=null; }
-  document.title="HESAPLAMA";
+  try{ document.title="HESAPLAMA"; }catch(e){}
+  const ind=document.getElementById("hiddenNewMsgIndicator");
+  if(ind) ind.style.display="none";
+  hasNewMessageWhileHidden=false;
 }
 function startKeepAlive(){
   if(keepAliveInterval) clearInterval(keepAliveInterval);
@@ -2524,80 +3032,14 @@ function doKeepAlivePing(){
 }
 // ===== V27 - GELISMIS ONLINE STATUS + GENEL MOD FIX =====
 let opponentLastSeen = null;
+// restore opponentLastSeen from localStorage if exists
+try{ const ls = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1")); if(ls){ const o=JSON.parse(ls); const keys=Object.keys(o); if(keys.length) opponentLastSeen=o[keys[0]]; } }catch(e){}
 let myStatus = "online";
 let statusCheckInterval = null;
 
-function formatLastSeen(ts){
-  if(!ts) return "";
-  const now = Date.now();
-  const diffMs = now - ts;
-  if(diffMs < 0) return "az önce";
-  const diffSec = Math.floor(diffMs/1000);
-  if(diffSec < 10) return "az önce";
-  if(diffSec < 60) return `${diffSec} sn önce`;
-  const mins = Math.floor(diffSec/60);
-  if(mins < 60) return `${mins} dk önce`;
-  const hours = Math.floor(mins/60);
-  if(hours < 24) return `${hours} sa önce`;
-  const days = Math.floor(hours/24);
-  return `${days} gün önce`;
-}
-function formatClockShort(ts){
-  try{
-    const d = new Date(ts);
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mm = String(d.getMinutes()).padStart(2,'0');
-    return `${hh}:${mm}`;
-  }catch(e){ return ""; }
-}
-function updateOpponentDisplay(username, status){
-  const nameEl = document.getElementById("opponentNameDisplay");
-  const statusEl = document.getElementById("opponentStatusText");
-  const dotEl = document.getElementById("opponentDot");
-  if(!nameEl || !statusEl || !dotEl) return;
-  if(username && typeof myRealUsername!=="undefined" && username===myRealUsername) return;
-  if(username){ nameEl.textContent = username; if(typeof opponentUsername!=="undefined") opponentUsername=username; }
-  const secMode = localStorage.getItem("gorgor_security_mode")||"private";
-  if(status === "online" || status === "çevrimiçi" || status === "varım"){
-    statusEl.textContent = "çevrimiçi";
-    statusEl.style.color = "#00ff88";
-    dotEl.className = "onlineDot online";
-    opponentLastSeen = Date.now();
-    if(username && typeof lastSeenTimes!=="undefined") lastSeenTimes[username]=Date.now();
-  }else if(status === "busy" || status === "meşgul"){
-    if(secMode==="general"){
-      statusEl.textContent = "çevrimiçi";
-      statusEl.style.color = "#00ff88";
-      dotEl.className = "onlineDot online";
-    }else{
-      statusEl.textContent = "meşgul";
-      statusEl.style.color = "#ffcc00";
-      dotEl.className = "onlineDot busy";
-    }
-  }else if(status === "offline" || status === "çevrimdışı" || status === "yokum"){
-    let ts = opponentLastSeen;
-    if(username && typeof lastSeenTimes!=="undefined" && lastSeenTimes[username]) ts = lastSeenTimes[username];
-    if(ts){
-      const clock = formatClockShort(ts);
-      const rel = formatLastSeen(ts);
-      if(clock && rel && rel!=="az önce"){
-        statusEl.textContent = `son görülme ${clock} • ${rel}`;
-      }else if(clock){
-        statusEl.textContent = `son görülme ${clock}`;
-      }else{
-        statusEl.textContent = `son görülme ${rel}`;
-      }
-    }else{
-      statusEl.textContent = "çevrimdışı";
-    }
-    statusEl.style.color = "#888";
-    dotEl.className = "onlineDot offline";
-  }else{
-    statusEl.textContent = status;
-  }
-}
 function initOnlineStatus(){
   document.addEventListener("visibilitychange", ()=>{
+    if(document.hidden){ startBackgroundDisconnectCountdown(); }else{ clearBackgroundDisconnectTimer(); }
     const secMode = localStorage.getItem("gorgor_security_mode")||"private";
     if(secMode==="general"){
       console.log("GENEL MOD - status degistirilmiyor");
@@ -2643,4 +3085,479 @@ function closeChatPanelIfOpen(){
     if(typeof showToast==="function") showToast("📹 Görüşme başladı, mesaj panosu kapatıldı");
   }
 }
+
+
+
+// ==================== BIYOMETRIK GIRIS - YUZ TANIMA + PARMAK IZI - V2 KARISIKLIK YOK ====================
+let faceModelsLoaded = false;
+let biometricStream = null;
+let pendingBiometricUser = null; // Giris icin bekleyen kullanici
+
+function normalizeUser(u){ return (u||'').toString().trim().toLowerCase(); }
+
+async function loadFaceModels(){
+  if(faceModelsLoaded) return true;
+  if(typeof faceapi === 'undefined'){
+    for(let i=0;i<10;i++){ await new Promise(r=>setTimeout(r,300)); if(typeof faceapi !== 'undefined') break; }
+    if(typeof faceapi === 'undefined') return false;
+  }
+  const modelUrls = [
+    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model',
+    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model',
+    'https://justadudewhohacks.github.io/face-api.js/models',
+    'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/models'
+  ];
+  for(const modelUrl of modelUrls){
+    try{
+      await faceapi.nets.tinyFaceDetector.loadFromUri(modelUrl);
+      await faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(modelUrl);
+      faceModelsLoaded = true;
+      return true;
+    }catch(e){ continue; }
+  }
+  return false;
+}
+
+async function registerFaceForCurrentUser(){
+  const currentUser = (typeof myRealUsername!=="undefined" && myRealUsername) ? myRealUsername : (document.getElementById('userName')?.value || 'varım');
+  if(!currentUser || currentUser.trim()===""){ alert('Önce giriş yapmalısın, şu an hangi hesapta olduğunu bilmiyorum'); return false; }
+  return await registerFace(currentUser);
+}
+
+async function registerFace(username){
+  const modal = document.getElementById('biometricModal');
+  const video = document.getElementById('biometricVideo');
+  const status = document.getElementById('biometricStatus');
+  const scanLine = document.getElementById('biometricScanLine');
+  if(!modal || !video || !status){ alert('Modal bulunamadi'); return false; }
+  modal.style.display='flex';
+  if(scanLine) scanLine.style.display='block';
+  status.textContent = `${username} için yüz kaydediliyor, düz bak ve sabit dur...`;
+  try{
+    const loaded = await loadFaceModels();
+    if(!loaded){ status.textContent = '❌ Modeller yüklenemedi, internet gerekli'; await new Promise(r=>setTimeout(r,2000)); modal.style.display='none'; return false; }
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user', width:640, height:480}});
+    biometricStream = stream;
+    video.srcObject = stream;
+    await new Promise(r=>{ video.onloadedmetadata = r; });
+    await video.play();
+    let found=false;
+    for(let i=0;i<40;i++){
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({inputSize:320})).withFaceLandmarks().withFaceDescriptor();
+      if(detection){
+        const descriptor = Array.from(detection.descriptor);
+        localStorage.setItem(`gorgor_face_${normalizeUser(username)}`, JSON.stringify(descriptor));
+        const canvas = document.getElementById('biometricCanvas');
+        if(canvas){
+          canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d'); ctx.drawImage(video,0,0);
+          try{ localStorage.setItem(`gorgor_face_img_${normalizeUser(username)}`, canvas.toDataURL('image/jpeg',0.6)); }catch(e){}
+        }
+        // Oda ve sifre bilgisini de sakla ki otomatik giris yapabilsin
+        try{
+          const roomVal = (typeof currentRoom!=="undefined" && currentRoom) ? currentRoom : (document.getElementById('roomName')?.value || localStorage.getItem('gorgor_last_room') || 'oda1');
+          const passVal = (typeof currentPassword!=="undefined" && currentPassword) ? currentPassword : (document.getElementById('roomPassword')?.value || '');
+          if(roomVal) localStorage.setItem(`gorgor_room_${normalizeUser(username)}`, roomVal);
+          if(passVal) localStorage.setItem(`gorgor_pass_${normalizeUser(username)}`, passVal);
+          localStorage.setItem('gorgor_last_room', roomVal);
+        }catch(e){}
+        status.textContent = `✅ ${username} yüzü kaydedildi!`;
+        found=true; break;
+      }
+      status.textContent = `${username} aranıyor... ${i+1}/40`;
+      await new Promise(r=>setTimeout(r,300));
+    }
+    if(!found) status.textContent = '❌ Yüz algılanamadı';
+    if(biometricStream){ biometricStream.getTracks().forEach(t=>t.stop()); biometricStream=null; }
+    setTimeout(()=>{ modal.style.display='none'; if(scanLine) scanLine.style.display='none'; updateBiometricStatusUI(); }, found?1500:2500);
+    return found;
+  }catch(e){
+    status.textContent = '❌ Hata: '+e.message;
+    if(biometricStream){ biometricStream.getTracks().forEach(t=>t.stop()); biometricStream=null; }
+    setTimeout(()=>{ modal.style.display='none'; }, 2000);
+    return false;
+  }
+}
+
+async function recognizeFace(){
+  const modal = document.getElementById('biometricModal');
+  const video = document.getElementById('biometricVideo');
+  const status = document.getElementById('biometricStatus');
+  const scanLine = document.getElementById('biometricScanLine');
+  if(!modal || !video || !status) return null;
+  modal.style.display='flex';
+  if(scanLine) scanLine.style.display='block';
+  status.textContent = 'Yüz aranıyor, kameraya bak...';
+  try{
+    const loaded = await loadFaceModels();
+    if(!loaded){ status.textContent = 'Modeller yok, parmak izine geçiliyor...'; await new Promise(r=>setTimeout(r,1000)); modal.style.display='none'; return 'DARK_FALLBACK'; }
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user', width:640, height:480}});
+    biometricStream = stream;
+    video.srcObject = stream;
+    await new Promise(r=>{ video.onloadedmetadata = r; });
+    await video.play();
+    for(let i=0;i<50;i++){
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({inputSize:320})).withFaceLandmarks().withFaceDescriptor();
+      if(detection){
+        const descriptor = detection.descriptor;
+        const users = ['varım','yokum'];
+        let best=null, bestDist=1;
+        for(const u of users){
+          const stored = localStorage.getItem(`gorgor_face_${normalizeUser(u)}`);
+          if(!stored) continue;
+          try{
+            const storedDesc = new Float32Array(JSON.parse(stored));
+            const dist = faceapi.euclideanDistance(descriptor, storedDesc);
+            if(dist < bestDist){ bestDist=dist; best=u; }
+          }catch(e){}
+        }
+        if(best && bestDist < 0.6){
+          status.textContent = `✅ ${best} tanındı`;
+          if(biometricStream){ biometricStream.getTracks().forEach(t=>t.stop()); biometricStream=null; }
+          setTimeout(()=>{ modal.style.display='none'; if(scanLine) scanLine.style.display='none'; }, 800);
+          return best;
+        }else{
+          status.textContent = `Yüz bulundu ama eşleşme zayıf (${best?bestDist.toFixed(2):'yok'}) ${i+1}/50`;
+        }
+      }else{
+        try{
+          const canvas = document.getElementById('biometricCanvas');
+          if(canvas && video.videoWidth>0){
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d'); ctx.drawImage(video,0,0, canvas.width, canvas.height);
+            const imgData = ctx.getImageData(0,0, Math.min(canvas.width,100), Math.min(canvas.height,100)).data;
+            let bright=0; for(let j=0;j<imgData.length;j+=4){ bright += (imgData[j]+imgData[j+1]+imgData[j+2])/3; } bright /= (imgData.length/4);
+            if(bright < 25 && i>5){
+              status.textContent = '🌑 Karanlık - parmak izine geçiliyor...';
+              await new Promise(r=>setTimeout(r,800));
+              if(biometricStream){ biometricStream.getTracks().forEach(t=>t.stop()); biometricStream=null; }
+              modal.style.display='none'; if(scanLine) scanLine.style.display='none';
+              return 'DARK_FALLBACK';
+            }
+          }
+        }catch(e){}
+        status.textContent = `Yüz aranıyor... ${i+1}/50`;
+      }
+      await new Promise(r=>setTimeout(r,250));
+    }
+    status.textContent = '❌ Yüz tanınamadı';
+    if(biometricStream){ biometricStream.getTracks().forEach(t=>t.stop()); biometricStream=null; }
+    setTimeout(()=>{ modal.style.display='none'; if(scanLine) scanLine.style.display='none'; }, 2000);
+    return null;
+  }catch(e){
+    status.textContent = '❌ Kamera hatası: '+e.message;
+    if(biometricStream){ biometricStream.getTracks().forEach(t=>t.stop()); biometricStream=null; }
+    setTimeout(()=>{ modal.style.display='none'; if(scanLine) scanLine.style.display='none'; }, 2000);
+    return null;
+  }
+}
+
+async function registerFingerprintForCurrentUser(){
+  const currentUser = (typeof myRealUsername!=="undefined" && myRealUsername) ? myRealUsername : (document.getElementById('userName')?.value || '');
+  if(!currentUser || currentUser.trim()===""){ alert('Önce giriş yap, hangi hesapta olduğunu bilmiyorum (varım/yokum)'); return false; }
+  return await registerFingerprint(currentUser);
+}
+
+async function registerFingerprint(username){
+  if(!window.PublicKeyCredential){ alert('Bu cihaz WebAuthn desteklemiyor. HTTPS ve güncel tarayıcı gerekli.'); return false; }
+  try{
+    const challenge = new Uint8Array(32); crypto.getRandomValues(challenge);
+    const userId = new TextEncoder().encode(username + '_' + Date.now());
+    const cred = await navigator.credentials.create({
+      publicKey:{
+        challenge,
+        rp:{name:'HESAPLAMA', id: location.hostname},
+        user:{id:userId, name:username, displayName:username},
+        pubKeyCredParams:[{type:'public-key', alg:-7}, {type:'public-key', alg:-257}],
+        authenticatorSelection:{authenticatorAttachment:'platform', userVerification:'required', requireResidentKey:false},
+        timeout:60000,
+        attestation:'none'
+      }
+    });
+    const rawId = new Uint8Array(cred.rawId);
+    const credId = btoa(String.fromCharCode(...rawId));
+    localStorage.setItem(`gorgor_fp_${normalizeUser(username)}`, credId);
+    localStorage.setItem(`gorgor_fp_raw_${normalizeUser(username)}`, JSON.stringify(Array.from(rawId)));
+    try{
+      const roomVal = (typeof currentRoom!=="undefined" && currentRoom) ? currentRoom : (document.getElementById('roomName')?.value || localStorage.getItem('gorgor_last_room') || 'oda1');
+      const passVal = (typeof currentPassword!=="undefined" && currentPassword) ? currentPassword : (document.getElementById('roomPassword')?.value || '');
+      if(roomVal) localStorage.setItem(`gorgor_room_${normalizeUser(username)}`, roomVal);
+      if(passVal) localStorage.setItem(`gorgor_pass_${normalizeUser(username)}`, passVal);
+      localStorage.setItem('gorgor_last_room', roomVal);
+    }catch(e){}
+    if(typeof showToast==="function") showToast(`👆 ${username} parmak izi kaydedildi`);
+    else alert(`👆 ${username} parmak izi kaydedildi`);
+    updateBiometricStatusUI();
+    return true;
+  }catch(e){
+    alert('Parmak izi kayıt hatası: ' + e.message + '\nHTTPS ve parmak izi açık olmalı');
+    return false;
+  }
+}
+
+async function loginWithFingerprint(){
+  if(!window.PublicKeyCredential){ if(typeof showToast==="function") showToast('Parmak izi desteklenmiyor'); return null; }
+  const users = ['varım','yokum'];
+  for(const u of users){
+    const storedB64 = localStorage.getItem(`gorgor_fp_${normalizeUser(u)}`);
+    if(!storedB64) continue;
+    try{
+      const challenge = new Uint8Array(32); crypto.getRandomValues(challenge);
+      let rawId; try{ rawId = Uint8Array.from(atob(storedB64), c=>c.charCodeAt(0)); }catch(e){ rawId = new Uint8Array(JSON.parse(localStorage.getItem(`gorgor_fp_raw_${normalizeUser(u)}`)||'[]')); }
+      if(!rawId || rawId.length===0) continue;
+      const cred = await navigator.credentials.get({
+        publicKey:{ challenge, allowCredentials:[{id:rawId, type:'public-key'}], userVerification:'required', timeout:60000 }
+      });
+      if(cred) return u;
+    }catch(e){ console.log('fp deneme', u, e.message); }
+  }
+  try{
+    const challenge = new Uint8Array(32); crypto.getRandomValues(challenge);
+    const assertion = await navigator.credentials.get({ publicKey:{ challenge, userVerification:'required', timeout:60000 }});
+    if(assertion){
+      const lastUser = localStorage.getItem('gorgor_last_biometric_user') || 'varım';
+      return lastUser;
+    }
+  }catch(e){}
+  return null;
+}
+
+function showBiometricLoginConfirm(username, method){
+  return new Promise((resolve)=>{
+    const modal = document.getElementById('biometricLoginConfirmModal');
+    const title = document.getElementById('bioConfirmTitle');
+    const desc = document.getElementById('bioConfirmDesc');
+    const btnOk = document.getElementById('bioConfirmOk');
+    const btnCancel = document.getElementById('bioConfirmCancel');
+    const icon = document.getElementById('bioConfirmIcon');
+    const img = document.getElementById('bioConfirmFaceImg');
+    if(!modal || !btnOk || !btnCancel){ resolve(false); return; }
+    pendingBiometricUser = username;
+    const lower = normalizeUser(username);
+    const isVarim = lower.includes('var');
+    title.textContent = `${username} olarak tanındın`;
+    btnOk.textContent = `${username} Gir`;
+    desc.textContent = `${method} ile ${username} doğrulandı. Oda ve şifre otomatik doldurulup giriş yapılacak.`;
+    icon.textContent = isVarim ? '🧑‍💼' : '👩‍💼';
+    // Yüz resmi varsa goster
+    try{
+      const faceImg = localStorage.getItem(`gorgor_face_img_${lower}`);
+      if(faceImg && img){ img.src = faceImg; img.style.display='block'; } else if(img){ img.style.display='none'; }
+    }catch(e){ if(img) img.style.display='none'; }
+    modal.style.display='flex';
+    const cleanup = ()=>{
+      modal.style.display='none';
+      btnOk.onclick=null; btnCancel.onclick=null;
+    };
+    btnCancel.onclick = ()=>{ cleanup(); resolve(false); };
+    btnOk.onclick = ()=>{ cleanup(); resolve(true); };
+  });
+}
+
+async function autoLoginWithUser(username){
+  if(!username) return false;
+  const lower = normalizeUser(username);
+  const roomVal = localStorage.getItem(`gorgor_room_${lower}`) || localStorage.getItem('gorgor_last_room') || 'oda1';
+  const passVal = localStorage.getItem(`gorgor_pass_${lower}`) || '';
+  const roomInput = document.getElementById('roomName');
+  const userInput = document.getElementById('userName');
+  const passInput = document.getElementById('roomPassword');
+  if(roomInput) roomInput.value = roomVal;
+  if(userInput) userInput.value = username;
+  if(passInput){
+    if(passVal) passInput.value = passVal;
+    else{
+      // Sifre yoksa sor
+      const p = prompt(`${username} için oda şifresini gir (ilk kez gerekli)`);
+      if(!p) return false;
+      passInput.value = p;
+      localStorage.setItem(`gorgor_pass_${lower}`, p);
+    }
+  }
+  localStorage.setItem('gorgor_last_biometric_user', username);
+  localStorage.setItem('gorgor_last_room', roomVal);
+  if(typeof showToast==="function") showToast(`✅ ${username} olarak giriş yapılıyor...`);
+  // Otomatik giris
+  setTimeout(()=>{
+    const joinBtn = document.getElementById('joinBtn');
+    if(joinBtn) joinBtn.click();
+  }, 600);
+  return true;
+}
+
+async function attemptBiometricLogin(){
+  // Yüz dene
+  const faceResult = await recognizeFace();
+  if(faceResult && faceResult!=='DARK_FALLBACK'){
+    const confirmed = await showBiometricLoginConfirm(faceResult, 'Yüz tanıma');
+    if(confirmed){
+      await autoLoginWithUser(faceResult);
+      return faceResult;
+    }else{
+      return null;
+    }
+  }
+  if(faceResult==='DARK_FALLBACK'){
+    if(typeof showToast==="function") showToast('🌑 Karanlık - parmak izine geçiliyor');
+  }
+  // Parmak izi dene
+  const fpResult = await loginWithFingerprint();
+  if(fpResult){
+    const confirmed = await showBiometricLoginConfirm(fpResult, 'Parmak izi');
+    if(confirmed){
+      await autoLoginWithUser(fpResult);
+      return fpResult;
+    }
+  }
+  if(typeof showToast==="function") showToast('❌ Biyometrik giriş iptal / başarısız');
+  return null;
+}
+
+function updateBiometricStatusUI(){
+  try{
+    const faceVarim = localStorage.getItem('gorgor_face_varım') || localStorage.getItem('gorgor_face_varim');
+    const faceYokum = localStorage.getItem('gorgor_face_yokum');
+    const fpVarim = localStorage.getItem('gorgor_fp_varım') || localStorage.getItem('gorgor_fp_varim');
+    const fpYokum = localStorage.getItem('gorgor_fp_yokum');
+    const elFV = document.getElementById('statusFaceVarim');
+    const elFY = document.getElementById('statusFaceYokum');
+    const elPV = document.getElementById('statusFpVarim');
+    const elPY = document.getElementById('statusFpYokum');
+    if(elFV) elFV.textContent = faceVarim ? '✅ Var' : '❌ Yok';
+    if(elFY) elFY.textContent = faceYokum ? '✅ Var' : '❌ Yok';
+    if(elPV) elPV.textContent = fpVarim ? '✅ Var' : '❌ Yok';
+    if(elPY) elPY.textContent = fpYokum ? '✅ Var' : '❌ Yok';
+    // Current user labels
+    const cur = (typeof myRealUsername!=="undefined" && myRealUsername) ? myRealUsername : 'varım';
+    const curLabel = document.getElementById('currentBiometricUser');
+    const curName = document.getElementById('biometricCurrentUserName');
+    const label1 = document.getElementById('biometricUserLabel');
+    const label2 = document.getElementById('biometricUserLabel2');
+    if(curLabel) curLabel.textContent = cur;
+    if(curName) curName.textContent = cur;
+    if(label1) label1.textContent = cur;
+    if(label2) label2.textContent = cur;
+  }catch(e){}
+}
+
+function initBiometric(){
+  const fpBtn = document.getElementById('fingerprintBtn');
+  const faceBtn = document.getElementById('faceLoginBtn');
+  const bioCancel = document.getElementById('biometricCancel');
+  const bioRetry = document.getElementById('biometricRetry');
+  const roomTitle = document.getElementById('roomScreenTitle');
+  const hiddenTitle = document.getElementById('hiddenCalcTitle') || document.getElementById('roomCalcTitle');
+  const secFaceReg = document.getElementById('secFaceRegister');
+  const secFpReg = document.getElementById('secFpRegister');
+  const secFaceDel = document.getElementById('secFaceDelete');
+  const secFpDel = document.getElementById('secFpDelete');
+  const autoCheck = document.getElementById('autoBiometricCheck');
+
+  if(fpBtn) fpBtn.onclick = async()=>{ 
+    const result = await loginWithFingerprint();
+    if(result){
+      const confirmed = await showBiometricLoginConfirm(result, 'Parmak izi');
+      if(confirmed) await autoLoginWithUser(result);
+    }else{
+      if(typeof showToast==="function") showToast('❌ Parmak izi tanınamadı');
+    }
+  };
+  if(faceBtn) faceBtn.onclick = async()=>{ await attemptBiometricLogin(); };
+  if(bioCancel) bioCancel.onclick = ()=>{ const m=document.getElementById('biometricModal'); if(m) m.style.display='none'; if(biometricStream){ biometricStream.getTracks().forEach(t=>t.stop()); biometricStream=null; } const sl=document.getElementById('biometricScanLine'); if(sl) sl.style.display='none'; };
+  if(bioRetry) bioRetry.onclick = async()=>{ await attemptBiometricLogin(); };
+
+  if(secFaceReg) secFaceReg.onclick = async()=>{ await registerFaceForCurrentUser(); };
+  if(secFpReg) secFpReg.onclick = async()=>{ await registerFingerprintForCurrentUser(); };
+  if(secFaceDel) secFaceDel.onclick = ()=>{
+    const cur = (typeof myRealUsername!=="undefined" && myRealUsername) ? myRealUsername : prompt('Hangi kullanıcı yüzünü silelim? varım/yokum','varım');
+    if(!cur) return;
+    if(confirm(`${cur} yüz kaydı silinsin mi?`)){
+      localStorage.removeItem(`gorgor_face_${normalizeUser(cur)}`);
+      localStorage.removeItem(`gorgor_face_img_${normalizeUser(cur)}`);
+      updateBiometricStatusUI();
+      if(typeof showToast==="function") showToast(`🗑️ ${cur} yüz silindi`);
+    }
+  };
+  if(secFpDel) secFpDel.onclick = ()=>{
+    const cur = (typeof myRealUsername!=="undefined" && myRealUsername) ? myRealUsername : prompt('Hangi kullanıcı parmak izini silelim? varım/yokum','varım');
+    if(!cur) return;
+    if(confirm(`${cur} parmak izi silinsin mi?`)){
+      localStorage.removeItem(`gorgor_fp_${normalizeUser(cur)}`);
+      localStorage.removeItem(`gorgor_fp_raw_${normalizeUser(cur)}`);
+      updateBiometricStatusUI();
+      if(typeof showToast==="function") showToast(`🗑️ ${cur} parmak izi silindi`);
+    }
+  };
+  if(autoCheck){
+    autoCheck.checked = localStorage.getItem('gorgor_auto_biometric')==='true';
+    autoCheck.onchange = ()=>{ localStorage.setItem('gorgor_auto_biometric', autoCheck.checked?'true':'false'); };
+  }
+
+  if(roomTitle){
+    roomTitle.onclick = async()=>{ await attemptBiometricLogin(); };
+  }
+  if(hiddenTitle){
+    hiddenTitle.onclick = async()=>{
+      const result = await recognizeFace();
+      if(result && result!=='DARK_FALLBACK'){
+        const confirmed = await showBiometricLoginConfirm(result, 'Yüz tanıma');
+        if(confirmed){
+          try{
+            if(typeof currentRoom!=="undefined" && currentRoom){
+              if(confirm(`${result} olarak giriş yapılsın mı? Mevcut oturum kapanacak`)){
+                myRealUsername = result; myUsername = normalizeUser(result);
+                const roomVal = localStorage.getItem(`gorgor_room_${normalizeUser(result)}`) || currentRoom;
+                const passVal = localStorage.getItem(`gorgor_pass_${normalizeUser(result)}`) || currentPassword;
+                if(passVal){ currentPassword = passVal; socket.emit('join-room',{room:roomVal, password:passVal, username:result}); }
+              }
+            }else{
+              await autoLoginWithUser(result);
+            }
+          }catch(e){}
+        }
+      }else if(result==='DARK_FALLBACK'){
+        const fp = await loginWithFingerprint();
+        if(fp){
+          const confirmed = await showBiometricLoginConfirm(fp, 'Parmak izi');
+          if(confirmed) await autoLoginWithUser(fp);
+        }
+      }
+    };
+  }
+
+  // Güvenlik paneli açılınca UI guncelle
+  const secPanel = document.getElementById('securitySettingsPanel');
+  if(secPanel){
+    const observer = new MutationObserver(()=>{
+      if(secPanel.style.display!=='none'){ updateBiometricStatusUI(); }
+    });
+    observer.observe(secPanel, {attributes:true, attributeFilter:['style']});
+  }
+
+  const autoBio = localStorage.getItem('gorgor_auto_biometric');
+  if(autoBio==='true'){
+    setTimeout(async()=>{
+      const rs = document.getElementById('roomScreen');
+      if(rs && rs.style.display!=='none'){
+        await attemptBiometricLogin();
+      }
+    }, 1200);
+  }
+}
+
+function addBiometricSettings(){
+  // Artik HTML icinde statik var, sadece guncelle
+  updateBiometricStatusUI();
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  setTimeout(()=>{
+    try{ initBiometric(); }catch(e){ console.log('initBiometric hata', e); }
+    try{ addBiometricSettings(); }catch(e){}
+    try{ loadFaceModels(); }catch(e){}
+  }, 800);
+});
+// ==================== BIYOMETRIK SON ====================
+
 
