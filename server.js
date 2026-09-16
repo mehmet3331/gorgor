@@ -86,20 +86,10 @@ io.on('connection', socket=>{
     rooms[room].lastSeen[socket.realUsername]=Date.now();
     socket.join(room);
     const count=Object.keys(rooms[room].users).length;
-    // FIX: mevcut kullanicilari yeni girene gonder
-    const otherUsers = Object.entries(rooms[room].users).filter(([sid])=>sid!==socket.id).map(([sid,uname])=>{ 
-      const s = io.sockets.sockets.get(sid); 
-      return {username: uname, realUsername: s ? s.realUsername : uname}; 
-    });
-    socket.emit('joined-room',{username:data.username,count, otherUsers});
-    socket.emit('room-users', otherUsers);
+    socket.emit('joined-room',{username:data.username,count});
     socket.to(room).emit('user-connected',{username:data.username,realUsername:socket.realUsername});
     socket.emit('last-seen-list', rooms[room].lastSeen);
     socket.to(room).emit('user-last-seen',{user:socket.realUsername, ts: Date.now(), online:true});
-    // Yeni girene mevcut online kullanicilari da user-connected olarak gonder
-    for(const ou of otherUsers){
-      socket.emit('user-connected',{username:ou.username, realUsername:ou.realUsername});
-    }
     const now2=Date.now(); const pending=persistedMessages.filter(m=>m.room===room && (m.deleteAt||m.expireAt||0)>now2);
     if(pending.length) socket.emit('pending-messages',pending);
     console.log(`ODA: ${room} - ${data.username} girdi ${count} - lastSeen guncellendi`);

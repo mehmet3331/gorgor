@@ -4,16 +4,16 @@
 */
 console.log("V22 HARMAN YUKLENDI - Dunya chat harmani aktif");
 
-let replyToData = null;
-let editingMsgId = null;
-let editingOriginalText = "";
-let pinnedMessage = null;
-let starredMessages = new Map(); // msgId -> data
-let viewOnceEnabled = false; // V22.1 - PASIF EDILDI - 48 yok
-let searchResults = [];
-let currentSearchIdx = -1;
-let pollsData = new Map(); // msgId -> poll
-let checklistData = new Map();
+replyToData = typeof replyToData !== 'undefined' ? replyToData : null;
+editingMsgId = typeof editingMsgId !== 'undefined' ? editingMsgId : null;
+editingOriginalText = typeof editingOriginalText !== 'undefined' ? editingOriginalText : "";
+pinnedMessage = typeof pinnedMessage !== 'undefined' ? pinnedMessage : null;
+starredMessages = typeof starredMessages !== 'undefined' ? starredMessages : new Map();
+viewOnceEnabled = typeof viewOnceEnabled !== 'undefined' ? viewOnceEnabled : false;
+searchResults = typeof searchResults !== 'undefined' ? searchResults : [];
+currentSearchIdx = typeof currentSearchIdx !== 'undefined' ? currentSearchIdx : -1;
+pollsData = typeof pollsData !== 'undefined' ? pollsData : new Map();
+checklistData = typeof checklistData !== 'undefined' ? checklistData : new Map();
 
 // LocalStorage load starred
 try{
@@ -21,8 +21,8 @@ try{
   saved.forEach(s=>starredMessages.set(s.id, s));
 }catch(e){}
 
-let originalAddMyMessage = window.addMyMessage || null;
-let originalAddLocked = null;
+originalAddMyMessage = window.addMyMessage || null;
+originalAddLocked = null;
 
 // We'll wait for DOM and original functions
 document.addEventListener("DOMContentLoaded", ()=>{
@@ -842,7 +842,7 @@ function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;"
 function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 // Override sendBtn to handle edit mode
-const _origSendOnclick = null;
+if (typeof _origSendOnclick === "undefined") { _origSendOnclick = null; }
 document.addEventListener("DOMContentLoaded", ()=>{
   const sendBtn = document.getElementById("sendBtn");
   if(sendBtn){
