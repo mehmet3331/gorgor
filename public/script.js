@@ -282,66 +282,90 @@ async function decryptText(b64,password){ try{ const key=await deriveKey(passwor
 if(defaultSelfDestructSelect) defaultSelfDestructSelect.value="43200";
 if(micBtn) micBtn.textContent="🎤"; if(camBtn) camBtn.textContent="📹";
 async function startCamera(height=720, facingMode=currentFacingMode, withAudio=false){
+  // Her zaman video+audio iste - stabil WebRTC için
   const prevMicEnabled = (typeof micEnabled !== 'undefined') ? micEnabled : false;
   const prevCamEnabled = (typeof camEnabled !== 'undefined') ? camEnabled : false;
   const hadStream = !!localStream;
-  const prevAudioTrack = hadStream ? (localStream.getAudioTracks()[0] || null) : null;
-  const prevAudioEnabled = prevAudioTrack ? prevAudioTrack.enabled : prevMicEnabled;
   try{
     if(localStream){
-      const tracksToStop = localStream.getVideoTracks();
-      if(!prevAudioTrack || withAudio || arguments[2]){
-        localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} });
-      }else{
-        tracksToStop.forEach(t=>{ try{t.stop();}catch(e){} });
-      }
+      try{ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }catch(e){}
     }
+    // Sabit: her zaman video+audio al, kalite korunacak
     const constraints = {
-      video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}}
+      video:{ facingMode:{ideal:facingMode}, width:{ideal:height===1080?1920:height===720?1280:854}, height:{ideal:height}, frameRate:{ideal:30}},
+      audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true, sampleRate:48000, channelCount:1 }
     };
-    const _withAudio = (typeof arguments[2] !== 'undefined' ? arguments[2] : false);
-    if(_withAudio || withAudio || (hadStream && prevAudioTrack)){
-      constraints.audio={echoCancellation:true, noiseSuppression:true, autoGainControl:true};
-    }
-    localStream=await navigator.mediaDevices.getUserMedia(constraints);
-    if(prevAudioTrack && localStream.getAudioTracks().length===0){
-      try{ localStream.addTrack(prevAudioTrack); }catch(e){}
-    }
-    myVideo.srcObject=localStream;
-      myVideo.muted=true;
-      myVideo.autoplay=true;
-      myVideo.playsInline=true;
-      myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)";
+    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    if(myVideo){ myVideo.srcObject=localStream; myVideo.style.transform=facingMode==="user"?"scaleX(-1)":"scaleX(1)"; try{ await myVideo.play(); }catch(e){} }
     if(!hadStream){
-      if(_withAudio || withAudio){
-        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+      // İlk açılışta kapalı başlat (gizli mod)
+      localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
+      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
+      micEnabled=false; camEnabled=false;
+      if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+      if(camBtn){ camBtn.classList.add("offIcon"); }
+    } else {
+      // withAudio true ise her ikisini de aç, değilse önceki durumu koru
+      if(withAudio){
         localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
         micEnabled=true; camEnabled=true;
         if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
         if(camBtn){ camBtn.classList.remove("offIcon"); }
       } else {
-        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
-        localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} });
-        micEnabled=false; camEnabled=false;
-        if(micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
-        if(camBtn){ camBtn.classList.add("offIcon"); }
-      }
-    } else {
-      if(_withAudio || withAudio){
-        localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
-        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
-      } else {
         localStream.getVideoTracks().forEach(t=>{ try{t.enabled=prevCamEnabled;}catch(e){} });
+        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=prevMicEnabled;}catch(e){} });
+        micEnabled=prevMicEnabled; camEnabled=prevCamEnabled;
       }
-      localStream.getAudioTracks().forEach(t=>{ try{t.enabled=prevMicEnabled;}catch(e){} });
-      micEnabled=prevMicEnabled; camEnabled=prevCamEnabled;
-      if(micBtn){ if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } }
-      if(camBtn){ if(camEnabled){ camBtn.classList.remove("offIcon"); } else { camBtn.classList.add("offIcon"); } }
     }
-    try{ if(myVideo) myVideo.play().catch(()=>{}); }catch(e){}
-    if(peer) await syncAllTracksToPeer();
+    // Peer varsa trackleri değiştir - en stabil yöntem: sender.replaceTrack
+    if(peer && peer._pc){
+      try{
+        const senders = peer._pc.getSenders();
+        const vt = localStream.getVideoTracks()[0];
+        const at = localStream.getAudioTracks()[0];
+        if(vt){
+          const vSender = senders.find(s=>s.track && s.track.kind==='video');
+          if(vSender){ try{ await vSender.replaceTrack(vt); }catch(e){ try{ peer._pc.removeTrack(vSender); }catch(e2){} try{ peer._pc.addTrack(vt, localStream); }catch(e3){} } }
+          else { try{ peer._pc.addTrack(vt, localStream); }catch(e){} }
+          peerVideoTrack = vt;
+        }
+        if(at){
+          const aSender = senders.find(s=>s.track && s.track.kind==='audio');
+          if(aSender){ try{ await aSender.replaceTrack(at); }catch(e){ try{ peer._pc.removeTrack(aSender); }catch(e2){} try{ peer._pc.addTrack(at, localStream); }catch(e3){} } }
+          else { try{ peer._pc.addTrack(at, localStream); }catch(e){} }
+          peerAudioTrack = at;
+        }
+        // Yeni track eklendiyse negotiate tetikle
+        try{ if(typeof peer.negotiate==='function'){ peer.negotiate(); } }catch(e){}
+      }catch(e){ console.log("startCamera replaceTrack hata", e); }
+    }
     return true;
-  }catch(err){ console.log("kamera hata",err); return false; }
+  }catch(err){ 
+    console.log("kamera hata",err); 
+    // Kamera yoksa sadece ses dene
+    try{
+      const audioOnlyStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true, sampleRate:48000}});
+      if(localStream){ try{ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }catch(e){} }
+      localStream = audioOnlyStream;
+      if(myVideo){ try{ myVideo.srcObject=localStream; }catch(e){} }
+      micEnabled=true; camEnabled=false;
+      if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+      if(camBtn){ camBtn.classList.add("offIcon"); }
+      if(peer && peer._pc){
+        try{
+          const at = localStream.getAudioTracks()[0];
+          const senders = peer._pc.getSenders();
+          const aSender = senders.find(s=>s.track && s.track.kind==='audio');
+          if(aSender){ try{ await aSender.replaceTrack(at); }catch(e){} } else { try{ peer._pc.addTrack(at, localStream); }catch(e){} }
+          peerAudioTrack = at;
+          try{ if(typeof peer.negotiate==='function'){ peer.negotiate(); } }catch(e){}
+        }catch(e){}
+      }
+      if(typeof showToast==="function") showToast("📷 Kamera yok, sadece ses");
+      return true;
+    }catch(e2){ console.log("audio fallback hata", e2); return false; }
+  }
 }
 // FIX: Sesli/görüntülü aramada mikrofondan ses gitmeme - WhatsApp gibi sadece call'da ses ekle
 
@@ -350,10 +374,16 @@ async function startCamera(height=720, facingMode=currentFacingMode, withAudio=f
 function cleanLocalStreamForCall(){
   try{
     if(!localStream) return;
+    // Ended trackleri temizle, duplicate'leri sil
     const vTracks = localStream.getVideoTracks();
     const aTracks = localStream.getAudioTracks();
-    if(vTracks.length > 1){ for(let i=1;i<vTracks.length;i++){ try{ vTracks[i].stop(); localStream.removeTrack(vTracks[i]); }catch(e){} } }
-    if(aTracks.length > 1){ for(let i=1;i<aTracks.length;i++){ try{ aTracks[i].stop(); localStream.removeTrack(aTracks[i]); }catch(e){} } }
+    // Ended olanları kaldır
+    [...vTracks, ...aTracks].forEach(t=>{ if(t.readyState==='ended'){ try{ localStream.removeTrack(t); }catch(e){} } });
+    // Duplicate live trackleri temizle (1'den fazla ise)
+    const liveV = localStream.getVideoTracks().filter(t=>t.readyState==='live');
+    const liveA = localStream.getAudioTracks().filter(t=>t.readyState==='live');
+    if(liveV.length > 1){ for(let i=1;i<liveV.length;i++){ try{ liveV[i].stop(); localStream.removeTrack(liveV[i]); }catch(e){} } }
+    if(liveA.length > 1){ for(let i=1;i<liveA.length;i++){ try{ liveA[i].stop(); localStream.removeTrack(liveA[i]); }catch(e){} } }
     if(myVideo){ myVideo.srcObject=localStream; try{myVideo.play().catch(()=>{});}catch(e){} }
   }catch(e){ console.log("cleanLocalStream hata", e); }
 }
@@ -361,20 +391,43 @@ function cleanLocalStreamForCall(){
 // WebRTC tracklerini simple-peer'in public API'si ile senkronlar.
 async function syncAllTracksToPeer(){
   try{
-    if(!peer || !localStream) return false;
-    cleanLocalStreamForCall();
-    const vt=localStream.getVideoTracks()[0]||null;
-    const at=localStream.getAudioTracks()[0]||null;
+    if(!peer || !peer._pc || !localStream) return false;
+    // Duplicate ve ended trackleri temizle
+    try{
+      const allTracks = localStream.getTracks();
+      const seen = new Set();
+      allTracks.forEach(t=>{
+        if(t.readyState==='ended'){ try{ localStream.removeTrack(t); }catch(e){} return; }
+        const key = t.kind;
+        if(t.kind==='video' || t.kind==='audio'){
+          const live = localStream.getTracks().filter(x=>x.kind===key && x.readyState==='live');
+          if(live.length>1 && t!==live[0]){ try{ t.stop(); localStream.removeTrack(t); }catch(e){} }
+        }
+      });
+    }catch(e){}
+    const vt = localStream.getVideoTracks().find(t=>t.readyState==='live') || localStream.getVideoTracks()[0] || null;
+    const at = localStream.getAudioTracks().find(t=>t.readyState==='live') || localStream.getAudioTracks()[0] || null;
+    const senders = peer._pc.getSenders() || [];
     if(vt){
-      if(peerVideoTrack && peerVideoTrack!==vt){ await peer.replaceTrack(peerVideoTrack,vt,localStream); }
-      else if(!peerVideoTrack){ peer.addTrack(vt,localStream); }
-      peerVideoTrack=vt;
+      const vSender = senders.find(s=>s.track && s.track.kind==='video');
+      if(vSender){
+        if(vSender.track!==vt){ try{ await vSender.replaceTrack(vt); }catch(e){ console.log("v replace fail", e); } }
+      } else {
+        try{ peer._pc.addTrack(vt, localStream); }catch(e){ console.log("v add fail", e); }
+      }
+      peerVideoTrack = vt;
     }
     if(at){
-      if(peerAudioTrack && peerAudioTrack!==at){ await peer.replaceTrack(peerAudioTrack,at,localStream); }
-      else if(!peerAudioTrack){ peer.addTrack(at,localStream); }
-      peerAudioTrack=at;
+      const aSender = senders.find(s=>s.track && s.track.kind==='audio');
+      if(aSender){
+        if(aSender.track!==at){ try{ await aSender.replaceTrack(at); }catch(e){ console.log("a replace fail", e); } }
+      } else {
+        try{ peer._pc.addTrack(at, localStream); }catch(e){ console.log("a add fail", e); }
+      }
+      peerAudioTrack = at;
     }
+    // Renegotiate tetikle - simple-peer için gerekli
+    try{ if(typeof peer.negotiate==='function'){ peer.negotiate(); } }catch(e){}
     return true;
   }catch(e){ console.log("syncAllTracksToPeer hata",e); return false; }
 }
@@ -385,17 +438,27 @@ async function ensureAudioTrack(){
       const ok=await startCamera(currentQuality,currentFacingMode,true);
       if(!ok) return false;
     }
-    let at=localStream.getAudioTracks()[0]||null;
-    if(!at){
-      const aStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-      at=aStream.getAudioTracks()[0]||null;
-      if(!at) return false;
-      at.enabled=true;
-      localStream.addTrack(at);
-    }else at.enabled=true;
+    let at = localStream.getAudioTracks().find(t=>t.readyState==='live') || localStream.getAudioTracks()[0] || null;
+    if(!at || at.readyState!=='live'){
+      try{
+        const aStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,sampleRate:48000}});
+        at=aStream.getAudioTracks()[0]||null;
+        if(!at) return false;
+        at.enabled=true;
+        // Eski ended trackleri temizle
+        localStream.getAudioTracks().forEach(t=>{ if(t.readyState==='ended'){ try{ localStream.removeTrack(t); }catch(e){} } });
+        try{ localStream.addTrack(at); }catch(e){}
+      }catch(e2){ console.log('ensureAudioTrack yeni track hata', e2); return false; }
+    } else {
+      try{ at.enabled=true; }catch(e){}
+    }
     micEnabled=true;
     if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
-    if(peer) await syncAllTracksToPeer();
+    if(peer) {
+      await syncAllTracksToPeer();
+      // Ses gelip gitme fix: 500ms sonra tekrar sync
+      setTimeout(async()=>{ try{ await syncAllTracksToPeer(); }catch(e){} }, 500);
+    }
     return true;
   }catch(e){ console.log('ensureAudioTrack hata',e); return false; }
 }
@@ -507,57 +570,36 @@ socket.on("user-connected",(d)=>{ if(!peer) createPeer(false); const oppName=d.u
   if(norm(oppName)===norm(myRealUsername||myUsername)) return;
   updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
 function createPeer(initiator){
-  const streamForPeer=localStream||undefined;
-  peer=new SimplePeer({initiator,trickle:false,stream:streamForPeer,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}});
+  const streamForPeer = localStream || undefined;
+  peer=new SimplePeer({initiator,trickle:false,stream:streamForPeer,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302","stun:stun2.l.google.com:19302"]}]}});
   peerVideoTrack=streamForPeer ? (streamForPeer.getVideoTracks()[0]||null) : null;
   peerAudioTrack=streamForPeer ? (streamForPeer.getAudioTracks()[0]||null) : null;
   peer.on("signal",signal=>socket.emit("signal",{room:currentRoom,signal}));
-  peer.on("stream",async stream=>{ 
+  peer.on("stream",async stream=>{
     try{
-      if(!stream) return;
-      remoteVideo.srcObject=stream; 
+      console.log("Remote stream geldi", stream.getTracks().map(t=>t.kind+":"+t.readyState));
+      remoteVideo.srcObject=stream;
       remoteVideo.muted=false;
+      remoteVideo.volume=isPhoneMode?0.15:0.6;
+      if(volumeSlider) volumeSlider.value=remoteVideo.volume;
       remoteVideo.autoplay=true;
       remoteVideo.playsInline=true;
-      remoteVideo.volume = isPhoneMode ? 0.6 : 0.6;
-      if(volumeSlider) volumeSlider.value = remoteVideo.volume;
-      try{ await remoteVideo.play(); }catch(e){ console.log("remoteVideo play hata:", e); }
-      if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } 
-      if(isPhoneMode){ remoteVideo.style.display="none"; } else { remoteVideo.style.display="block"; }
-      try{ ensureRemoteAudio(stream); }catch(e){}
-      if(remoteVideo.paused){ try{ await remoteVideo.play(); }catch(e){} }
-      console.log("REMOTE STREAM ALINDI - ses ve video baglandi");
-    }catch(e){ console.log("peer stream hata", e); }
+      if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+      if(isPhoneMode) remoteVideo.style.display="none"; else remoteVideo.style.display="block";
+      try{ await remoteVideo.play(); }catch(e){ 
+        // Autoplay engellenirse tekrar dene
+        setTimeout(async()=>{ try{ await remoteVideo.play(); }catch(e2){} }, 500);
+      }
+    }catch(e){ console.log("peer stream hata",e); }
   });
   peer.on("close",()=>{
     peerAudioTrack=null; peerVideoTrack=null;
     if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.load();}catch(e){} remoteVideo.style.display="none"; }
     if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
-    peer=null;
   });
   peer.on("error",err=>{ console.log("peer error",err); });
+  peer.on("connect",()=>{ console.log("Peer connected"); });
 }
-
-function ensureRemoteAudio(stream){
-  try{
-    let remoteAudioEl = document.getElementById('remoteAudioElement');
-    if(!remoteAudioEl){
-      remoteAudioEl = document.createElement('audio');
-      remoteAudioEl.id = 'remoteAudioElement';
-      remoteAudioEl.autoplay = true;
-      remoteAudioEl.playsInline = true;
-      remoteAudioEl.style.display = 'none';
-      document.body.appendChild(remoteAudioEl);
-    }
-    if(stream){
-      remoteAudioEl.srcObject = stream;
-      remoteAudioEl.muted = false;
-      remoteAudioEl.volume = 1.0;
-      remoteAudioEl.play().catch(e=>console.log("remoteAudio play engel:", e));
-    }
-  }catch(e){ console.log("ensureRemoteAudio hata", e); }
-}
-
 socket.on("signal",signal=>{ if(!peer) createPeer(false); peer.signal(signal); });
 socket.on("user-status",(data)=>{ const {user,status,online}=data; if(user===myRealUsername) return; const isOnline=status==="varım"||online; updateOpponentDisplay(user,isOnline?"varım":"yokum"); if(isOnline) clearOfflineTimer(); else startOfflineCountdown(); });
 socket.on("user-last-seen",(data)=>{
@@ -712,52 +754,78 @@ function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.inne
 micBtn.onclick=async()=>{
   if(!localStream || localStream.getAudioTracks().length===0){ if(!(await ensureAudioTrack())) return; }
   micEnabled=!micEnabled;
-  if(localStream) localStream.getAudioTracks().forEach(t=>t.enabled=micEnabled);
+  if(localStream) localStream.getAudioTracks().forEach(t=>{ try{t.enabled=micEnabled;}catch(e){} });
   micBtn.classList.toggle("offIcon",!micEnabled); micBtn.textContent=micEnabled?"🎤":"🔇";
   await syncAllTracksToPeer();
+  setTimeout(async()=>{ try{ await syncAllTracksToPeer(); }catch(e){} }, 400);
 };
 camBtn.onclick=async()=>{
   if(!camEnabled && !isOpponentOnline()){
-    alert("⚠️ Karşı taraf çevrimdışı olduğundan görüntülü arama yapılamıyor")
-
-("Karşı taraf offline");
+    alert("⚠️ Karşı taraf çevrimdışı olduğundan görüntülü arama yapılamıyor\n\nKarşı taraf offline");
     if(typeof showToast==="function") showToast("⚠️ Karşı taraf offline - görüntülü arama yapılamıyor");
     return;
   }
-  if(!localStream){ try{ await startCamera(currentQuality,currentFacingMode, true); }catch(e){ return; } }
   if(!camEnabled){
-    const sesliAc=true; // FIX: her zaman sesli - iki tarafin da mic ve cam acilmasi icin
-    try{ await ensureAudioTrack(); }catch(e){}
-    try{ await startCamera(currentQuality, currentFacingMode, true); }catch(e){}
-    if(localStream){
+    // VIDEO CALL BAŞLAT - her şeyi sıfırdan sağlam kur
+    try{
+      // Eski stream'i temizle ama audio'yu koru değil, tamamen yenile
+      if(localStream){ try{ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }catch(e){} }
+      const constraints = {
+        video:{ facingMode:{ideal:currentFacingMode}, width:{ideal:currentQuality===1080?1920:currentQuality===720?1280:854}, height:{ideal:currentQuality}, frameRate:{ideal:30}},
+        audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true, sampleRate:48000 }
+      };
+      localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Tüm trackler canlı ve açık olsun
       localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
       localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
-    }
-    camEnabled=true; micEnabled=true;
-    if(camBtn) camBtn.classList.remove("offIcon");
-    if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
-    await syncAllTracksToPeer();
-    isPhoneMode=false;
-    document.body.classList.remove("phone-mode");
-    if(phoneModeBtn) phoneModeBtn.classList.remove("active");
-    if(phoneCallUI) phoneCallUI.style.display="none";
-    socket.emit("video-call-request", {from: myRealUsername, withMic: true});
-    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-    if(remoteVideo){ 
-      remoteVideo.style.display="block"; 
-      remoteVideo.muted=false;
-      remoteVideo.volume=0.6;
-      try{ await remoteVideo.play(); }catch(e){}
-    }
-    if(myVideo){ 
-      try{ await myVideo.play(); }catch(e){}
+      if(myVideo){ myVideo.srcObject=localStream; myVideo.style.transform=currentFacingMode==="user"?"scaleX(-1)":"scaleX(1)"; try{ await myVideo.play(); }catch(e){} }
+      camEnabled=true; micEnabled=true;
+      if(camBtn) camBtn.classList.remove("offIcon");
+      if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+      // Peer'e trackleri ekle/değiştir - 2 kez dene
+      await syncAllTracksToPeer();
+      setTimeout(async()=>{ try{ await syncAllTracksToPeer(); if(peer && typeof peer.negotiate==='function'){ try{ peer.negotiate(); }catch(e){} } }catch(e){} }, 500);
+      isPhoneMode=false;
+      document.body.classList.remove("phone-mode");
+      if(phoneModeBtn) phoneModeBtn.classList.remove("active");
+      if(phoneCallUI) phoneCallUI.style.display="none";
+      socket.emit("video-call-request", {from: myRealUsername, withMic: true});
+      if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+      if(remoteVideo){ 
+        remoteVideo.style.display="block"; 
+        remoteVideo.muted=false;
+        remoteVideo.volume=0.6;
+        try{ await remoteVideo.play(); }catch(e){}
+      }
       if(myVideoContainer) myVideoContainer.style.display="block";
+      if(typeof showToast==="function") showToast("📹 Görüntülü arama başlatıldı");
+    }catch(err){
+      console.log("camBtn video başlatma hata", err);
+      // Kamera yoksa sesli olarak dene
+      if(err && (err.name==='NotFoundError' || err.name==='OverconstrainedError')){
+        try{
+          const aStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+          if(localStream){ try{ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }catch(e){} }
+          localStream = aStream;
+          if(myVideo){ try{ myVideo.srcObject=localStream; }catch(e){} }
+          camEnabled=false; micEnabled=true;
+          if(camBtn) camBtn.classList.add("offIcon");
+          if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+          await syncAllTracksToPeer();
+          socket.emit("video-call-request", {from: myRealUsername, withMic: true});
+          if(typeof showToast==="function") showToast("📷 Kamera yok, sesli olarak devam ediliyor");
+        }catch(e2){ alert("Kamera ve mikrofon açılamadı: "+(e2.message||e2.name)); }
+      } else {
+        alert("Kamera açılamadı: "+(err.message||err.name));
+      }
     }
   } else {
+    // Kapat
     camEnabled=false;
-    if(localStream){ localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false;}catch(e){} }); }
+    if(localStream){ localStream.getVideoTracks().forEach(t=>{ try{t.enabled=false; t.stop(); }catch(e){} }); }
     if(camBtn) camBtn.classList.add("offIcon");
     socket.emit("video-call-end", {from: myRealUsername});
+    if(typeof showToast==="function") showToast("📹 Kamera kapatıldı");
   }
 };
 if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ try{ const wasCamOn=camEnabled; const wasMicOn=micEnabled; currentFacingMode=currentFacingMode==="user"?"environment":"user"; await startCamera(currentQuality,currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>{ t.enabled=wasCamOn; }); localStream.getAudioTracks().forEach(t=>{ t.enabled=wasMicOn; }); myVideo.srcObject=localStream; myVideo.play().catch(()=>{}); myVideo.style.transform=currentFacingMode==="user"?"scaleX(-1)":"scaleX(1)"; } camEnabled=wasCamOn; micEnabled=wasMicOn; if(camEnabled) camBtn.classList.remove("offIcon"); else camBtn.classList.add("offIcon"); if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(peer){ await syncAllTracksToPeer(); } }catch(err){ alert("Ikinci kamera yok"); currentFacingMode="user"; try{ await startCamera(currentQuality,"user"); }catch(e){} } }; }
@@ -1026,14 +1094,9 @@ socket.on("phone-call-accept", async (data)=>{
   isPhoneMode=true; document.body.classList.add("phone-mode"); if(phoneModeBtn) phoneModeBtn.classList.add("active");
   if(phoneCallUI) phoneCallUI.style.display="flex";
   if(remoteVideo) remoteVideo.style.display="none";
-  // FIX: karsi tarafa ses gitsin + karsi ses gelsin
   try{
-    if(peer){ await syncAllTracksToPeer(); }
-    if(remoteVideo && remoteVideo.srcObject){
-      remoteVideo.muted=false;
-      remoteVideo.volume=0.15;
-      try{ await remoteVideo.play(); }catch(e){}
-    }
+    if(peer){ await syncAllTracksToPeer(); setTimeout(async()=>{ try{ await syncAllTracksToPeer(); if(peer && typeof peer.negotiate==='function'){ try{ peer.negotiate(); }catch(e){} } }catch(e){} }, 800); }
+    if(remoteVideo && remoteVideo.srcObject){ remoteVideo.muted=false; remoteVideo.volume=0.15; try{ await remoteVideo.play(); }catch(e){} }
   }catch(e){}
 });
 socket.on("phone-call-decline", (data)=>{
@@ -1049,40 +1112,34 @@ socket.on("video-call-request", async (data)=>{
     if(_videoRequestPending) return;
     _videoRequestPending = true;
     const from = data.from || "Karşı taraf";
-    const withMic = data.withMic !== false; // default sesli
-    const kabul = confirm(`${from} kameralı arama başlattı${withMic?" (sesli)":""}. Kabul edip sen de kameranı açmak ister misin?
-Tamam = Kabul et`);
+    const withMic = data.withMic !== false;
+    const kabul = confirm(`${from} kameralı arama başlattı${withMic?" (sesli)":""}. Kabul edip sen de kameranı açmak ister misin?\nTamam = Kabul et`);
     if(kabul){
       try{
-        await ensureAudioTrack();
-        await startCamera(currentQuality, currentFacingMode, true);
-        if(localStream){
-          localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
-          localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
-        }
+        // Direkt yeni stream al - temiz başlangıç
+        if(localStream){ try{ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }catch(e){} }
+        const constraints = {
+          video:{ facingMode:{ideal:currentFacingMode}, width:{ideal:currentQuality===1080?1920:currentQuality===720?1280:854}, height:{ideal:currentQuality}, frameRate:{ideal:30}},
+          audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true, sampleRate:48000 }
+        };
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+        localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
+        if(myVideo){ myVideo.srcObject=localStream; myVideo.style.transform=currentFacingMode==="user"?"scaleX(-1)":"scaleX(1)"; try{ await myVideo.play(); }catch(e){} }
         camEnabled=true; micEnabled=true;
         if(camBtn) camBtn.classList.remove("offIcon");
         if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
         await syncAllTracksToPeer();
+        setTimeout(async()=>{ try{ await syncAllTracksToPeer(); if(peer && typeof peer.negotiate==='function'){ try{ peer.negotiate(); }catch(e){} } }catch(e){} }, 500);
         isPhoneMode=false;
         document.body.classList.remove("phone-mode");
         if(phoneModeBtn) phoneModeBtn.classList.remove("active");
         if(phoneCallUI) phoneCallUI.style.display="none";
         if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-        if(remoteVideo){ 
-          remoteVideo.style.display="block"; 
-          remoteVideo.muted=false;
-          remoteVideo.volume=0.6;
-          try{ await remoteVideo.play(); }catch(e){}
-        }
-        if(myVideo){ 
-          try{ await myVideo.play(); }catch(e){}
-          if(myVideoContainer) myVideoContainer.style.display="block";
-          myVideo.style.display="block";
-        }
-        if(myVideoContainer) myVideoContainer.style.display="block";
-        if(myVideoContainer) myVideoContainer.style.display="block";
+        if(remoteVideo){ remoteVideo.style.display="block"; remoteVideo.muted=false; remoteVideo.volume=0.6; try{ await remoteVideo.play(); }catch(e){} }
+        if(myVideo){ try{ await myVideo.play(); }catch(e){} if(myVideoContainer) myVideoContainer.style.display="block"; myVideo.style.display="block"; }
         socket.emit("video-call-accept", {from: myRealUsername, withMic: true});
+        if(typeof showToast==="function") showToast("📹 Görüntülü arama kabul edildi");
       }catch(e){ console.log("video-call-request hata", e); socket.emit("video-call-decline", {from: myRealUsername}); }
     } else {
       socket.emit("video-call-decline", {from: myRealUsername});
@@ -1090,35 +1147,33 @@ Tamam = Kabul et`);
     _videoRequestPending = false;
   });
 socket.on("video-call-accept", async (data)=>{
-    try{ await ensureAudioTrack(); }catch(e){}
-    try{ await startCamera(currentQuality, currentFacingMode, true); }catch(e){}
-    if(localStream){
+    try{
+      // Zaten stream varsa sadece enable et, yoksa yeni al
+      if(!localStream || localStream.getVideoTracks().length===0){
+        if(localStream){ try{ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); }catch(e){} }
+        const constraints = {
+          video:{ facingMode:{ideal:currentFacingMode}, width:{ideal:currentQuality===1080?1920:currentQuality===720?1280:854}, height:{ideal:currentQuality}, frameRate:{ideal:30}},
+          audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true, sampleRate:48000 }
+        };
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        if(myVideo){ myVideo.srcObject=localStream; try{ await myVideo.play(); }catch(e){} }
+      }
       localStream.getVideoTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
       localStream.getAudioTracks().forEach(t=>{ try{t.enabled=true;}catch(e){} });
-    }
-    camEnabled=true; micEnabled=true;
-    if(camBtn) camBtn.classList.remove("offIcon");
-    if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
-    isPhoneMode=false;
-    document.body.classList.remove("phone-mode");
-    if(phoneModeBtn) phoneModeBtn.classList.remove("active");
-    if(phoneCallUI) phoneCallUI.style.display="none";
-    if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-    if(remoteVideo){ 
-      remoteVideo.style.display="block"; 
-      remoteVideo.muted=false;
-      remoteVideo.volume=0.6;
-      try{ await remoteVideo.play(); }catch(e){}
-    }
-    if(myVideo){ 
-      try{ await myVideo.play(); }catch(e){}
-      if(myVideoContainer) myVideoContainer.style.display="block";
-      myVideo.style.display="block";
-    }
-    if(myVideoContainer) myVideoContainer.style.display="block";
-    await syncAllTracksToPeer();
-    // Ekstra: 1 saniye sonra tekrar sync, tek yonlu ses bug'ini cozer
-    setTimeout(()=>{ syncAllTracksToPeer(); }, 1000);
+      camEnabled=true; micEnabled=true;
+      if(camBtn) camBtn.classList.remove("offIcon");
+      if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
+      isPhoneMode=false;
+      document.body.classList.remove("phone-mode");
+      if(phoneModeBtn) phoneModeBtn.classList.remove("active");
+      if(phoneCallUI) phoneCallUI.style.display="none";
+      if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
+      if(remoteVideo){ remoteVideo.style.display="block"; remoteVideo.muted=false; remoteVideo.volume=0.6; try{ await remoteVideo.play(); }catch(e){} }
+      if(myVideo){ try{ await myVideo.play(); }catch(e){} if(myVideoContainer) myVideoContainer.style.display="block"; myVideo.style.display="block"; }
+      await syncAllTracksToPeer();
+      setTimeout(async()=>{ try{ await syncAllTracksToPeer(); if(peer && typeof peer.negotiate==='function'){ try{ peer.negotiate(); }catch(e){} } if(remoteVideo && remoteVideo.srcObject){ remoteVideo.muted=false; try{ await remoteVideo.play(); }catch(e){} } }catch(e){} }, 1000);
+      if(typeof showToast==="function") showToast("📹 Görüntülü arama bağlandı");
+    }catch(e){ console.log("video-call-accept hata", e); }
   });
 socket.on("video-call-decline", (data)=>{
     alert(`${data.from||"Karşı taraf"} kamera isteğini reddetti`);

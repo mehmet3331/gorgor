@@ -242,6 +242,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 }
 
 /* V19 TUM OZELLIKLER */
+/* FIX: blur sadece mesajlar, siyah ekran yok */
 .screenshot-blur-active { filter: blur(18px) !important; transition: filter 0.3s; }
 #gorgorToast { backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
 .voice-message .voice-bubble { display:flex; align-items:center; gap:10px; background: linear-gradient(135deg, #111, #222); border:1px solid #333; border-radius:18px; padding:10px 14px; min-width:180px; }
@@ -363,9 +364,12 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #perMessagePersistSelect{display:none !important;}
 #perMessageWheelBtn{display:none !important;}
 
-@keyframes newMessageBlinkRedWhite{0%{background:#ff0000 !important; box-shadow:0 0 20px #ff0000 !important; transform:scale(1.05);}50%{background:#ffffff !important; box-shadow:0 0 25px #ffffff !important; transform:scale(1.15); color:#ff0000 !important;}100%{background:#ff0000 !important;}}
-#chatToggle.hasNewMessage{animation:newMessageBlinkRedWhite 0.6s infinite !important; background:#ff0000 !important; border:2px solid #fff !important; box-shadow:0 0 20px #ff0000 !important; transform:scale(1.1) !important;}
-#floatingPill.hasNewMessage{animation:newMessageBlinkRedWhite 0.8s infinite !important; border-color:#ff0000 !important;}
+/* FIX - Istek 4: sadece kirmizi yanip sonsun, buyume kuculme olmasin */
+@keyframes newMessageBlinkRedWhite{0%{background:#000 !important; box-shadow:0 0 0 rgba(255,0,0,0) !important;}50%{background:#ff0000 !important; box-shadow:0 0 18px #ff0000 !important;}100%{background:#000 !important;}}
+@keyframes chatRedBlinkSimple{0%{background:#000 !important; box-shadow:0 0 0 rgba(255,0,0,0) !important;}50%{background:#ff0000 !important; box-shadow:0 0 18px #ff0000 !important;}100%{background:#000 !important;}}
+#chatToggle.hasNewMessage{animation:chatRedBlinkSimple 0.9s infinite alternate !important; background:#ff0000 !important; border:1px solid #ff0000 !important; box-shadow:0 0 18px #ff0000 !important; transform:none !important;}
+#floatingPill.hasNewMessage{animation:chatRedBlinkSimple 0.9s infinite alternate !important; border-color:#ff0000 !important; box-shadow:0 0 12px rgba(255,0,0,0.6) !important; transform:none !important;}
+#floatingPillLeft.hasNewMessage{animation:chatRedBlinkSimple 0.9s infinite alternate !important; box-shadow:0 0 12px rgba(255,0,0,0.6) !important; transform:none !important;}
 
 .message{position:relative !important; margin-bottom:8px !important;}
 .message .messageTime{font-size:9px !important; color:#666 !important; margin-top:4px !important; display:flex !important; align-items:center !important; gap:4px !important;}
@@ -932,3 +936,55 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 @keyframes hcRedBlink { 0%{ background:#ff0000; box-shadow:0 0 12px #ff0000; } 100%{ background:#880000; box-shadow:0 0 4px #550000; } }
 .hc-blink{ background:#ff0000!important; color:#fff!important; box-shadow:0 0 12px #ff0000!important; animation:hcRedBlink 0.6s infinite alternate!important; }
 .hc-blink-red{ background:#ff0000!important; color:#fff!important; }
+#hiddenNewMsgIndicator{
+  position:absolute;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(255,0,0,0.9);
+  color:#fff;
+  padding:6px 14px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:bold;
+  z-index:10011;
+  box-shadow:0 0 12px #ff0000;
+}
+
+/* Istek 3: sadece kamera ve galeri kalsin, diger attach butonlari gizle */
+#drawBtn, #locationBtn, #pollBtn, #checklistBtn, #liveLocationBtn { display:none !important; }
+#attachMenu .pollOptionInput { display:none; }
+
+/* FIX mesaj kutusu tek satir */
+.inputBottomRow {
+  display:flex !important;
+  flex-direction:row !important;
+  gap:10px !important;
+  align-items:center !important;
+  justify-content:center !important;
+  flex-wrap:nowrap !important;
+  width:100% !important;
+}
+#attachMenuBtn { order:1; width:48px !important; min-width:48px !important; height:48px !important; }
+#messageInput { order:2; flex:1 !important; min-width:0 !important; }
+#sendBtn { order:3; width:80px !important; min-width:80px !important; flex-shrink:0 !important; }
+
+/* vida gizle - guvenlik paneline tasindi */
+#settingsBtn, #leftStackContainer #settingsBtn { display:none !important; visibility:hidden !important; pointer-events:none !important; }
+
+/* FIX: siyah ekran engelle - body her zaman gorunur */
+body { background:#000 !important; }
+#messages.screenshot-blur-active { filter: blur(8px) !important; transition: filter 0.3s; }
+#messages { filter: none !important; }
+
+/* MESAJ KUTUSU KESIN DUZELTME */
+.inputBottomRow {
+  display:flex !important;
+  flex-direction:row !important;
+  gap:10px !important;
+  align-items:center !important;
+  flex-wrap:nowrap !important;
+}
+#attachMenuBtn { order:1 !important; width:48px !important; min-width:48px !important; height:48px !important; }
+#messageInput { order:2 !important; flex:1 !important; }
+#sendBtn { order:3 !important; width:80px !important; min-width:80px !important; }
