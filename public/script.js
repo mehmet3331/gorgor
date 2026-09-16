@@ -3630,5 +3630,3 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }, 800);
 });
 // ==================== BIYOMETRIK SON ====================
-
-
