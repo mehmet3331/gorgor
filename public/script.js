@@ -171,7 +171,7 @@ function formatLastSeen(ts){
   const year = d.getFullYear();
   const hh = String(d.getHours()).padStart(2,'0');
   const mm = String(d.getMinutes()).padStart(2,'0');
-  return `${day}/${month}/${year}<br>${hh}:${mm}`;
+  return `${day}/${month}/${year} - ${hh}:${mm}`;
 }
 function formatClockShort(ts){
   try{
@@ -181,7 +181,7 @@ function formatClockShort(ts){
     const year = d.getFullYear();
     const hh = String(d.getHours()).padStart(2,'0');
     const mm = String(d.getMinutes()).padStart(2,'0');
-    return `${day}/${month}/${year}<br>${hh}:${mm}`;
+    return `${day}/${month}/${year} - ${hh}:${mm}`;
   }catch(e){ return ""; }
 }
 function formatClock(d=new Date()){
@@ -245,7 +245,7 @@ function updateOpponentDisplay(name,status){
       }
       if(ts){
         const abs = formatLastSeen(ts);
-        statusEl.innerHTML = `${abs}`;
+        statusEl.textContent = `En son ${abs} de aktifti`;
       }else{
         statusEl.textContent = "çevrimdışı";
       }
@@ -460,7 +460,6 @@ joinBtn.onclick=async()=>{
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{ 
   roomScreen.style.display="none"; mainScreen.style.display="block";
-  console.log("[WebRTC] joined-room", data.count);
   // FIX: oda doluysa diger kullaniciyi goster
   try{
     if(data.otherUsers && data.otherUsers.length>0){
@@ -550,57 +549,26 @@ socket.on("user-connected",(d)=>{ if(!peer){ createPeer(false); setTimeout(async
   if(norm(oppName)===norm(myRealUsername||myUsername)) return;
   updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
 function createPeer(initiator){
-  const streamForPeer = localStream || undefined;
-  console.log("[WebRTC] createPeer", initiator ? "initiator" : "receiver", "stream:", streamForPeer ? streamForPeer.getTracks().map(t=>t.kind+":"+t.enabled+":"+t.readyState) : "no stream");
-  peer=new SimplePeer({
-    initiator,
-    trickle:false,
-    stream:streamForPeer,
-    config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302","stun:stun2.l.google.com:19302","stun:stun3.l.google.com:19302"]}]},
-    sdpTransform: (sdp) => { return sdp; }
-  });
+  const streamForPeer=localStream||undefined;
+  peer=new SimplePeer({initiator,trickle:false,stream:streamForPeer,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}});
   peerVideoTrack=streamForPeer ? (streamForPeer.getVideoTracks()[0]||null) : null;
   peerAudioTrack=streamForPeer ? (streamForPeer.getAudioTracks()[0]||null) : null;
-  peer.on("signal",signal=>{ 
-    console.log("[WebRTC] signal", initiator ? "offer" : "answer");
-    socket.emit("signal",{room:currentRoom,signal}); 
-  });
+  peer.on("signal",signal=>socket.emit("signal",{room:currentRoom,signal}));
   peer.on("stream",async stream=>{
     try{
-      console.log("[WebRTC] remote stream geldi!", stream.getTracks().map(t=>t.kind+":"+t.readyState));
-      remoteVideo.srcObject=stream;
-      remoteVideo.autoplay=true;
-      remoteVideo.playsInline=true;
-      remoteVideo.muted=false;
-      remoteVideo.volume=isPhoneMode?0.15:0.6;
+      remoteVideo.autoplay=true; remoteVideo.playsInline=true; remoteVideo.srcObject=stream;
+      remoteVideo.muted=false; remoteVideo.volume=isPhoneMode?0.15:0.6;
       if(volumeSlider) volumeSlider.value=remoteVideo.volume;
       if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
       if(isPhoneMode) remoteVideo.style.display="none"; else remoteVideo.style.display="block";
-      try{ await remoteVideo.play(); }catch(e){ 
-        console.log("remoteVideo play fail, retry", e);
-        setTimeout(async()=>{ try{ await remoteVideo.play(); }catch(e2){} }, 500); 
-      }
-      // ikinci retry autoplay engeli için
-      setTimeout(async()=>{
-        try{
-          if(remoteVideo.srcObject){
-            remoteVideo.muted=false;
-            await remoteVideo.play();
-            console.log("[WebRTC] remoteVideo second play ok");
-          }
-        }catch(e){}
-      }, 1200);
+      try{ await remoteVideo.play(); }catch(e){}
     }catch(e){ console.log("peer stream hata",e); }
   });
-  peer.on("connect",()=>{
-    console.log("[WebRTC] P2P connected");
-    if(typeof showToast==="function") showToast("✅ P2P bağlandı");
-  });
   peer.on("close",()=>{
-    console.log("[WebRTC] peer close");
     peerAudioTrack=null; peerVideoTrack=null;
     if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.load();}catch(e){} remoteVideo.style.display="none"; }
     if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
+    peer=null;
   });
   peer.on("error",err=>{ console.log("peer error",err); });
 }
@@ -3644,3 +3612,153 @@ document.addEventListener('DOMContentLoaded', ()=>{
 // ==================== BIYOMETRIK SON ====================
 
 
+
+
+// ===== PINCH-TO-ZOOM - Karşı taraf videosunu 2 parmakla büyütme - Hiçbir şeyi bozmaz =====
+(function initPinchZoomFeature(){
+  function addPinchZoom(videoEl, isMyVideo){
+    if(!videoEl) return;
+    let scale = 1, lastScale = 1;
+    let translateX = 0, translateY = 0;
+    let startX = 0, startY = 0;
+    let startDist = 0;
+    let isPinching = false, isPanning = false;
+    let lastTap = 0;
+
+    // Dokunmayı engelleme için
+    videoEl.style.touchAction = 'none';
+    videoEl.style.transformOrigin = 'center center';
+    videoEl.style.willChange = 'transform';
+
+    function getDist(touches){
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    }
+    function getBaseMirror(){
+      if(!isMyVideo) return 1;
+      // myVideo için ayna durumu
+      try{
+        const facing = (typeof currentFacingMode !== 'undefined' && currentFacingMode === 'user') ? -1 : 1;
+        return facing;
+      }catch(e){ return -1; }
+    }
+    function applyTransform(){
+      const mirror = getBaseMirror();
+      if(isMyVideo){
+        // myVideo: translate + scaleX(mirror*scale) + scaleY(scale)
+        videoEl.style.transform = `translate(${translateX}px, ${translateY}px) scaleX(${mirror*scale}) scaleY(${scale})`;
+      } else {
+        videoEl.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      }
+    }
+
+    videoEl.addEventListener('touchstart', (e)=>{
+      if(e.touches.length===2){
+        isPinching = true;
+        isPanning = false;
+        startDist = getDist(e.touches);
+        lastScale = scale;
+      } else if(e.touches.length===1 && scale>1){
+        isPanning = true;
+        startX = e.touches[0].clientX - translateX;
+        startY = e.touches[0].clientY - translateY;
+      }
+    }, {passive:false});
+
+    videoEl.addEventListener('touchmove', (e)=>{
+      if(e.touches.length===2 && isPinching){
+        e.preventDefault();
+        const dist = getDist(e.touches);
+        if(startDist>0){
+          let newScale = lastScale * (dist / startDist);
+          newScale = Math.min(Math.max(1, newScale), 4); // 1x - 4x
+          scale = newScale;
+          applyTransform();
+        }
+      } else if(e.touches.length===1 && isPanning && scale>1){
+        e.preventDefault();
+        translateX = e.touches[0].clientX - startX;
+        translateY = e.touches[0].clientY - startY;
+        // Sınırlama - çok uzağa kaymasın
+        const maxX = (videoEl.offsetWidth * (scale-1)) / 2;
+        const maxY = (videoEl.offsetHeight * (scale-1)) / 2;
+        translateX = Math.max(-maxX*1.2, Math.min(maxX*1.2, translateX));
+        translateY = Math.max(-maxY*1.2, Math.min(maxY*1.2, translateY));
+        applyTransform();
+      }
+    }, {passive:false});
+
+    videoEl.addEventListener('touchend', (e)=>{
+      if(e.touches.length<2){
+        isPinching = false;
+        lastScale = scale;
+      }
+      if(e.touches.length===0){
+        isPanning = false;
+        // Eğer neredeyse 1x ise resetle
+        if(scale < 1.08){
+          scale = 1;
+          translateX = 0;
+          translateY = 0;
+          applyTransform();
+        }
+      }
+      // Çift dokunuşla reset
+      const now = Date.now();
+      if(e.touches.length===0 && now - lastTap < 300){
+        scale = 1;
+        translateX = 0;
+        translateY = 0;
+        applyTransform();
+      }
+      if(e.touches.length===0) lastTap = now;
+    }, {passive:false});
+
+    // PC için çift tıklama reset
+    videoEl.addEventListener('dblclick', ()=>{
+      scale = 1;
+      translateX = 0;
+      translateY = 0;
+      applyTransform();
+    });
+
+    // Mouse wheel zoom (PC)
+    videoEl.addEventListener('wheel', (e)=>{
+      if(e.ctrlKey || e.metaKey){
+        e.preventDefault();
+        let delta = e.deltaY > 0 ? -0.1 : 0.1;
+        scale = Math.min(Math.max(1, scale + delta), 4);
+        if(scale <= 1.05){
+          translateX = 0; translateY = 0;
+        }
+        applyTransform();
+      }
+    }, {passive:false});
+
+    console.log("[PinchZoom] aktif:", videoEl.id);
+  }
+
+  // DOM hazır olunca başlat
+  function start(){
+    try{
+      const remoteVideo = document.getElementById("remoteVideo");
+      const myVideo = document.getElementById("myVideo");
+      if(remoteVideo) addPinchZoom(remoteVideo, false);
+      if(myVideo) addPinchZoom(myVideo, true);
+    }catch(e){ console.log("pinch zoom init hata", e); }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+  // Remote stream gelince tekrar bağla (srcObject değişince transform sıfırlanmasın ama dinleyici kalsın)
+  try{
+    const rv = document.getElementById("remoteVideo");
+    if(rv){
+      const obs = new MutationObserver(()=>{});
+      obs.observe(rv, {attributes:true});
+    }
+  }catch(e){}
+})();
