@@ -460,6 +460,7 @@ joinBtn.onclick=async()=>{
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{ 
   roomScreen.style.display="none"; mainScreen.style.display="block";
+  console.log("[WebRTC] joined-room", data.count);
   // FIX: oda doluysa diger kullaniciyi goster
   try{
     if(data.otherUsers && data.otherUsers.length>0){
@@ -549,26 +550,57 @@ socket.on("user-connected",(d)=>{ if(!peer){ createPeer(false); setTimeout(async
   if(norm(oppName)===norm(myRealUsername||myUsername)) return;
   updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
 function createPeer(initiator){
-  const streamForPeer=localStream||undefined;
-  peer=new SimplePeer({initiator,trickle:false,stream:streamForPeer,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}});
+  const streamForPeer = localStream || undefined;
+  console.log("[WebRTC] createPeer", initiator ? "initiator" : "receiver", "stream:", streamForPeer ? streamForPeer.getTracks().map(t=>t.kind+":"+t.enabled+":"+t.readyState) : "no stream");
+  peer=new SimplePeer({
+    initiator,
+    trickle:false,
+    stream:streamForPeer,
+    config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302","stun:stun2.l.google.com:19302","stun:stun3.l.google.com:19302"]}]},
+    sdpTransform: (sdp) => { return sdp; }
+  });
   peerVideoTrack=streamForPeer ? (streamForPeer.getVideoTracks()[0]||null) : null;
   peerAudioTrack=streamForPeer ? (streamForPeer.getAudioTracks()[0]||null) : null;
-  peer.on("signal",signal=>socket.emit("signal",{room:currentRoom,signal}));
+  peer.on("signal",signal=>{ 
+    console.log("[WebRTC] signal", initiator ? "offer" : "answer");
+    socket.emit("signal",{room:currentRoom,signal}); 
+  });
   peer.on("stream",async stream=>{
     try{
-      remoteVideo.autoplay=true; remoteVideo.playsInline=true; remoteVideo.srcObject=stream;
-      remoteVideo.muted=false; remoteVideo.volume=isPhoneMode?0.15:0.6;
+      console.log("[WebRTC] remote stream geldi!", stream.getTracks().map(t=>t.kind+":"+t.readyState));
+      remoteVideo.srcObject=stream;
+      remoteVideo.autoplay=true;
+      remoteVideo.playsInline=true;
+      remoteVideo.muted=false;
+      remoteVideo.volume=isPhoneMode?0.15:0.6;
       if(volumeSlider) volumeSlider.value=remoteVideo.volume;
       if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
       if(isPhoneMode) remoteVideo.style.display="none"; else remoteVideo.style.display="block";
-      try{ await remoteVideo.play(); }catch(e){}
+      try{ await remoteVideo.play(); }catch(e){ 
+        console.log("remoteVideo play fail, retry", e);
+        setTimeout(async()=>{ try{ await remoteVideo.play(); }catch(e2){} }, 500); 
+      }
+      // ikinci retry autoplay engeli için
+      setTimeout(async()=>{
+        try{
+          if(remoteVideo.srcObject){
+            remoteVideo.muted=false;
+            await remoteVideo.play();
+            console.log("[WebRTC] remoteVideo second play ok");
+          }
+        }catch(e){}
+      }, 1200);
     }catch(e){ console.log("peer stream hata",e); }
   });
+  peer.on("connect",()=>{
+    console.log("[WebRTC] P2P connected");
+    if(typeof showToast==="function") showToast("✅ P2P bağlandı");
+  });
   peer.on("close",()=>{
+    console.log("[WebRTC] peer close");
     peerAudioTrack=null; peerVideoTrack=null;
     if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.load();}catch(e){} remoteVideo.style.display="none"; }
     if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
-    peer=null;
   });
   peer.on("error",err=>{ console.log("peer error",err); });
 }
@@ -3610,4 +3642,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }, 800);
 });
 // ==================== BIYOMETRIK SON ====================
+
 

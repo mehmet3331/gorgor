@@ -10,14 +10,14 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="./simplepeer.min.js"></script>
 <style>
-/* FIX: sol üst tam solda, 3 satır: varım / tarih / saat - En son yok, kayma yok */
-#floatingPill{ padding:8px 10px; min-height:44px; }
+/* FIX: sol üst tam solda, 3 satır: varım / tarih / saat - En son yok, kayma yok - WebRTC sağlam */
+#floatingPill{ padding:8px 10px; min-height:44px; background:rgba(0,0,0,0.85); border:1px solid #333; border-radius:20px; }
 #floatingPillTopRow{ display:flex; justify-content:space-between; align-items:flex-start; width:100%; gap:6px; }
 #floatingPillLeft{ display:flex; flex-direction:column; align-items:flex-start; gap:1px; flex:1; min-width:0; max-width:62%; }
 #floatingPillLeft > div{ display:flex; align-items:center; gap:6px; }
 #opponentNameDisplay{ max-width:90px; font-size:12px; font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #opponentStatusText{ font-size:9px; color:#888; margin-left:18px; line-height:1.25; white-space:normal; word-break:break-word; min-height:12px; }
-#opponentDot{ flex-shrink:0; }
+#opponentDot{ flex-shrink:0; width:10px; height:10px; border-radius:50%; }
 #privacyModeSelect{ height:20px; font-size:10px; }
 @media (max-width: 480px){
   #floatingPill{ padding:6px 8px !important; min-height:42px !important; }
@@ -71,9 +71,11 @@
   <video id="remoteVideo" autoplay playsinline></video>
     <div id="floatingPill">
     <div id="floatingPillTopRow" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-      <div id="floatingPillLeft" style="display:flex; align-items:center; gap:6px;">
-        <span id="opponentDot" class="onlineDot offline"></span>
-        <span id="opponentNameDisplay" class="opponentName">-</span>
+      <div id="floatingPillLeft" style="display:flex; flex-direction:column; align-items:flex-start; gap:1px; flex:1; min-width:0;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span id="opponentDot" class="onlineDot offline"></span>
+          <span id="opponentNameDisplay" class="opponentName">-</span>
+        </div>
         <span id="opponentStatusText" class="opponentStatus" style="font-size:9px; color:#888; margin-left:18px; line-height:1.25; white-space:normal; word-break:break-word;" title=""></span>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
