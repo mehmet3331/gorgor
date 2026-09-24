@@ -3611,154 +3611,114 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 // ==================== BIYOMETRIK SON ====================
 
+// ===== EKRAN BÜYÜTEÇ - Tüm ekranı 2 parmakla büyütme (kamera değil, komple ekran) =====
+(function initScreenMagnifier(){
+  const el = document.getElementById("mainScreen");
+  if(!el) return;
+  
+  let scale = 1, lastScale = 1;
+  let posX = 0, posY = 0;
+  let startDist = 0;
+  let startMidX = 0, startMidY = 0;
+  let lastTap = 0;
 
+  el.style.transformOrigin = "0 0";
+  el.style.willChange = "transform";
+  // Dokunma gecikmesini kaldır
+  el.style.touchAction = "none";
 
+  function getDist(touches){
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  }
+  function getMid(touches){
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2
+    };
+  }
+  function apply(){
+    el.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+  }
 
-// ===== PINCH-TO-ZOOM - Karşı taraf videosunu 2 parmakla büyütme - Hiçbir şeyi bozmaz =====
-(function initPinchZoomFeature(){
-  function addPinchZoom(videoEl, isMyVideo){
-    if(!videoEl) return;
-    let scale = 1, lastScale = 1;
-    let translateX = 0, translateY = 0;
-    let startX = 0, startY = 0;
-    let startDist = 0;
-    let isPinching = false, isPanning = false;
-    let lastTap = 0;
+  let startX = 0, startY = 0;
 
-    // Dokunmayı engelleme için
-    videoEl.style.touchAction = 'none';
-    videoEl.style.transformOrigin = 'center center';
-    videoEl.style.willChange = 'transform';
-
-    function getDist(touches){
-      const dx = touches[0].clientX - touches[1].clientX;
-      const dy = touches[0].clientY - touches[1].clientY;
-      return Math.hypot(dx, dy);
+  el.addEventListener('touchstart', (e)=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      startDist = getDist(e.touches);
+      const mid = getMid(e.touches);
+      startMidX = mid.x;
+      startMidY = mid.y;
+      lastScale = scale;
+    } else if(e.touches.length===1 && scale>1){
+      startX = e.touches[0].clientX - posX;
+      startY = e.touches[0].clientY - posY;
     }
-    function getBaseMirror(){
-      if(!isMyVideo) return 1;
-      // myVideo için ayna durumu
-      try{
-        const facing = (typeof currentFacingMode !== 'undefined' && currentFacingMode === 'user') ? -1 : 1;
-        return facing;
-      }catch(e){ return -1; }
+  }, {passive:false});
+
+  el.addEventListener('touchmove', (e)=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      const dist = getDist(e.touches);
+      if(startDist>0){
+        let newScale = lastScale * (dist / startDist);
+        newScale = Math.min(Math.max(1, newScale), 5); // 1x - 5x büyüteç
+        const mid = getMid(e.touches);
+        // Büyüteç merkezini sabit tut
+        const ratio = newScale / scale;
+        posX = mid.x - (mid.x - posX) * ratio;
+        posY = mid.y - (mid.y - posY) * ratio;
+        scale = newScale;
+        apply();
+      }
+    } else if(e.touches.length===1 && scale>1){
+      e.preventDefault();
+      posX = e.touches[0].clientX - startX;
+      posY = e.touches[0].clientY - startY;
+      apply();
     }
-    function applyTransform(){
-      const mirror = getBaseMirror();
-      if(isMyVideo){
-        // myVideo: translate + scaleX(mirror*scale) + scaleY(scale)
-        videoEl.style.transform = `translate(${translateX}px, ${translateY}px) scaleX(${mirror*scale}) scaleY(${scale})`;
-      } else {
-        videoEl.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-      }
+  }, {passive:false});
+
+  el.addEventListener('touchend', (e)=>{
+    if(e.touches.length<2){
+      lastScale = scale;
     }
-
-    videoEl.addEventListener('touchstart', (e)=>{
-      if(e.touches.length===2){
-        isPinching = true;
-        isPanning = false;
-        startDist = getDist(e.touches);
-        lastScale = scale;
-      } else if(e.touches.length===1 && scale>1){
-        isPanning = true;
-        startX = e.touches[0].clientX - translateX;
-        startY = e.touches[0].clientY - translateY;
+    if(e.touches.length===0){
+      // Çok küçüldüyse sıfırla
+      if(scale < 1.08){
+        scale = 1; posX = 0; posY = 0; apply();
       }
-    }, {passive:false});
-
-    videoEl.addEventListener('touchmove', (e)=>{
-      if(e.touches.length===2 && isPinching){
-        e.preventDefault();
-        const dist = getDist(e.touches);
-        if(startDist>0){
-          let newScale = lastScale * (dist / startDist);
-          newScale = Math.min(Math.max(1, newScale), 4); // 1x - 4x
-          scale = newScale;
-          applyTransform();
-        }
-      } else if(e.touches.length===1 && isPanning && scale>1){
-        e.preventDefault();
-        translateX = e.touches[0].clientX - startX;
-        translateY = e.touches[0].clientY - startY;
-        // Sınırlama - çok uzağa kaymasın
-        const maxX = (videoEl.offsetWidth * (scale-1)) / 2;
-        const maxY = (videoEl.offsetHeight * (scale-1)) / 2;
-        translateX = Math.max(-maxX*1.2, Math.min(maxX*1.2, translateX));
-        translateY = Math.max(-maxY*1.2, Math.min(maxY*1.2, translateY));
-        applyTransform();
-      }
-    }, {passive:false});
-
-    videoEl.addEventListener('touchend', (e)=>{
-      if(e.touches.length<2){
-        isPinching = false;
-        lastScale = scale;
-      }
-      if(e.touches.length===0){
-        isPanning = false;
-        // Eğer neredeyse 1x ise resetle
-        if(scale < 1.08){
-          scale = 1;
-          translateX = 0;
-          translateY = 0;
-          applyTransform();
-        }
-      }
-      // Çift dokunuşla reset
       const now = Date.now();
-      if(e.touches.length===0 && now - lastTap < 300){
-        scale = 1;
-        translateX = 0;
-        translateY = 0;
-        applyTransform();
+      // Çift dokunuşla sıfırla (büyüteç kapat)
+      if(now - lastTap < 300){
+        scale = 1; posX = 0; posY = 0; apply();
       }
-      if(e.touches.length===0) lastTap = now;
-    }, {passive:false});
-
-    // PC için çift tıklama reset
-    videoEl.addEventListener('dblclick', ()=>{
-      scale = 1;
-      translateX = 0;
-      translateY = 0;
-      applyTransform();
-    });
-
-    // Mouse wheel zoom (PC)
-    videoEl.addEventListener('wheel', (e)=>{
-      if(e.ctrlKey || e.metaKey){
-        e.preventDefault();
-        let delta = e.deltaY > 0 ? -0.1 : 0.1;
-        scale = Math.min(Math.max(1, scale + delta), 4);
-        if(scale <= 1.05){
-          translateX = 0; translateY = 0;
-        }
-        applyTransform();
-      }
-    }, {passive:false});
-
-    console.log("[PinchZoom] aktif:", videoEl.id);
-  }
-
-  // DOM hazır olunca başlat
-  function start(){
-    try{
-      const remoteVideo = document.getElementById("remoteVideo");
-      const myVideo = document.getElementById("myVideo");
-      if(remoteVideo) addPinchZoom(remoteVideo, false);
-      if(myVideo) addPinchZoom(myVideo, true);
-    }catch(e){ console.log("pinch zoom init hata", e); }
-  }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
-  }
-  // Remote stream gelince tekrar bağla (srcObject değişince transform sıfırlanmasın ama dinleyici kalsın)
-  try{
-    const rv = document.getElementById("remoteVideo");
-    if(rv){
-      const obs = new MutationObserver(()=>{});
-      obs.observe(rv, {attributes:true});
+      lastTap = now;
     }
-  }catch(e){}
+  }, {passive:false});
+
+  // PC: çift tıkla sıfırla
+  el.addEventListener('dblclick', ()=>{
+    scale = 1; posX = 0; posY = 0; apply();
+  });
+
+  // PC: Ctrl + tekerlek ile büyüteç
+  el.addEventListener('wheel', (e)=>{
+    if(e.ctrlKey || e.metaKey){
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.12 : 0.12;
+      let newScale = Math.min(Math.max(1, scale + delta), 5);
+      if(newScale <= 1.05){
+        posX = 0; posY = 0;
+      }
+      scale = newScale;
+      lastScale = scale;
+      apply();
+    }
+  }, {passive:false});
+
+  console.log("[Büyüteç] Aktif - Tüm ekran 2 parmakla büyür");
 })();
+// ===== BÜYÜTEÇ SON =====
