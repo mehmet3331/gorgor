@@ -171,7 +171,7 @@ function formatLastSeen(ts){
   const year = d.getFullYear();
   const hh = String(d.getHours()).padStart(2,'0');
   const mm = String(d.getMinutes()).padStart(2,'0');
-  return `${day}/${month}/${year} - ${hh}:${mm}`;
+  return `${day}/${month}/${year}<br>${hh}:${mm}`
 }
 function formatClockShort(ts){
   try{
@@ -181,7 +181,7 @@ function formatClockShort(ts){
     const year = d.getFullYear();
     const hh = String(d.getHours()).padStart(2,'0');
     const mm = String(d.getMinutes()).padStart(2,'0');
-    return `${day}/${month}/${year} - ${hh}:${mm}`;
+    return `${day}/${month}/${year}<br>${hh}:${mm}`
   }catch(e){ return ""; }
 }
 function formatClock(d=new Date()){
@@ -245,7 +245,7 @@ function updateOpponentDisplay(name,status){
       }
       if(ts){
         const abs = formatLastSeen(ts);
-        statusEl.textContent = `En son ${abs} de aktifti`;
+        statusEl.textContent = `${abs}`;
       }else{
         statusEl.textContent = "çevrimdışı";
       }
