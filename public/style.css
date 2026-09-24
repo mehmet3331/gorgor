@@ -989,7 +989,13 @@ body { background:#000 !important; }
 #messageInput { order:2 !important; flex:1 !important; }
 #sendBtn { order:3 !important; width:80px !important; min-width:80px !important; }
 
-/* FIX: mesaj butonu aşağıda kalıyordu - yukarı alındı - sadece gerekli yer */
+/* FIX: mesaj butonu - kapalıda altta, açıkta panelin üstünde - çakışma düzeltildi */
+#chatToggle{ bottom:15px; }
+.chat-open #chatToggle{ bottom:53%; }
 @media (max-width: 480px){
   #chatToggle{ bottom:85px !important; right:12px !important; }
+  .chat-open #chatToggle{ bottom:calc(52% + 16px) !important; right:12px !important; }
+  #chatPanel{ padding-bottom: env(safe-area-inset-bottom, 0px); }
+  #inputArea{ padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important; }
+  #messages{ padding-bottom: 8px; }
 }
