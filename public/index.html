@@ -31,9 +31,6 @@
   #opponentNameDisplay{ max-width:50px !important; }
   #opponentStatusText{ font-size:8px !important; }
 }
-
-
-
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.min.js" crossorigin="anonymous"></script>
 </head>
@@ -74,11 +71,9 @@
   <video id="remoteVideo" autoplay playsinline></video>
     <div id="floatingPill">
     <div id="floatingPillTopRow" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-      <div id="floatingPillLeft" style="display:flex; flex-direction:column; align-items:flex-start; gap:1px; flex:1; min-width:0;">
-        <div style="display:flex; align-items:center; gap:6px;">
-          <span id="opponentDot" class="onlineDot offline"></span>
-          <span id="opponentNameDisplay" class="opponentName">-</span>
-        </div>
+      <div id="floatingPillLeft" style="display:flex; align-items:center; gap:6px;">
+        <span id="opponentDot" class="onlineDot offline"></span>
+        <span id="opponentNameDisplay" class="opponentName">-</span>
         <span id="opponentStatusText" class="opponentStatus" style="font-size:9px; color:#888; margin-left:18px; line-height:1.25; white-space:normal; word-break:break-word;" title=""></span>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">

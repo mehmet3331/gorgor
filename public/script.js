@@ -460,6 +460,7 @@ joinBtn.onclick=async()=>{
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{ 
   roomScreen.style.display="none"; mainScreen.style.display="block";
+  console.log("[WebRTC] joined-room", data.count);
   // FIX: oda doluysa diger kullaniciyi goster
   try{
     if(data.otherUsers && data.otherUsers.length>0){
@@ -549,26 +550,57 @@ socket.on("user-connected",(d)=>{ if(!peer){ createPeer(false); setTimeout(async
   if(norm(oppName)===norm(myRealUsername||myUsername)) return;
   updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
 function createPeer(initiator){
-  const streamForPeer=localStream||undefined;
-  peer=new SimplePeer({initiator,trickle:false,stream:streamForPeer,config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}});
+  const streamForPeer = localStream || undefined;
+  console.log("[WebRTC] createPeer", initiator ? "initiator" : "receiver", "stream:", streamForPeer ? streamForPeer.getTracks().map(t=>t.kind+":"+t.enabled+":"+t.readyState) : "no stream");
+  peer=new SimplePeer({
+    initiator,
+    trickle:false,
+    stream:streamForPeer,
+    config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302","stun:stun2.l.google.com:19302","stun:stun3.l.google.com:19302"]}]},
+    sdpTransform: (sdp) => { return sdp; }
+  });
   peerVideoTrack=streamForPeer ? (streamForPeer.getVideoTracks()[0]||null) : null;
   peerAudioTrack=streamForPeer ? (streamForPeer.getAudioTracks()[0]||null) : null;
-  peer.on("signal",signal=>socket.emit("signal",{room:currentRoom,signal}));
+  peer.on("signal",signal=>{ 
+    console.log("[WebRTC] signal", initiator ? "offer" : "answer");
+    socket.emit("signal",{room:currentRoom,signal}); 
+  });
   peer.on("stream",async stream=>{
     try{
-      remoteVideo.autoplay=true; remoteVideo.playsInline=true; remoteVideo.srcObject=stream;
-      remoteVideo.muted=false; remoteVideo.volume=isPhoneMode?0.15:0.6;
+      console.log("[WebRTC] remote stream geldi!", stream.getTracks().map(t=>t.kind+":"+t.readyState));
+      remoteVideo.srcObject=stream;
+      remoteVideo.autoplay=true;
+      remoteVideo.playsInline=true;
+      remoteVideo.muted=false;
+      remoteVideo.volume=isPhoneMode?0.15:0.6;
       if(volumeSlider) volumeSlider.value=remoteVideo.volume;
       if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
       if(isPhoneMode) remoteVideo.style.display="none"; else remoteVideo.style.display="block";
-      try{ await remoteVideo.play(); }catch(e){}
+      try{ await remoteVideo.play(); }catch(e){ 
+        console.log("remoteVideo play fail, retry", e);
+        setTimeout(async()=>{ try{ await remoteVideo.play(); }catch(e2){} }, 500); 
+      }
+      // ikinci retry autoplay engeli için
+      setTimeout(async()=>{
+        try{
+          if(remoteVideo.srcObject){
+            remoteVideo.muted=false;
+            await remoteVideo.play();
+            console.log("[WebRTC] remoteVideo second play ok");
+          }
+        }catch(e){}
+      }, 1200);
     }catch(e){ console.log("peer stream hata",e); }
   });
+  peer.on("connect",()=>{
+    console.log("[WebRTC] P2P connected");
+    if(typeof showToast==="function") showToast("✅ P2P bağlandı");
+  });
   peer.on("close",()=>{
+    console.log("[WebRTC] peer close");
     peerAudioTrack=null; peerVideoTrack=null;
     if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.load();}catch(e){} remoteVideo.style.display="none"; }
     if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
-    peer=null;
   });
   peer.on("error",err=>{ console.log("peer error",err); });
 }
@@ -3611,66 +3643,93 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 // ==================== BIYOMETRIK SON ====================
 
-// ===== EKRAN BÜYÜTEÇ - Tüm ekranı 2 parmakla büyütme (kamera değil, komple ekran) =====
+// ===== CHAT PANEL RESIZE - sadece gerekli yer, WebRTC bozulmaz =====
+(function initChatPanelResize(){
+  const panel = document.getElementById("chatPanel");
+  const handle = document.getElementById("chatDragHandle");
+  if(!panel || !handle) return;
+  let isDragging = false, startY = 0, startHeight = 0;
+  const saved = localStorage.getItem("gorgor_chatPanel_height");
+  if(saved){
+    const h = parseInt(saved);
+    if(h >= 150 && h <= window.innerHeight * 0.9){
+      panel.style.height = h + "px";
+    }
+  }
+  function getY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
+  function onStart(e){
+    isDragging = true;
+    startY = getY(e);
+    startHeight = panel.offsetHeight;
+    document.body.style.userSelect = "none";
+    panel.style.transition = "none";
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!isDragging) return;
+    const curY = getY(e);
+    const delta = startY - curY;
+    let newH = startHeight + delta;
+    const minH = Math.min(200, window.innerHeight * 0.25);
+    const maxH = window.innerHeight * 0.9;
+    newH = Math.max(minH, Math.min(maxH, newH));
+    panel.style.height = newH + "px";
+    e.preventDefault();
+  }
+  function onEnd(){
+    if(!isDragging) return;
+    isDragging = false;
+    document.body.style.userSelect = "";
+    panel.style.transition = "";
+    localStorage.setItem("gorgor_chatPanel_height", panel.offsetHeight);
+  }
+  handle.addEventListener('mousedown', onStart);
+  handle.addEventListener('touchstart', onStart, {passive:false});
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup', onEnd);
+  window.addEventListener('touchend', onEnd);
+  handle.addEventListener('dblclick', ()=>{
+    panel.style.height = "52%";
+    localStorage.removeItem("gorgor_chatPanel_height");
+  });
+})();
+// ===== CHAT RESIZE SON =====
+
+
+// ===== EKRAN BÜYÜTEÇ - tüm ekran 2 parmakla büyüteç, WebRTC bozulmaz =====
 (function initScreenMagnifier(){
   const el = document.getElementById("mainScreen");
   if(!el) return;
-  
-  let scale = 1, lastScale = 1;
-  let posX = 0, posY = 0;
-  let startDist = 0;
-  let startMidX = 0, startMidY = 0;
-  let lastTap = 0;
-
+  let scale = 1, lastScale = 1, posX = 0, posY = 0, startDist = 0, lastTap = 0;
   el.style.transformOrigin = "0 0";
   el.style.willChange = "transform";
-  // Dokunma gecikmesini kaldır
-  el.style.touchAction = "none";
-
-  function getDist(touches){
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.hypot(dx, dy);
-  }
-  function getMid(touches){
-    return {
-      x: (touches[0].clientX + touches[1].clientX) / 2,
-      y: (touches[0].clientY + touches[1].clientY) / 2
-    };
-  }
-  function apply(){
-    el.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
-  }
-
-  let startX = 0, startY = 0;
-
+  function getDist(t){ const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.hypot(dx,dy); }
+  function getMid(t){ return {x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2}; }
+  function apply(){ el.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`; }
+  let startX=0, startY=0;
   el.addEventListener('touchstart', (e)=>{
     if(e.touches.length===2){
       e.preventDefault();
       startDist = getDist(e.touches);
-      const mid = getMid(e.touches);
-      startMidX = mid.x;
-      startMidY = mid.y;
       lastScale = scale;
     } else if(e.touches.length===1 && scale>1){
       startX = e.touches[0].clientX - posX;
       startY = e.touches[0].clientY - posY;
     }
   }, {passive:false});
-
   el.addEventListener('touchmove', (e)=>{
     if(e.touches.length===2){
       e.preventDefault();
-      const dist = getDist(e.touches);
+      const d = getDist(e.touches);
       if(startDist>0){
-        let newScale = lastScale * (dist / startDist);
-        newScale = Math.min(Math.max(1, newScale), 5); // 1x - 5x büyüteç
+        let ns = lastScale * (d/startDist);
+        ns = Math.min(Math.max(1, ns), 5);
         const mid = getMid(e.touches);
-        // Büyüteç merkezini sabit tut
-        const ratio = newScale / scale;
-        posX = mid.x - (mid.x - posX) * ratio;
-        posY = mid.y - (mid.y - posY) * ratio;
-        scale = newScale;
+        const r = ns/scale;
+        posX = mid.x - (mid.x - posX)*r;
+        posY = mid.y - (mid.y - posY)*r;
+        scale = ns;
         apply();
       }
     } else if(e.touches.length===1 && scale>1){
@@ -3680,116 +3739,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
       apply();
     }
   }, {passive:false});
-
   el.addEventListener('touchend', (e)=>{
-    if(e.touches.length<2){
-      lastScale = scale;
-    }
+    if(e.touches.length<2) lastScale = scale;
     if(e.touches.length===0){
-      // Çok küçüldüyse sıfırla
-      if(scale < 1.08){
-        scale = 1; posX = 0; posY = 0; apply();
-      }
-      const now = Date.now();
-      // Çift dokunuşla sıfırla (büyüteç kapat)
-      if(now - lastTap < 300){
-        scale = 1; posX = 0; posY = 0; apply();
-      }
-      lastTap = now;
+      if(scale<1.08){ scale=1; posX=0; posY=0; apply(); }
+      const now=Date.now();
+      if(now-lastTap<300){ scale=1; posX=0; posY=0; apply(); }
+      lastTap=now;
     }
   }, {passive:false});
-
-  // PC: çift tıkla sıfırla
-  el.addEventListener('dblclick', ()=>{
-    scale = 1; posX = 0; posY = 0; apply();
-  });
-
-  // PC: Ctrl + tekerlek ile büyüteç
-  el.addEventListener('wheel', (e)=>{
-    if(e.ctrlKey || e.metaKey){
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.12 : 0.12;
-      let newScale = Math.min(Math.max(1, scale + delta), 5);
-      if(newScale <= 1.05){
-        posX = 0; posY = 0;
-      }
-      scale = newScale;
-      lastScale = scale;
-      apply();
-    }
-  }, {passive:false});
-
-  console.log("[Büyüteç] Aktif - Tüm ekran 2 parmakla büyür");
+  el.addEventListener('dblclick', ()=>{ scale=1; posX=0; posY=0; apply(); });
 })();
 // ===== BÜYÜTEÇ SON =====
-
-// ===== CHAT PANEL RESIZE - Mesaj panelini elle yukarı/aşağı sürükle =====
-(function initChatPanelResize(){
-  const panel = document.getElementById("chatPanel");
-  const handle = document.getElementById("chatDragHandle");
-  if(!panel || !handle) return;
-
-  let isDragging = false;
-  let startY = 0;
-  let startHeight = 0;
-
-  // Kaydedilmiş yüksekliği yükle
-  const saved = localStorage.getItem("gorgor_chatPanel_height");
-  if(saved){
-    const h = parseInt(saved);
-    if(h >= 150 && h <= window.innerHeight * 0.9){
-      panel.style.height = h + "px";
-    }
-  }
-
-  function getClientY(e){
-    return e.touches ? e.touches[0].clientY : e.clientY;
-  }
-
-  function onStart(e){
-    isDragging = true;
-    startY = getClientY(e);
-    startHeight = panel.offsetHeight;
-    document.body.style.userSelect = "none";
-    panel.style.transition = "none";
-    e.preventDefault();
-  }
-
-  function onMove(e){
-    if(!isDragging) return;
-    const currentY = getClientY(e);
-    const delta = startY - currentY; // yukarı sürükleyince pozitif
-    let newHeight = startHeight + delta;
-    // Sınırlar: en az 25% , en çok 90%
-    const minH = Math.min(200, window.innerHeight * 0.25);
-    const maxH = window.innerHeight * 0.9;
-    newHeight = Math.max(minH, Math.min(maxH, newHeight));
-    panel.style.height = newHeight + "px";
-    e.preventDefault();
-  }
-
-  function onEnd(){
-    if(!isDragging) return;
-    isDragging = false;
-    document.body.style.userSelect = "";
-    panel.style.transition = "";
-    // Kaydet
-    localStorage.setItem("gorgor_chatPanel_height", panel.offsetHeight);
-  }
-
-  handle.addEventListener('mousedown', onStart);
-  handle.addEventListener('touchstart', onStart, {passive:false});
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('touchmove', onMove, {passive:false});
-  window.addEventListener('mouseup', onEnd);
-  window.addEventListener('touchend', onEnd);
-
-  // Çift tıkla defaulta dön
-  handle.addEventListener('dblclick', ()=>{
-    panel.style.height = "52%";
-    localStorage.removeItem("gorgor_chatPanel_height");
-  });
-
-  console.log("[ChatResize] Aktif - yukarı/aşağı sürükle");
-})();
-// ===== CHAT RESIZE SON =====

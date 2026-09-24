@@ -206,13 +206,13 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   text-align: left;
 }
 
-/* Genel-Ozel 3-4px sola çekildi */
+/* Genel-Ozel 3-4px sola Ã§ekildi */
 #privacyModeSelect {
   margin-left: 4px !important;
   transform: translateX(-3px);
 }
 
-/* Ses kaydırma daha büyük ve kullanışlı */
+/* Ses kaydÄ±rma daha bÃ¼yÃ¼k ve kullanÄ±ÅŸlÄ± */
 #floatingPillCenter #volumeSlider {
   width: 96px !important;
   height: 4px !important;
@@ -280,7 +280,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   overflow: hidden !important;
 }
 .flip-blur-active::after {
-  content: "📱 TERS ÇEVRİLDİ - TUM EKRAN BUĞULU - GİZLİLİK MODU AKTİF";
+  content: "ğŸ“± TERS Ã‡EVRÄ°LDÄ° - TUM EKRAN BUÄULU - GÄ°ZLÄ°LÄ°K MODU AKTÄ°F";
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.88);
@@ -300,7 +300,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   line-height: 1.4;
 }
 .flip-blur-active::before {
-  content: "⚠️ Tehlike algilandi - tum program buğulandirildi - 1.2sn sonra otomatik panik";
+  content: "âš ï¸ Tehlike algilandi - tum program buÄŸulandirildi - 1.2sn sonra otomatik panik";
   position: fixed;
   bottom: 20%;
   left: 50%;
@@ -668,7 +668,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 
 
 /* ===== V27 FINAL - OLMASI GEREKEN PNG + TUM FIXLER ===== */
-/* Üst bar - olması gereken.png gibi */
+/* Ãœst bar - olmasÄ± gereken.png gibi */
 #floatingPill{
   top:8px !important;
   left:8px !important;
@@ -726,7 +726,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 }
 #opponentNameDisplay{ font-size:12px !important; color:#fff !important; }
 
-/* Ses slider - olması gereken.png gibi yeşil büyük */
+/* Ses slider - olmasÄ± gereken.png gibi yeÅŸil bÃ¼yÃ¼k */
 #soundUnderPrivacy{
   display:flex !important;
   align-items:center !important;
@@ -797,7 +797,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #hideChatBtn{ background:#222 !important; border:1px solid #00c853 !important; color:#00c853 !important; display:flex !important; }
 #settingsContainer{ top:300px !important; left:10px !important; z-index:49 !important; }
 
-/* Sağ video */
+/* SaÄŸ video */
 #myVideoContainer{
   top:93px !important;
   right:10px !important;
@@ -825,7 +825,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   font-size:12px !important;
 }
 
-/* Mesaj fontu küçük - 12px */
+/* Mesaj fontu kÃ¼Ã§Ã¼k - 12px */
 .msgText{ font-size:12px !important; font-weight:400 !important; line-height:1.4 !important; }
 .msgBubble{ padding:8px 12px !important; max-width:78% !important; }
 .msgBubble .expireInfo{ font-size:8px !important; }
@@ -856,7 +856,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 .otherMessage .msgDotBtn{ right:auto !important; left:-8px !important; }
 .msgActions{ display:none !important; }
 
-/* Mesaj menü - EKRAN ORTASINDA (V27) - altta kaybolma fix */
+/* Mesaj menÃ¼ - EKRAN ORTASINDA (V27) - altta kaybolma fix */
 #msgActionMenu{
   position:fixed !important;
   top:50% !important;
@@ -891,7 +891,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #msgActionMenu button:last-child{ border-bottom:none !important; }
 #msgActionMenu button:hover{ background:#2a2a2a !important; color:#fff !important; }
 #msgActionMenu::before{
-  content:"Mesaj Seçenekleri";
+  content:"Mesaj SeÃ§enekleri";
   display:block;
   text-align:center;
   font-size:11px;
@@ -901,7 +901,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
   margin-bottom:6px;
 }
 
-/* Bağlantı koptu modal */
+/* BaÄŸlantÄ± koptu modal */
 #connectionLostModal{
   position:fixed !important;
   inset:0 !important;
@@ -932,7 +932,7 @@ body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMac
 #starredToggleBtn{ display:none!important; }
 #voiceRecordBtn{ display:none!important; }
 
-/* FIX 4 - 0258 kırmızı */
+/* FIX 4 - 0258 kÄ±rmÄ±zÄ± */
 @keyframes hcRedBlink { 0%{ background:#ff0000; box-shadow:0 0 12px #ff0000; } 100%{ background:#880000; box-shadow:0 0 4px #550000; } }
 .hc-blink{ background:#ff0000!important; color:#fff!important; box-shadow:0 0 12px #ff0000!important; animation:hcRedBlink 0.6s infinite alternate!important; }
 .hc-blink-red{ background:#ff0000!important; color:#fff!important; }
@@ -989,7 +989,7 @@ body { background:#000 !important; }
 #messageInput { order:2 !important; flex:1 !important; }
 #sendBtn { order:3 !important; width:80px !important; min-width:80px !important; }
 
-/* FIX: mesaj butonu - kapalıda altta, açıkta panelin üstünde - çakışma düzeltildi */
+/* FIX: mesaj butonu - kapalıda altta, açıkta panelin üstünde - sadece gerekli yer - 2580 kırmızı korundu */
 #chatToggle{ bottom:15px; }
 .chat-open #chatToggle{ bottom:53%; }
 @media (max-width: 480px){
@@ -997,5 +997,4 @@ body { background:#000 !important; }
   .chat-open #chatToggle{ bottom:calc(52% + 16px) !important; right:12px !important; }
   #chatPanel{ padding-bottom: env(safe-area-inset-bottom, 0px); }
   #inputArea{ padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important; }
-  #messages{ padding-bottom: 8px; }
 }
