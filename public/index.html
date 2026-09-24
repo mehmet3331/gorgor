@@ -10,13 +10,23 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="./simplepeer.min.js"></script>
 <style>
-/* V18.10 extra mobile fix inline fallback */
+/* V18.10 extra mobile fix inline fallback - FIX: son görülme darlığı düzeltildi */
 @media (max-width: 480px){
-  #floatingPillLeft{ gap:4px; }
-  #privacyModeSelect{ margin-left:2px !important; font-size:8px !important; padding:1px 3px !important; height:16px !important; }
-  #opponentStatusText{ font-size:7px !important; max-width:35px !important; }
-  #opponentNameDisplay{ max-width:40px !important; font-size:10px !important; }
+  #floatingPill{ padding:6px 8px !important; }
+  #floatingPillTopRow{ gap:4px !important; }
+  #floatingPillLeft{ gap:6px !important; flex:1 !important; min-width:0 !important; max-width:58% !important; }
+  #privacyModeSelect{ margin-left:2px !important; font-size:8px !important; padding:1px 4px !important; height:18px !important; }
+  #opponentStatusText{ font-size:8.5px !important; max-width:110px !important; min-width:70px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; display:inline-block !important; }
+  #opponentNameDisplay{ max-width:70px !important; font-size:11px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; }
 }
+@media (max-width: 360px){
+  #opponentStatusText{ max-width:85px !important; font-size:8px !important; }
+  #opponentNameDisplay{ max-width:50px !important; }
+}
+/* Desktop için de genişlet */
+#floatingPillLeft{ flex:1; min-width:0; }
+#opponentStatusText{ max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#opponentNameDisplay{ max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.min.js" crossorigin="anonymous"></script>
 </head>
@@ -60,7 +70,7 @@
       <div id="floatingPillLeft" style="display:flex; align-items:center; gap:6px;">
         <span id="opponentDot" class="onlineDot offline"></span>
         <span id="opponentNameDisplay" class="opponentName">-</span>
-        <span id="opponentStatusText" class="opponentStatus" style="font-size:10px; color:#888; margin-left:4px;">- son görülme -</span>
+        <span id="opponentStatusText" class="opponentStatus" style="font-size:10px; color:#888; margin-left:4px; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:inline-block; vertical-align:middle;" title="Son görülme">- son görülme -</span>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <select id="privacyModeSelect" title="Güvenlik Modu" style="background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 8px; height:22px;">
