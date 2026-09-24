@@ -989,9 +989,7 @@ body { background:#000 !important; }
 #messageInput { order:2 !important; flex:1 !important; }
 #sendBtn { order:3 !important; width:80px !important; min-width:80px !important; }
 
-/* FIX: mesaj butonu - kapalıda altta, açıkta panelin üstünde - sadece gerekli yer - 2580 kırmızı korundu */
-#chatToggle{ bottom:15px; }
-.chat-open #chatToggle{ bottom:53%; }
+/* FIX: mesaj kutusu çok aşağıda kalıyor + buton çakışması - sadece gerekli yerler, yüz tanıma/parmak izi/WebRTC/2580 bozulmaz */
 @media (max-width: 480px){
   #chatToggle{ bottom:85px !important; right:12px !important; }
   .chat-open #chatToggle{ bottom:calc(52% + 16px) !important; right:12px !important; }

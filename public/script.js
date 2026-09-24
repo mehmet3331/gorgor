@@ -3643,7 +3643,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 // ==================== BIYOMETRIK SON ====================
 
-// ===== CHAT PANEL RESIZE - sadece gerekli yer, WebRTC bozulmaz =====
+// ===== CHAT PANEL RESIZE - sadece mesaj panelini elle büyüt/küçült, WebRTC/yüz/parmak/2580 bozulmaz =====
 (function initChatPanelResize(){
   const panel = document.getElementById("chatPanel");
   const handle = document.getElementById("chatDragHandle");
@@ -3695,59 +3695,3 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 })();
 // ===== CHAT RESIZE SON =====
-
-
-// ===== EKRAN BÜYÜTEÇ - tüm ekran 2 parmakla büyüteç, WebRTC bozulmaz =====
-(function initScreenMagnifier(){
-  const el = document.getElementById("mainScreen");
-  if(!el) return;
-  let scale = 1, lastScale = 1, posX = 0, posY = 0, startDist = 0, lastTap = 0;
-  el.style.transformOrigin = "0 0";
-  el.style.willChange = "transform";
-  function getDist(t){ const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.hypot(dx,dy); }
-  function getMid(t){ return {x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2}; }
-  function apply(){ el.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`; }
-  let startX=0, startY=0;
-  el.addEventListener('touchstart', (e)=>{
-    if(e.touches.length===2){
-      e.preventDefault();
-      startDist = getDist(e.touches);
-      lastScale = scale;
-    } else if(e.touches.length===1 && scale>1){
-      startX = e.touches[0].clientX - posX;
-      startY = e.touches[0].clientY - posY;
-    }
-  }, {passive:false});
-  el.addEventListener('touchmove', (e)=>{
-    if(e.touches.length===2){
-      e.preventDefault();
-      const d = getDist(e.touches);
-      if(startDist>0){
-        let ns = lastScale * (d/startDist);
-        ns = Math.min(Math.max(1, ns), 5);
-        const mid = getMid(e.touches);
-        const r = ns/scale;
-        posX = mid.x - (mid.x - posX)*r;
-        posY = mid.y - (mid.y - posY)*r;
-        scale = ns;
-        apply();
-      }
-    } else if(e.touches.length===1 && scale>1){
-      e.preventDefault();
-      posX = e.touches[0].clientX - startX;
-      posY = e.touches[0].clientY - startY;
-      apply();
-    }
-  }, {passive:false});
-  el.addEventListener('touchend', (e)=>{
-    if(e.touches.length<2) lastScale = scale;
-    if(e.touches.length===0){
-      if(scale<1.08){ scale=1; posX=0; posY=0; apply(); }
-      const now=Date.now();
-      if(now-lastTap<300){ scale=1; posX=0; posY=0; apply(); }
-      lastTap=now;
-    }
-  }, {passive:false});
-  el.addEventListener('dblclick', ()=>{ scale=1; posX=0; posY=0; apply(); });
-})();
-// ===== BÜYÜTEÇ SON =====
