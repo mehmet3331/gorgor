@@ -31,6 +31,13 @@
   #opponentNameDisplay{ max-width:50px !important; }
   #opponentStatusText{ font-size:8px !important; }
 }
+
+/* FIX: mesaj butonu aşağı kaymış - yukarı al */
+#chatToggle{ bottom:calc(85px + env(safe-area-inset-bottom, 0px)) !important; right:12px !important; z-index:1001 !important; }
+@media (min-width: 481px){
+  #chatToggle{ bottom:20px !important; }
+}
+
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.min.js" crossorigin="anonymous"></script>
 </head>
@@ -204,6 +211,9 @@
   </div>
 
   <div id="chatPanel">
+    <div id="chatDragHandle" style="width:100%; height:28px; display:flex; align-items:center; justify-content:center; cursor:ns-resize; background:#1a1a1a; border-bottom:1px solid #333; touch-action:none; user-select:none; flex-shrink:0;">
+      <div style="width:48px; height:5px; background:#555; border-radius:3px;"></div>
+    </div>
     <!-- V22.1 - Search Bar (ozellik 45) -->
     <div id="searchBar" style="display:none;">
       <input id="searchInput" placeholder="🔍 Mesajlarda ara..." />

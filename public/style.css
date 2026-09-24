@@ -988,3 +988,8 @@ body { background:#000 !important; }
 #attachMenuBtn { order:1 !important; width:48px !important; min-width:48px !important; height:48px !important; }
 #messageInput { order:2 !important; flex:1 !important; }
 #sendBtn { order:3 !important; width:80px !important; min-width:80px !important; }
+
+/* FIX: mesaj butonu aşağıda kalıyordu - yukarı alındı - sadece gerekli yer */
+@media (max-width: 480px){
+  #chatToggle{ bottom:85px !important; right:12px !important; }
+}

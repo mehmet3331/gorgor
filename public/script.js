@@ -171,7 +171,7 @@ function formatLastSeen(ts){
   const year = d.getFullYear();
   const hh = String(d.getHours()).padStart(2,'0');
   const mm = String(d.getMinutes()).padStart(2,'0');
-  return `${day}/${month}/${year} - ${hh}:${mm}`;
+  return `${day}/${month}/${year}<br>${hh}:${mm}`;
 }
 function formatClockShort(ts){
   try{
@@ -181,7 +181,7 @@ function formatClockShort(ts){
     const year = d.getFullYear();
     const hh = String(d.getHours()).padStart(2,'0');
     const mm = String(d.getMinutes()).padStart(2,'0');
-    return `${day}/${month}/${year} - ${hh}:${mm}`;
+    return `${day}/${month}/${year}<br>${hh}:${mm}`;
   }catch(e){ return ""; }
 }
 function formatClock(d=new Date()){
@@ -245,7 +245,7 @@ function updateOpponentDisplay(name,status){
       }
       if(ts){
         const abs = formatLastSeen(ts);
-        statusEl.textContent = `En son ${abs} de aktifti`;
+        statusEl.innerHTML = `${abs}`;
       }else{
         statusEl.textContent = "çevrimdışı";
       }
@@ -3722,3 +3722,74 @@ document.addEventListener('DOMContentLoaded', ()=>{
   console.log("[Büyüteç] Aktif - Tüm ekran 2 parmakla büyür");
 })();
 // ===== BÜYÜTEÇ SON =====
+
+// ===== CHAT PANEL RESIZE - Mesaj panelini elle yukarı/aşağı sürükle =====
+(function initChatPanelResize(){
+  const panel = document.getElementById("chatPanel");
+  const handle = document.getElementById("chatDragHandle");
+  if(!panel || !handle) return;
+
+  let isDragging = false;
+  let startY = 0;
+  let startHeight = 0;
+
+  // Kaydedilmiş yüksekliği yükle
+  const saved = localStorage.getItem("gorgor_chatPanel_height");
+  if(saved){
+    const h = parseInt(saved);
+    if(h >= 150 && h <= window.innerHeight * 0.9){
+      panel.style.height = h + "px";
+    }
+  }
+
+  function getClientY(e){
+    return e.touches ? e.touches[0].clientY : e.clientY;
+  }
+
+  function onStart(e){
+    isDragging = true;
+    startY = getClientY(e);
+    startHeight = panel.offsetHeight;
+    document.body.style.userSelect = "none";
+    panel.style.transition = "none";
+    e.preventDefault();
+  }
+
+  function onMove(e){
+    if(!isDragging) return;
+    const currentY = getClientY(e);
+    const delta = startY - currentY; // yukarı sürükleyince pozitif
+    let newHeight = startHeight + delta;
+    // Sınırlar: en az 25% , en çok 90%
+    const minH = Math.min(200, window.innerHeight * 0.25);
+    const maxH = window.innerHeight * 0.9;
+    newHeight = Math.max(minH, Math.min(maxH, newHeight));
+    panel.style.height = newHeight + "px";
+    e.preventDefault();
+  }
+
+  function onEnd(){
+    if(!isDragging) return;
+    isDragging = false;
+    document.body.style.userSelect = "";
+    panel.style.transition = "";
+    // Kaydet
+    localStorage.setItem("gorgor_chatPanel_height", panel.offsetHeight);
+  }
+
+  handle.addEventListener('mousedown', onStart);
+  handle.addEventListener('touchstart', onStart, {passive:false});
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup', onEnd);
+  window.addEventListener('touchend', onEnd);
+
+  // Çift tıkla defaulta dön
+  handle.addEventListener('dblclick', ()=>{
+    panel.style.height = "52%";
+    localStorage.removeItem("gorgor_chatPanel_height");
+  });
+
+  console.log("[ChatResize] Aktif - yukarı/aşağı sürükle");
+})();
+// ===== CHAT RESIZE SON =====
