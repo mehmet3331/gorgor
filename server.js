@@ -15,6 +15,8 @@ app.get('/api/ping', (req,res)=>{ res.json({status:'alive', time: Date.now()}); 
 function normalize(s){ return (s||'').toString().trim().toLowerCase(); }
 let persistedMessages = [];
 let mongoCollection = null;
+let bioCollection = null;
+let bioStore = {}; // In-memory bio backup - telefon silinmesine karsi
 let saveTimeout = null;
 async function initMongo(){
   if(!process.env.MONGODB_URI){ console.log("MONGODB_URI YOK!"); return; }
@@ -31,6 +33,12 @@ async function initMongo(){
       console.log("MongoDB indexler olusturuldu - TTL aktif");
     }catch(e){ console.log("Index hatasi", e.message); }
     persistedMessages = await mongoCollection.find({}).toArray();
+    try{
+      bioCollection = client.db('gorgor').collection('biometrics');
+      const bios = await bioCollection.find({}).toArray();
+      bios.forEach(b=>{ if(b.user) bioStore[b.user] = b; });
+      console.log(`BIO STORE YUKLENDI - ${bios.length} kayit`);
+    }catch(e){ console.log("Bio collection hatasi", e.message); }
     console.log(`MONGODB BAGLI - ${persistedMessages.length} mesaj`);
   }catch(e){ console.error("Mongo hatasi", e); }
 }
@@ -177,6 +185,41 @@ io.on('connection', socket=>{
     socket.room=null;
   });
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
+
+  socket.on('bio-save', async (data)=>{
+    try{
+      const user = normalize(data.user||'');
+      if(!user) return;
+      const key = data.type === 'face' ? `gorgor_face_${user}` : data.type === 'fp' ? `gorgor_fp_${user}` : `gorgor_${data.type}_${user}`;
+      bioStore[user] = bioStore[user] || {};
+      bioStore[user][data.type] = data;
+      bioStore[user].user = user;
+      bioStore[user].updatedAt = Date.now();
+      if(bioCollection){
+        try{
+          await bioCollection.updateOne({user}, {$set: bioStore[user]}, {upsert:true});
+        }catch(e){ console.log("Bio save mongo hatasi", e.message); }
+      }
+      console.log(`BIO SAVE - ${user} - ${data.type}`);
+    }catch(e){ console.log("bio-save hatasi", e.message); }
+  });
+  socket.on('bio-load', (data)=>{
+    try{
+      const user = normalize(data.user||'');
+      const bio = bioStore[user];
+      if(bio){
+        socket.emit('bio-load-result', bio);
+      } else {
+        socket.emit('bio-load-result', null);
+      }
+    }catch(e){}
+  });
+  socket.on('bio-list', ()=>{
+    try{
+      socket.emit('bio-list-result', Object.keys(bioStore));
+    }catch(e){}
+  });
+
 });
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', ()=> console.log(`HESAPLAMA V27 STABLE - tum ozellikler - FINAL STABIL - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim`));

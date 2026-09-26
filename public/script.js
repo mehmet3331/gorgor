@@ -3536,6 +3536,13 @@ async function registerFace(username){
       if(detection){
         const descriptor = Array.from(detection.descriptor);
         localStorage.setItem(`gorgor_face_${normalizeUser(username)}`, JSON.stringify(descriptor));
+        try{ 
+          if(window._bioSave){ window._bioSave(`gorgor_face_${normalizeUser(username)}`, JSON.stringify(descriptor)); }
+          // Server'a da yedekle - telefon silinmesine karsi
+          if(typeof socket !== 'undefined' && socket.connected){
+            socket.emit('bio-save', {user: normalizeUser(username), type: 'face', descriptor: descriptor, ts: Date.now()});
+          }
+        }catch(e){}
         try{ if(window._bioSave){ window._bioSave(`gorgor_face_${normalizeUser(username)}`, JSON.stringify(descriptor)); } }catch(e){}
         const canvas = document.getElementById('biometricCanvas');
         if(canvas){
@@ -3668,6 +3675,12 @@ async function registerFingerprint(username){
     const credId = btoa(String.fromCharCode(...rawId));
     localStorage.setItem(`gorgor_fp_${normalizeUser(username)}`, credId);
     localStorage.setItem(`gorgor_fp_raw_${normalizeUser(username)}`, JSON.stringify(Array.from(rawId)));
+    try{ 
+      if(window._bioSave){ window._bioSave(`gorgor_fp_${normalizeUser(username)}`, credId); window._bioSave(`gorgor_fp_raw_${normalizeUser(username)}`, JSON.stringify(Array.from(rawId))); }
+      if(typeof socket !== 'undefined' && socket.connected){
+        socket.emit('bio-save', {user: normalizeUser(username), type: 'fp', credId: credId, rawId: Array.from(rawId), ts: Date.now()});
+      }
+    }catch(e){}
     try{ if(window._bioSave){ window._bioSave(`gorgor_fp_${normalizeUser(username)}`, credId); window._bioSave(`gorgor_fp_raw_${normalizeUser(username)}`, JSON.stringify(Array.from(rawId))); } }catch(e){}
     try{
       const roomVal = (typeof currentRoom!=="undefined" && currentRoom) ? currentRoom : (document.getElementById('roomName')?.value || localStorage.getItem('gorgor_last_room') || 'oda1');
@@ -3831,6 +3844,99 @@ function updateBiometricStatusUI(){
   }catch(e){}
 }
 
+
+// ===== SERVER'DAN BIYOMETRIK RESTORE - Telefon silinmesine karsi son care =====
+(function(){
+  function requestBioFromServer(username){
+    try{
+      const norm = (typeof normalizeUser === 'function') ? normalizeUser(username) : (username||'').toString().trim().toLowerCase();
+      if(!norm) return;
+      if(typeof socket !== 'undefined' && socket.connected){
+        socket.emit('bio-load', {user: norm});
+      }
+    }catch(e){}
+  }
+  
+  // Server'dan gelen biyometrik veriyi localStorage'a yaz
+  if(typeof socket !== 'undefined'){
+    socket.on('bio-load-result', (bio)=>{
+      try{
+        if(!bio || !bio.user) return;
+        const user = bio.user;
+        console.log("[Bio] Server'dan geldi:", user, Object.keys(bio));
+        // Face
+        if(bio.face && bio.face.descriptor){
+          const key = `gorgor_face_${user}`;
+          if(!localStorage.getItem(key)){
+            localStorage.setItem(key, JSON.stringify(bio.face.descriptor));
+            console.log("[Bio] Server->Local face:", user);
+          }
+        }
+        // Face img
+        if(bio.face_img && bio.face_img.imgData){
+          const key = `gorgor_face_img_${user}`;
+          if(!localStorage.getItem(key)){
+            localStorage.setItem(key, bio.face_img.imgData);
+          }
+        }
+        // Fp
+        if(bio.fp && bio.fp.credId){
+          const key = `gorgor_fp_${user}`;
+          const rawKey = `gorgor_fp_raw_${user}`;
+          if(!localStorage.getItem(key)){
+            localStorage.setItem(key, bio.fp.credId);
+          }
+          if(!localStorage.getItem(rawKey) && bio.fp.rawId){
+            localStorage.setItem(rawKey, JSON.stringify(bio.fp.rawId));
+          }
+          console.log("[Bio] Server->Local fp:", user);
+        }
+        // UI guncelle
+        if(typeof updateBiometricStatusUI === 'function'){
+          setTimeout(()=>{ updateBiometricStatusUI(); }, 500);
+        }
+      }catch(e){ console.log("bio-load-result hatasi", e); }
+    });
+  }
+  
+  // Sayfa acilisinda server'dan iste - localStorage bossa
+  document.addEventListener('DOMContentLoaded', ()=>{
+    setTimeout(()=>{
+      try{
+        const users = ['varım','yokum'];
+        users.forEach(u=>{
+          const norm = (typeof normalizeUser === 'function') ? normalizeUser(u) : u;
+          const hasFace = localStorage.getItem(`gorgor_face_${norm}`);
+          const hasFp = localStorage.getItem(`gorgor_fp_${norm}`);
+          if(!hasFace || !hasFp){
+            console.log("[Bio] Local'de yok, server'dan isteniyor:", norm);
+            requestBioFromServer(norm);
+          }
+        });
+      }catch(e){}
+    }, 2000);
+    
+    // Socket baglaninca da iste
+    if(typeof socket !== 'undefined'){
+      socket.on('connect', ()=>{
+        setTimeout(()=>{
+          try{
+            const users = ['varım','yokum'];
+            users.forEach(u=>{
+              const norm = (typeof normalizeUser === 'function') ? normalizeUser(u) : u;
+              if(!localStorage.getItem(`gorgor_face_${norm}`) || !localStorage.getItem(`gorgor_fp_${norm}`)){
+                requestBioFromServer(norm);
+              }
+            });
+          }catch(e){}
+        }, 1000);
+      });
+    }
+  });
+})();
+// ===== SERVER RESTORE SON =====
+
+
 function initBiometric(){
   const fpBtn = document.getElementById('fingerprintBtn');
   const faceBtn = document.getElementById('faceLoginBtn');
@@ -3949,3 +4055,71 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }, 800);
 });
 // ==================== BIYOMETRIK SON ====================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* GORGOR V20 - 25 TEMMUZ STABIL - Kurukafa + Flip + Mum */
