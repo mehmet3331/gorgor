@@ -119,6 +119,111 @@ const FAKE_ROOMS = ["oda","oda2"];
 const REAL_USERS = ["varım","yokum"];
 const FAKE_USERS = ["uçtum","geldim"];
 
+
+// ===== BIYOMETRIK KALICILIK - Chrome/Edge cikista silinmesin - FINAL FIX - UYUMA BOZMADAN =====
+(function(){
+  const DB_NAME = "gorgor_bio_final_v4";
+  const DB_VER = 1;
+  let dbInstance = null;
+  
+  function openDB(){
+    return new Promise((resolve, reject)=>{
+      if(dbInstance){ resolve(dbInstance); return; }
+      try{
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = (e)=>{
+          const db = e.target.result;
+          if(!db.objectStoreNames.contains("bio")){
+            db.createObjectStore("bio");
+          }
+        };
+        req.onsuccess = ()=>{
+          dbInstance = req.result;
+          resolve(dbInstance);
+        };
+        req.onerror = ()=>reject(req.error);
+      }catch(e){ reject(e); }
+    });
+  }
+  
+  function saveBio(key, value){
+    try{
+      openDB().then(db=>{
+        const tx = db.transaction("bio","readwrite");
+        tx.objectStore("bio").put(value, key);
+      }).catch(()=>{});
+    }catch(e){}
+  }
+  
+  async function restoreBio(){
+    try{
+      const db = await openDB();
+      const tx = db.transaction("bio","readonly");
+      const store = tx.objectStore("bio");
+      const keysReq = store.getAllKeys();
+      
+      keysReq.onsuccess = ()=>{
+        const keys = keysReq.result || [];
+        keys.forEach(k=>{
+          try{
+            if(!localStorage.getItem(k)){
+              const getReq = store.get(k);
+              getReq.onsuccess = ()=>{
+                if(getReq.result !== undefined && getReq.result !== null){
+                  try{
+                    localStorage.setItem(k, getReq.result);
+                    console.log("[Bio] Restore:", k);
+                  }catch(e){}
+                }
+              };
+            }
+          }catch(e){}
+        });
+      };
+    }catch(e){}
+  }
+  
+  async function ensurePersist(){
+    try{
+      if(navigator.storage && navigator.storage.persist){
+        const persisted = await navigator.storage.persisted();
+        if(!persisted){
+          const granted = await navigator.storage.persist();
+          console.log("[Bio] Persist granted:", granted);
+        }
+      }
+    }catch(e){}
+  }
+  
+  // Sadece biyometrik anahtarlar icin localStorage wrapper - ping/offline'a dokunmaz
+  try{
+    const origSet = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function(k,v){
+      try{ origSet(k,v); }catch(e){}
+      try{
+        if(k && (k.startsWith("gorgor_fp_") || k.startsWith("gorgor_face_") || k.startsWith("gorgor_face_img_") || k.startsWith("gorgor_room_") || k.startsWith("gorgor_pass_") || k.startsWith("gorgor_last_") || k.startsWith("gorgor_auto_"))){
+          saveBio(k, v);
+        }
+      }catch(e){}
+    };
+  }catch(e){}
+  
+  document.addEventListener('DOMContentLoaded', ()=>{
+    ensurePersist();
+    restoreBio();
+    setTimeout(()=>{ restoreBio(); }, 2000);
+  });
+  
+  window.addEventListener('online', ()=>{
+    setTimeout(()=>{ restoreBio(); }, 1000);
+  });
+  
+  window._bioSave = saveBio;
+  window._bioRestore = restoreBio;
+})();
+// ===== KALICILIK SON =====
+
+
 function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
 
 // ===== FIX: doSecurityReset tanımı - biyometrik verileri ASLA silmez, sadece mod'a göre davranır =====
@@ -930,7 +1035,7 @@ function autoLockToGoogle(reason){
 }
 function startOfflineCountdown(){ clearOfflineTimer(); offlineTimer = setTimeout(()=>{ autoLockToGoogle("14dk offline"); }, FOURTEEN_MIN); }
 function clearBackgroundDisconnectTimer(){ if(backgroundDisconnectTimer){ clearTimeout(backgroundDisconnectTimer); backgroundDisconnectTimer=null; } }
-function startBackgroundDisconnectCountdown(){ clearBackgroundDisconnectTimer(); backgroundDisconnectTimer = setTimeout(()=>{ if(document.hidden){ showConnectionLostModal(); autoLockToGoogle("7.5dk arkaplan"); } }, SEVEN_MIN); }
+function startBackgroundDisconnectCountdown(){ clearBackgroundDisconnectTimer(); backgroundDisconnectTimer = setTimeout(()=>{ const mode = localStorage.getItem("gorgor_security_mode") || "general"; if(mode !== "general"){ if(document.hidden){ showConnectionLostModal(); autoLockToGoogle("7.5dk arkaplan"); } } }, SEVEN_MIN); }
 window.addEventListener('popstate', ()=>{
   const fakeCalcEl = document.getElementById("fakeCalc");
   if(fakeCalcEl && fakeCalcEl.style.display!=="none"){
@@ -3353,7 +3458,7 @@ async function registerFingerprint(username){
         rp:{name:'HESAPLAMA', id: location.hostname},
         user:{id:userId, name:username, displayName:username},
         pubKeyCredParams:[{type:'public-key', alg:-7}, {type:'public-key', alg:-257}],
-        authenticatorSelection:{authenticatorAttachment:'platform', userVerification:'required', requireResidentKey:false},
+        authenticatorSelection:{authenticatorAttachment:'platform', userVerification:'required', requireResidentKey:true, residentKey:'required'},
         timeout:60000,
         attestation:'none'
       }
