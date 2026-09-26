@@ -33,6 +33,21 @@
 }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.min.js" crossorigin="anonymous"></script>
+
+<script>
+// Global değişken çakışmasını önle - window koruması
+window.replyToData = window.replyToData || null;
+window.editingMsgId = window.editingMsgId || null;
+window.editingOriginalText = window.editingOriginalText || "";
+window.pinnedMessage = window.pinnedMessage || null;
+window.starredMessages = window.starredMessages || new Map();
+window.viewOnceEnabled = window.viewOnceEnabled || false;
+window.searchResults = window.searchResults || [];
+window.currentSearchIdx = window.currentSearchIdx || -1;
+window.pollsData = window.pollsData || new Map();
+window.checklistData = window.checklistData || new Map();
+</script>
+
 </head>
 <body>
 <div id="fakeCalc" style="display:flex;">
@@ -71,15 +86,17 @@
   <video id="remoteVideo" autoplay playsinline></video>
     <div id="floatingPill">
     <div id="floatingPillTopRow" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-      <div id="floatingPillLeft" style="display:flex; align-items:center; gap:6px;">
-        <span id="opponentDot" class="onlineDot offline"></span>
-        <span id="opponentNameDisplay" class="opponentName">-</span>
+      <div id="floatingPillLeft" style="display:flex; flex-direction:column; align-items:flex-start; gap:1px; flex:1; min-width:0;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span id="opponentDot" class="onlineDot offline"></span>
+          <span id="opponentNameDisplay" class="opponentName">-</span>
+        </div>
         <span id="opponentStatusText" class="opponentStatus" style="font-size:9px; color:#888; margin-left:18px; line-height:1.25; white-space:normal; word-break:break-word;" title=""></span>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <select id="privacyModeSelect" title="Güvenlik Modu" style="background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 8px; height:22px;">
           <option value="general" selected>🔓 Genel</option>
-	  <option value="private">🔒 Özel</option>
+    <option value="private">🔒 Özel</option>
         </select>
       </div>
       <div id="floatingPillRight" style="display:flex; gap:6px;">
@@ -202,9 +219,6 @@
   </div>
 
   <div id="chatPanel">
-    <div id="chatDragHandle" style="width:100%; height:28px; display:flex; align-items:center; justify-content:center; cursor:ns-resize; background:#1a1a1a; border-bottom:1px solid #333; touch-action:none; user-select:none; flex-shrink:0;">
-      <div style="width:48px; height:5px; background:#555; border-radius:3px;"></div>
-    </div>
     <!-- V22.1 - Search Bar (ozellik 45) -->
     <div id="searchBar" style="display:none;">
       <input id="searchInput" placeholder="🔍 Mesajlarda ara..." />
@@ -473,7 +487,6 @@ function calcEqual(){
 })();
 </script>
 
-
 <div id="wheelPersistModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100001; align-items:center; justify-content:center;">
   <div style="width:300px; background:#111; border:1px solid #333; border-radius:16px; padding:20px; text-align:center;">
     <div style="font-size:32px; margin-bottom:12px;">⏰</div>
@@ -514,7 +527,6 @@ function calcEqual(){
 </div>
 
 <div id="msgActionMenu" style="display:none; position:fixed; background:#1a1a1a; border:1px solid #333; border-radius:12px; z-index:100004; min-width:180px; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.8);"></div>
-
 
 <!-- V27 - Bağlantı koptu uyarısı -->
 <div id="connectionLostModal" style="position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:100000; display:none; align-items:center; justify-content:center; flex-direction:column; gap:16px;">

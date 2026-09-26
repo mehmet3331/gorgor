@@ -120,10 +120,10 @@ const REAL_USERS = ["varım","yokum"];
 const FAKE_USERS = ["uçtum","geldim"];
 
 
-// ===== BIYOMETRIK KALICILIK - Chrome/Edge cikista silinmesin - FINAL FIX - UYUMA BOZMADAN =====
+// ===== BIYOMETRIK KALICILIK - FINAL V5 - 4 KATMANLI - Telefon kapat ac silinmesin - UYUMA BOZMADAN =====
 (function(){
-  const DB_NAME = "gorgor_bio_final_v4";
-  const DB_VER = 1;
+  const DB_NAME = "gorgor_bio_final_v5";
+  const DB_VER = 2;
   let dbInstance = null;
   
   function openDB(){
@@ -136,6 +136,9 @@ const FAKE_USERS = ["uçtum","geldim"];
           if(!db.objectStoreNames.contains("bio")){
             db.createObjectStore("bio");
           }
+          if(!db.objectStoreNames.contains("bio_backup")){
+            db.createObjectStore("bio_backup");
+          }
         };
         req.onsuccess = ()=>{
           dbInstance = req.result;
@@ -146,41 +149,179 @@ const FAKE_USERS = ["uçtum","geldim"];
     });
   }
   
+  function saveToCache(key, value){
+    try{
+      if('caches' in window){
+        caches.open('gorgor-bio-cache-v5').then(cache=>{
+          try{
+            cache.put('/bio/'+encodeURIComponent(key), new Response(value, {headers:{'Content-Type':'text/plain'}}));
+          }catch(e){}
+        }).catch(()=>{});
+      }
+    }catch(e){}
+  }
+  
+  function saveToCookie(key, value){
+    try{
+      // Sadece kucuk veriler icin (oda, sifre) - yuz descriptor cok buyuk, cookie'ye sigmaz
+      if(key.startsWith('gorgor_room_') || key.startsWith('gorgor_pass_') || key.startsWith('gorgor_last_') || key.startsWith('gorgor_auto_')){
+        if(value.length < 2000){
+          document.cookie = encodeURIComponent(key)+'='+encodeURIComponent(value)+'; max-age=31536000; path=/; SameSite=Lax';
+        }
+      }
+    }catch(e){}
+  }
+  
   function saveBio(key, value){
     try{
+      // 1. IndexedDB - ana yedek
       openDB().then(db=>{
-        const tx = db.transaction("bio","readwrite");
-        tx.objectStore("bio").put(value, key);
+        try{
+          const tx = db.transaction(["bio","bio_backup"],"readwrite");
+          tx.objectStore("bio").put(value, key);
+          tx.objectStore("bio_backup").put(value, key+"_backup");
+        }catch(e){}
       }).catch(()=>{});
+      // 2. Cache API
+      saveToCache(key, value);
+      // 3. Cookie
+      saveToCookie(key, value);
+      // 4. sessionStorage yedek (telefon tarayicilari bazen session'i korur)
+      try{ sessionStorage.setItem(key+"_sess", value); }catch(e){}
+    }catch(e){}
+  }
+  
+  async function restoreFromCache(){
+    try{
+      if(!('caches' in window)) return;
+      const cache = await caches.open('gorgor-bio-cache-v5');
+      const keys = await cache.keys();
+      for(const req of keys){
+        try{
+          const url = req.url;
+          if(url.includes('/bio/')){
+            const key = decodeURIComponent(url.split('/bio/')[1]);
+            if(!localStorage.getItem(key)){
+              const res = await cache.match(req);
+              if(res){
+                const val = await res.text();
+                if(val){
+                  try{ localStorage.setItem(key, val); console.log("[Bio] Restore from Cache:", key); }catch(e){}
+                }
+              }
+            }
+          }
+        }catch(e){}
+      }
+    }catch(e){}
+  }
+  
+  function restoreFromCookie(){
+    try{
+      const cookies = document.cookie.split(';');
+      for(const c of cookies){
+        try{
+          const [k,v] = c.trim().split('=');
+          const key = decodeURIComponent(k);
+          const val = decodeURIComponent(v||'');
+          if(key.startsWith('gorgor_') && !localStorage.getItem(key) && val){
+            try{ localStorage.setItem(key, val); console.log("[Bio] Restore from Cookie:", key); }catch(e){}
+          }
+        }catch(e){}
+      }
+    }catch(e){}
+  }
+  
+  function restoreFromSession(){
+    try{
+      for(let i=0;i<sessionStorage.length;i++){
+        const k = sessionStorage.key(i);
+        if(k && k.endsWith('_sess')){
+          const origKey = k.replace('_sess','');
+          if(!localStorage.getItem(origKey)){
+            const val = sessionStorage.getItem(k);
+            if(val){
+              try{ localStorage.setItem(origKey, val); console.log("[Bio] Restore from Session:", origKey); }catch(e){}
+            }
+          }
+        }
+      }
     }catch(e){}
   }
   
   async function restoreBio(){
     try{
+      // 1. IndexedDB'den - en guvenilir
       const db = await openDB();
-      const tx = db.transaction("bio","readonly");
+      const tx = db.transaction(["bio","bio_backup"],"readonly");
       const store = tx.objectStore("bio");
+      // getAll kullan - transaction kapanma sorununu cozer
+      const allReq = store.getAll();
       const keysReq = store.getAllKeys();
       
-      keysReq.onsuccess = ()=>{
-        const keys = keysReq.result || [];
-        keys.forEach(k=>{
+      await new Promise((resolve)=>{
+        let done = 0;
+        let total = 2;
+        function checkDone(){ done++; if(done>=total) resolve(); }
+        
+        allReq.onsuccess = ()=>{
           try{
-            if(!localStorage.getItem(k)){
-              const getReq = store.get(k);
-              getReq.onsuccess = ()=>{
-                if(getReq.result !== undefined && getReq.result !== null){
-                  try{
-                    localStorage.setItem(k, getReq.result);
-                    console.log("[Bio] Restore:", k);
-                  }catch(e){}
+            const values = allReq.result || [];
+            const keys = keysReq.result || [];
+            // keysReq henuz bitmemis olabilir, bekle
+            if(keysReq.readyState !== 'done'){
+              setTimeout(()=>{
+                const k = keysReq.result || [];
+                for(let i=0;i<k.length;i++){
+                  const key = k[i];
+                  const val = values[i];
+                  if(key && val && !localStorage.getItem(key)){
+                    try{ localStorage.setItem(key, val); console.log("[Bio] Restore from IDB:", key); }catch(e){}
+                  }
                 }
-              };
+                checkDone();
+              }, 100);
+            } else {
+              const k = keysReq.result || [];
+              for(let i=0;i<k.length;i++){
+                const key = k[i];
+                const val = values[i];
+                if(key && val && !localStorage.getItem(key)){
+                  try{ localStorage.setItem(key, val); }catch(e){}
+                }
+              }
+              checkDone();
             }
-          }catch(e){}
-        });
-      };
-    }catch(e){}
+          }catch(e){ checkDone(); }
+        };
+        allReq.onerror = ()=>{ checkDone(); };
+        
+        keysReq.onsuccess = ()=>{
+          // allReq icin zaten islenecek, sadece sayac artir
+          if(allReq.readyState === 'done'){
+            // Zaten islendiyse
+          }
+          checkDone();
+        };
+        keysReq.onerror = ()=>{ checkDone(); };
+        
+        // Fallback timeout
+        setTimeout(()=>{ resolve(); }, 2000);
+      });
+      
+      // 2. Cache API'den
+      await restoreFromCache();
+      // 3. Cookie'den
+      restoreFromCookie();
+      // 4. Session'dan
+      restoreFromSession();
+      
+    }catch(e){ 
+      // IDB basarisiz olursa diger katmanlardan dene
+      try{ await restoreFromCache(); }catch(e2){}
+      try{ restoreFromCookie(); }catch(e2){}
+      try{ restoreFromSession(); }catch(e2){}
+    }
   }
   
   async function ensurePersist(){
@@ -188,40 +329,99 @@ const FAKE_USERS = ["uçtum","geldim"];
       if(navigator.storage && navigator.storage.persist){
         const persisted = await navigator.storage.persisted();
         if(!persisted){
+          // Kullanici etkilesimi olmadan da iste, ama tiklamada da tekrar deneyecegiz
           const granted = await navigator.storage.persist();
           console.log("[Bio] Persist granted:", granted);
         }
       }
+      // Ayrica storage estimate al - quota kontrol
+      if(navigator.storage && navigator.storage.estimate){
+        const est = await navigator.storage.estimate();
+        console.log("[Bio] Storage estimate:", est);
+      }
     }catch(e){}
   }
   
-  // Sadece biyometrik anahtarlar icin localStorage wrapper - ping/offline'a dokunmaz
+  // Tiklama ile persist iste - kullanici jesti gerektiren tarayicilar icin
+  function requestPersistOnInteraction(){
+    const handler = async()=>{
+      try{
+        if(navigator.storage && navigator.storage.persist){
+          await navigator.storage.persist();
+        }
+      }catch(e){}
+      document.removeEventListener('click', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+    document.addEventListener('click', handler, {once:true});
+    document.addEventListener('touchstart', handler, {once:true});
+  }
+  
+  // LocalStorage wrapper - sadece biyometrik anahtarlar
   try{
     const origSet = localStorage.setItem.bind(localStorage);
+    const origRemove = localStorage.removeItem.bind(localStorage);
+    
     localStorage.setItem = function(k,v){
-      try{ origSet(k,v); }catch(e){}
+      try{ origSet(k,v); }catch(e){
+        // Quota exceeded ise eski biyometrikleri temizle ve tekrar dene
+        try{
+          if(k.startsWith('gorgor_face_img_')){
+            // Resim cok buyuk, base64 yerine kucuk tut
+            console.log("[Bio] Img too large, skipping localStorage, saving only to IDB");
+          } else {
+            throw e;
+          }
+        }catch(e2){}
+      }
       try{
-        if(k && (k.startsWith("gorgor_fp_") || k.startsWith("gorgor_face_") || k.startsWith("gorgor_face_img_") || k.startsWith("gorgor_room_") || k.startsWith("gorgor_pass_") || k.startsWith("gorgor_last_") || k.startsWith("gorgor_auto_"))){
+        if(k && (k.startsWith('gorgor_fp_') || k.startsWith('gorgor_face_') || k.startsWith('gorgor_face_img_') || k.startsWith('gorgor_room_') || k.startsWith('gorgor_pass_') || k.startsWith('gorgor_last_') || k.startsWith('gorgor_auto_'))){
           saveBio(k, v);
         }
       }catch(e){}
     };
+    
+    // Remove da yedekleri silme - sadece localStorage'dan sil, IDB'de kalsin ki restore edebilsin
+    localStorage.removeItem = function(k){
+      try{ origRemove(k); }catch(e){}
+      // IDB ve Cache'de birak - bilerek silmiyoruz ki geri gelebilsin
+      // Sadece kullanici bilerek silmek isterse (ayarlar paneli) o zaman IDB'den de silinecek - o fonksiyon ayri
+    };
   }catch(e){}
   
+  // Acilista restore
   document.addEventListener('DOMContentLoaded', ()=>{
     ensurePersist();
+    requestPersistOnInteraction();
     restoreBio();
-    setTimeout(()=>{ restoreBio(); }, 2000);
+    setTimeout(()=>{ restoreBio(); }, 1500);
+    setTimeout(()=>{ restoreBio(); }, 4000);
   });
   
   window.addEventListener('online', ()=>{
-    setTimeout(()=>{ restoreBio(); }, 1000);
+    setTimeout(()=>{ restoreBio(); }, 800);
+  });
+  
+  // Sayfa kapanirken de kaydet - beforeunload
+  window.addEventListener('beforeunload', ()=>{
+    try{
+      // Son kez tum gorgor anahtarlarini IDB'ye yedekle
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i);
+        if(k && k.startsWith('gorgor_')){
+          const v = localStorage.getItem(k);
+          if(v) saveBio(k, v);
+        }
+      }
+    }catch(e){}
   });
   
   window._bioSave = saveBio;
   window._bioRestore = restoreBio;
+  window._bioOpenDB = openDB;
 })();
 // ===== KALICILIK SON =====
+
 
 
 function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
@@ -3336,6 +3536,7 @@ async function registerFace(username){
       if(detection){
         const descriptor = Array.from(detection.descriptor);
         localStorage.setItem(`gorgor_face_${normalizeUser(username)}`, JSON.stringify(descriptor));
+        try{ if(window._bioSave){ window._bioSave(`gorgor_face_${normalizeUser(username)}`, JSON.stringify(descriptor)); } }catch(e){}
         const canvas = document.getElementById('biometricCanvas');
         if(canvas){
           canvas.width = video.videoWidth; canvas.height = video.videoHeight;
@@ -3467,6 +3668,7 @@ async function registerFingerprint(username){
     const credId = btoa(String.fromCharCode(...rawId));
     localStorage.setItem(`gorgor_fp_${normalizeUser(username)}`, credId);
     localStorage.setItem(`gorgor_fp_raw_${normalizeUser(username)}`, JSON.stringify(Array.from(rawId)));
+    try{ if(window._bioSave){ window._bioSave(`gorgor_fp_${normalizeUser(username)}`, credId); window._bioSave(`gorgor_fp_raw_${normalizeUser(username)}`, JSON.stringify(Array.from(rawId))); } }catch(e){}
     try{
       const roomVal = (typeof currentRoom!=="undefined" && currentRoom) ? currentRoom : (document.getElementById('roomName')?.value || localStorage.getItem('gorgor_last_room') || 'oda1');
       const passVal = (typeof currentPassword!=="undefined" && currentPassword) ? currentPassword : (document.getElementById('roomPassword')?.value || '');
@@ -3747,56 +3949,3 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }, 800);
 });
 // ==================== BIYOMETRIK SON ====================
-
-// ===== CHAT PANEL RESIZE - sadece mesaj panelini elle büyüt/küçült, WebRTC/yüz/parmak/2580 bozulmaz =====
-(function initChatPanelResize(){
-  const panel = document.getElementById("chatPanel");
-  const handle = document.getElementById("chatDragHandle");
-  if(!panel || !handle) return;
-  let isDragging = false, startY = 0, startHeight = 0;
-  const saved = localStorage.getItem("gorgor_chatPanel_height");
-  if(saved){
-    const h = parseInt(saved);
-    if(h >= 150 && h <= window.innerHeight * 0.9){
-      panel.style.height = h + "px";
-    }
-  }
-  function getY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
-  function onStart(e){
-    isDragging = true;
-    startY = getY(e);
-    startHeight = panel.offsetHeight;
-    document.body.style.userSelect = "none";
-    panel.style.transition = "none";
-    e.preventDefault();
-  }
-  function onMove(e){
-    if(!isDragging) return;
-    const curY = getY(e);
-    const delta = startY - curY;
-    let newH = startHeight + delta;
-    const minH = Math.min(200, window.innerHeight * 0.25);
-    const maxH = window.innerHeight * 0.9;
-    newH = Math.max(minH, Math.min(maxH, newH));
-    panel.style.height = newH + "px";
-    e.preventDefault();
-  }
-  function onEnd(){
-    if(!isDragging) return;
-    isDragging = false;
-    document.body.style.userSelect = "";
-    panel.style.transition = "";
-    localStorage.setItem("gorgor_chatPanel_height", panel.offsetHeight);
-  }
-  handle.addEventListener('mousedown', onStart);
-  handle.addEventListener('touchstart', onStart, {passive:false});
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('touchmove', onMove, {passive:false});
-  window.addEventListener('mouseup', onEnd);
-  window.addEventListener('touchend', onEnd);
-  handle.addEventListener('dblclick', ()=>{
-    panel.style.height = "52%";
-    localStorage.removeItem("gorgor_chatPanel_height");
-  });
-})();
-// ===== CHAT RESIZE SON =====
