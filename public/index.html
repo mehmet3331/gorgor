@@ -79,7 +79,7 @@
         <span id="opponentStatusText" class="opponentStatus" style="font-size:9px; color:#888; margin-left:18px; line-height:1.25; white-space:normal; word-break:break-word;" title=""></span>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
-        <select id="privacyModeSelect" title="Güvenlik Modu" style="background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 8px; height:22px;">
+        <select id="privacyModeSelect" title="Güvenlik Modu" style="background:#111; color:#ffcc00; border:1px solid #333; border-radius:12px; font-size:10px; padding:2px 8px; height:22px; margin-top:5px;">
           <option value="general" selected>🔓 Genel</option>
 	  <option value="private">🔒 Özel</option>
         </select>
@@ -204,6 +204,7 @@
   </div>
 
   <div id="chatPanel">
+    <div id="chatDragHandle" style="width:100%; height:18px; cursor:ns-resize; display:flex; align-items:center; justify-content:center; background:#111; border-bottom:1px solid #333; touch-action:none;"><div style="width:40px; height:4px; background:#555; border-radius:2px;"></div></div>
     <!-- V22.1 - Search Bar (ozellik 45) -->
     <div id="searchBar" style="display:none;">
       <input id="searchInput" placeholder="🔍 Mesajlarda ara..." />
