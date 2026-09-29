@@ -77,7 +77,31 @@ function calcEqual(){
 
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
-const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
+let socket;
+try{
+  if(typeof io !== 'undefined'){
+    socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
+    console.log("[SOCKET] io connected, attempting");
+    socket.on('connect', ()=>{ console.log("[SOCKET] connected id:", socket.id); });
+    socket.on('connect_error', (err)=>{ console.error("[SOCKET] connect_error", err); });
+  } else {
+    console.error("[SOCKET] io undefined - /socket.io/socket.io.js yuklenemedi, sunucu calisiyor mu?");
+    // Dummy socket to prevent crash, joinBtn will alert
+    socket = {
+      connected: false,
+      emit: function(){ console.warn("[SOCKET] dummy emit", arguments); alert("Sunucuya bağlanılamadı - /socket.io/socket.io.js yüklenemedi. Sunucuyu başlat ve sayfayı yenile."); },
+      on: function(){},
+      to: function(){ return { emit: function(){} } }
+    };
+  }
+}catch(e){
+  console.error("[SOCKET] init hatasi", e);
+  socket = {
+    connected: false,
+    emit: function(){ alert("Socket hatasi: "+e.message); },
+    on: function(){}
+  };
+}
 
 const myVideo = document.getElementById("myVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -520,15 +544,48 @@ function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=s
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
 
 joinBtn.onclick=async()=>{
-    const room=roomName.value.trim(); const password=roomPassword.value.trim(); const uname=userName.value.trim();
-    if(!room){ alert("Oda adı gir"); return; }
-    if(!uname){ alert("Kullanıcı adı gir"); return; }
-    if(!password){ alert("Şifre gerekli"); return; }
-    currentPassword=password; myUsername=normalize(uname); myRealUsername=uname;
-    currentRoom=room;
-    if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
-    try{ await startCamera(currentQuality); }catch(e){}
-    socket.emit("join-room",{room,password,username:uname});
+    try{
+      console.log("[JOIN] tiklandi");
+      const roomEl = document.getElementById("roomName");
+      const passEl = document.getElementById("roomPassword");
+      const userEl = document.getElementById("userName");
+      const room = (roomEl?.value || roomName?.value || "").trim();
+      const password = (passEl?.value || roomPassword?.value || "").trim();
+      const uname = (userEl?.value || userName?.value || "").trim();
+      console.log("[JOIN] degerler room:", room, "user:", uname, "pass len:", password.length);
+      if(!room){ alert("Oda adı gir (ör: oda1)"); roomEl?.focus(); return; }
+      if(!uname){ alert("Kullanıcı adı gir - varım veya yokum yaz"); userEl?.focus(); if(userEl) userEl.style.display="block"; if(typeof userListBox!=="undefined" && userListBox) userListBox.style.display="block"; return; }
+      if(!password){ alert("Şifre gerekli"); passEl?.focus(); return; }
+      if(typeof socket==="undefined" || !socket){
+        alert("Socket yok, sayfayi yenile");
+        return;
+      }
+      if(!socket.connected){
+        console.warn("[JOIN] socket bagli degil, baglanmaya calisiliyor...");
+        try{ if(socket.connect) socket.connect(); }catch(e){}
+        // 1 sn bekle
+        await new Promise(r=>setTimeout(r, 800));
+        if(!socket.connected){
+          console.error("[JOIN] hala bagli degil");
+          // Yine de emit dene, dummy socket alert verecek
+        }
+      }
+      currentPassword=password; 
+      myUsername = (typeof normalize==="function") ? normalize(uname) : uname.toLowerCase(); 
+      myRealUsername=uname;
+      currentRoom=room;
+      try{ localStorage.setItem("gorgor_last_room", room); localStorage.setItem("gorgor_last_user", uname); }catch(e){}
+      if(typeof myVideoContainer!=="undefined" && myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
+      try{ if(typeof startCamera==="function") await startCamera(typeof currentQuality!=="undefined"?currentQuality:720); }catch(e){ console.log("[JOIN] camera fail", e); }
+      console.log("[JOIN] emit join-room", room, uname);
+      socket.emit("join-room",{room,password,username:uname});
+      joinBtn.textContent="Giriliyor...";
+      joinBtn.disabled=true;
+      setTimeout(()=>{ joinBtn.textContent="Giriş"; joinBtn.disabled=false; }, 3000);
+    }catch(e){
+      console.error("[JOIN] hata", e);
+      alert("Giriş hatası: "+(e.message||e));
+    }
 };
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{ 
