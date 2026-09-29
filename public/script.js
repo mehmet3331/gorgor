@@ -4105,4 +4105,57 @@ document.addEventListener('DOMContentLoaded', ()=>{
     try{ loadFaceModels(); }catch(e){}
   }, 800);
 });
+// ===== CHAT PANEL RESIZE - sadece mesaj panelini elle büyüt/küçült, WebRTC/yüz/parmak/2580 bozulmaz =====
+(function initChatPanelResize(){
+  const panel = document.getElementById("chatPanel");
+  const handle = document.getElementById("chatDragHandle");
+  if(!panel || !handle) return;
+  let isDragging = false, startY = 0, startHeight = 0;
+  const saved = localStorage.getItem("gorgor_chatPanel_height");
+  if(saved){
+    const h = parseInt(saved);
+    if(h >= 150 && h <= window.innerHeight * 0.9){
+      panel.style.height = h + "px";
+    }
+  }
+  function getY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
+  function onStart(e){
+    isDragging = true;
+    startY = getY(e);
+    startHeight = panel.offsetHeight;
+    document.body.style.userSelect = "none";
+    panel.style.transition = "none";
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!isDragging) return;
+    const curY = getY(e);
+    const delta = startY - curY;
+    let newH = startHeight + delta;
+    const minH = Math.min(200, window.innerHeight * 0.25);
+    const maxH = window.innerHeight * 0.9;
+    newH = Math.max(minH, Math.min(maxH, newH));
+    panel.style.height = newH + "px";
+    e.preventDefault();
+  }
+  function onEnd(){
+    if(!isDragging) return;
+    isDragging = false;
+    document.body.style.userSelect = "";
+    panel.style.transition = "";
+    localStorage.setItem("gorgor_chatPanel_height", panel.offsetHeight);
+  }
+  handle.addEventListener('mousedown', onStart);
+  handle.addEventListener('touchstart', onStart, {passive:false});
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup', onEnd);
+  window.addEventListener('touchend', onEnd);
+  handle.addEventListener('dblclick', ()=>{
+    panel.style.height = "52%";
+    localStorage.removeItem("gorgor_chatPanel_height");
+  });
+})();
+// ===== CHAT RESIZE SON =====
+
 // ==================== BIYOMETRIK SON ====================
