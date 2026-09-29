@@ -1,5 +1,7 @@
 /* GORGOR V20 - 25 TEMMUZ STABIL - Kurukafa tam yok et + Flip blur + Sonen mum - Temel kurallar: fakeCalc 0000, oda1, varim/yokum korunuyor */
 console.log("V20 25TEMMUZ STABIL - V20 - Kurukafa + Flip Panik - Temel kurallar korunuyor - V19.0 FINAL - TUM OZELLIKLER - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim ortak");
+function triggerSecurityAction(source){ console.log("UYKU YOK - triggerSecurityAction iptal", source); return; }
+
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
 const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
@@ -127,20 +129,18 @@ function doSecurityReset(reason){
   try{
     const currentMode = localStorage.getItem("gorgor_security_mode") || securityMode || "general";
     securityMode = currentMode;
-    if(currentMode === "general"){
-      try{
-        if(localStream){
-          localStream.getVideoTracks().forEach(t=>{ try{ t.enabled=false; }catch(e){} });
-          localStream.getAudioTracks().forEach(t=>{ try{ t.enabled=false; }catch(e){} });
-        }
-        if(typeof camEnabled!=="undefined") camEnabled=false;
-        if(typeof micEnabled!=="undefined") micEnabled=false;
-        if(typeof micBtn!=="undefined" && micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
-        if(typeof camBtn!=="undefined" && camBtn){ camBtn.classList.add("offIcon"); }
-      }catch(e){}
-    } else {
-      try{ if(typeof autoLockToGoogle==="function"){ autoLockToGoogle(reason+" (özel mod)"); } }catch(e){}
-    }
+    // UYUMA YOK - sadece cam/mic kapat, hicbir modda Google'a atma
+    try{
+      if(localStream){
+        localStream.getVideoTracks().forEach(t=>{ try{ t.enabled=false; }catch(e){} });
+        localStream.getAudioTracks().forEach(t=>{ try{ t.enabled=false; }catch(e){} });
+      }
+      if(typeof camEnabled!=="undefined") camEnabled=false;
+      if(typeof micEnabled!=="undefined") micEnabled=false;
+      if(typeof micBtn!=="undefined" && micBtn){ micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; }
+      if(typeof camBtn!=="undefined" && camBtn){ camBtn.classList.add("offIcon"); }
+    }catch(e){}
+    console.log("doSecurityReset - UYKU YOK, sadece cam/mic kapandi", reason);
   }catch(e){}
 }
 
@@ -606,7 +606,7 @@ function createPeer(initiator){
 }
 socket.on("signal",signal=>{ if(!peer){ createPeer(false); setTimeout(async()=>{ try{ if(localStream) await syncAllTracksToPeer(); }catch(e){} }, 300); } try{ peer.signal(signal); }catch(e){} });
 socket.on("user-status",(data)=>{ const {user,status,online}=data; if(user===myRealUsername) return; const isOnline=status==="varım"||online; updateOpponentDisplay(user,isOnline?"varım":"yokum"); if(isOnline) clearOfflineTimer(); else startOfflineCountdown(); });
-socket.on("user-last-seen",(data)=>{
+socket.on("user-last-seen",(data)=>{ // FIX: benim son girisimi gosterme, karsi tarafin goster
   const {user, ts, online} = data;
   if(user===myRealUsername) return;
   if(ts){ lastSeenTimes[user]=ts; try{ localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes)); }catch(e){} }
@@ -913,6 +913,7 @@ socket.on("peer-paused", ()=>{ if(localStream){ localStream.getAudioTracks().for
 // V18.19 - 14dk offline oto Google kilit + geri tus korumasi
 function clearOfflineTimer(){ if(offlineTimer){ clearTimeout(offlineTimer); offlineTimer=null; } }
 function autoLockToGoogle(reason){
+  console.log("UYKU YOK - autoLock iptal", reason); return; // UYUMA YOK - 50 kere soylendi, tamamen kapali
   console.log("14DK OFFLINE KILIT", reason);
   clearOfflineTimer();
   try{ if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); } if(peer){ try{peer.destroy();}catch(e){} peer=null; } }catch(e){}
@@ -928,9 +929,9 @@ function autoLockToGoogle(reason){
   try{ socket.emit("leave-room", currentRoom); }catch(e){}
   currentRoom=""; isPhoneMode=false; document.body.classList.remove("phone-mode");
 }
-function startOfflineCountdown(){ clearOfflineTimer(); offlineTimer = setTimeout(()=>{ autoLockToGoogle("14dk offline"); }, FOURTEEN_MIN); }
+function startOfflineCountdown(){ console.log("UYKU YOK - offline countdown iptal"); try{ clearOfflineTimer(); }catch(e){} return; }
 function clearBackgroundDisconnectTimer(){ if(backgroundDisconnectTimer){ clearTimeout(backgroundDisconnectTimer); backgroundDisconnectTimer=null; } }
-function startBackgroundDisconnectCountdown(){ clearBackgroundDisconnectTimer(); backgroundDisconnectTimer = setTimeout(()=>{ if(document.hidden){ showConnectionLostModal(); autoLockToGoogle("7.5dk arkaplan"); } }, SEVEN_MIN); }
+function startBackgroundDisconnectCountdown(){ console.log("UYKU YOK - background disconnect iptal"); try{ clearBackgroundDisconnectTimer(); }catch(e){} return; }
 window.addEventListener('popstate', ()=>{
   const fakeCalcEl = document.getElementById("fakeCalc");
   if(fakeCalcEl && fakeCalcEl.style.display!=="none"){
@@ -1327,34 +1328,7 @@ let lastFlipTrigger = 0;
 let flipOrientationHandler = null;
 let flipDebounceTimer = null;
 
-function initFlipPanicSensor(){
-  const toggle = document.getElementById("flipPanicToggle");
-  if(!toggle) return;
-  flipPanicEnabled = localStorage.getItem("gorgor_flip_panic") === "1";
-  toggle.checked = flipPanicEnabled;
-  toggle.addEventListener("change", ()=>{
-    flipPanicEnabled = toggle.checked;
-    localStorage.setItem("gorgor_flip_panic", flipPanicEnabled ? "1" : "0");
-    if(flipPanicEnabled){
-      armFlipSensor();
-      showToast("📱 Ters çevirince panik AKTİF - program açıkken çalışır");
-      if(typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"){
-        DeviceOrientationEvent.requestPermission().then(state=>{ if(state === "granted"){ armFlipSensor(); } }).catch(()=>{});
-      }
-    } else {
-      disarmFlipSensor();
-      showToast("📱 Ters çevirince panik KAPALI");
-    }
-  });
-  if(flipPanicEnabled){
-    const checkMain = setInterval(()=>{
-      if(mainScreen && mainScreen.style.display !== "none" && mainScreen.style.display !== ""){
-        armFlipSensor();
-        clearInterval(checkMain);
-      }
-    }, 1000);
-  }
-}
+function initFlipPanicSensor(){ console.log("UYKU YOK - flip panic iptal"); return; }
 
 function armFlipSensor(){
   if(flipPanicArmed) return;
@@ -1433,87 +1407,7 @@ function showSecurityPanel(){const panel=document.getElementById("securitySettin
 function hideSecurityPanel(){const panel=document.getElementById("securitySettingsPanel"); if(panel){panel.style.display="none"; panel.classList.remove("show");}}
 function applySecuritySettingsToUI(cfg){const setVal=(id,val)=>{const el=document.getElementById(id); if(el) el.value=val;}; const setChk=(id,val)=>{const el=document.getElementById(id); if(el) el.checked=!!val;}; setVal("skullActionSelect",cfg.skullAction); setVal("redActionSelect",cfg.redAction); setVal("flipActionSelect",cfg.flipAction); setChk("confirmSkull",cfg.confirmSkull); setChk("confirmRed",cfg.confirmRed); setChk("confirmFlip",cfg.confirmFlip); setChk("triggerFlip",cfg.triggers.flip); setChk("triggerShake",cfg.triggers.shake); setChk("triggerVolDown3",cfg.triggers.volDown3); setChk("triggerVolUp3",cfg.triggers.volUp3); setChk("triggerPower2",cfg.triggers.power2); setChk("triggerVolBoth",cfg.triggers.volBoth); setChk("triggerThreeFinger",cfg.triggers.threeFinger); setChk("triggerPocket",cfg.triggers.pocket); flipPanicEnabled=!!cfg.triggers.flip; if(flipPanicEnabled) armFlipSensor(); else disarmFlipSensor();}
 let securityTriggersArmed=false; let volDownCount=0,volUpCount=0,volDownTimer=null,volUpTimer=null,lastPowerHide=0;
-function applySecurityTriggers(cfg){ if(securityTriggersArmed) disarmSecurityTriggers(); securityTriggersArmed=true; if(cfg.triggers.shake){window.addEventListener("devicemotion",handleShakeMotion,true);} if(cfg.triggers.volDown3||cfg.triggers.volUp3||cfg.triggers.volBoth){window.addEventListener("keydown",handleVolumeKeys,true);} if(cfg.triggers.power2){document.addEventListener("visibilitychange",handlePowerDouble,true);} if(cfg.triggers.threeFinger){window.addEventListener("touchstart",handleThreeFinger,{passive:false});} }
-function disarmSecurityTriggers(){ window.removeEventListener("devicemotion",handleShakeMotion,true); window.removeEventListener("keydown",handleVolumeKeys,true); document.removeEventListener("visibilitychange",handlePowerDouble,true); window.removeEventListener("touchstart",handleThreeFinger,{passive:false}); securityTriggersArmed=false; }
-function handleShakeMotion(e){const acc=e.accelerationIncludingGravity; if(!acc) return; const force=Math.abs(acc.x)+Math.abs(acc.y)+Math.abs(acc.z); if(force>35){triggerSecurityAction("shake");}}
-function handleVolumeKeys(e){const cfg=loadSecurityConfig(); if(e.key==="AudioVolumeDown"||e.key==="VolumeDown"||(e.key==="ArrowDown"&&e.ctrlKey)){if(cfg.triggers.volDown3){volDownCount++; clearTimeout(volDownTimer); volDownTimer=setTimeout(()=>{volDownCount=0;},2000); if(volDownCount>=3){volDownCount=0; triggerSecurityAction("volDown3");}}} if(e.key==="AudioVolumeUp"||e.key==="VolumeUp"||(e.key==="ArrowUp"&&e.ctrlKey)){if(cfg.triggers.volUp3){volUpCount++; clearTimeout(volUpTimer); volUpTimer=setTimeout(()=>{volUpCount=0;},2000); if(volUpCount>=3){volUpCount=0; triggerSecurityAction("volUp3");}}} if(cfg.triggers.volBoth){if(e.key==="AudioVolumeDown"||e.key==="VolumeDown"){const now=Date.now(); if(window._lastVolUp&&now-window._lastVolUp<800){triggerSecurityAction("volBoth");}} if(e.key==="AudioVolumeUp"||e.key==="VolumeUp"){window._lastVolUp=Date.now();}}}
-function handlePowerDouble(){if(document.hidden){const now=Date.now(); if(now-lastPowerHide<1500){triggerSecurityAction("power2");} lastPowerHide=now;}}
-function handleThreeFinger(e){if(e.touches&&e.touches.length>=3){e.preventDefault(); triggerSecurityAction("threeFinger");}}
-function triggerSecurityAction(source){const cfg=loadSecurityConfig(); document.body.classList.add("flip-blur-active"); showToast("🛡 "+source+" - buğulandi"); try{if(navigator.vibrate) navigator.vibrate([100,50,100]);}catch(e){} setTimeout(()=>{document.body.classList.remove("flip-blur-active"); const needConfirm=cfg.confirmRed; const doAction=()=>{enhancedPanic();}; if(needConfirm){showPanicConfirm(source+" tetiklendi - panik?",doAction);}else{doAction();}},1200);}
-function showPanicConfirm(text,onConfirm){const modal=document.getElementById("panicConfirmModal"); const txt=document.getElementById("panicConfirmText"); const ok=document.getElementById("panicConfirmOk"); const cancel=document.getElementById("panicConfirmCancel"); if(!modal){onConfirm();return;} if(txt) txt.textContent=text; modal.style.display="flex"; modal.classList.add("show"); const cleanup=()=>{modal.style.display="none"; modal.classList.remove("show"); if(ok) ok.onclick=null; if(cancel) cancel.onclick=null; modal.onclick=null;}; if(ok) ok.onclick=()=>{cleanup(); onConfirm();}; if(cancel) cancel.onclick=()=>{cleanup();}; if(modal) modal.onclick=(e)=>{if(e.target===modal) cleanup();};}
-function triggerNewMessageBlink(){
-  if(typeof isHiddenMode!=="undefined" && isHiddenMode){
-    hasNewMessageWhileHidden=true;
-    startBlinking2580();
-    const ind=document.getElementById("hiddenNewMsgIndicator");
-    if(ind){ ind.style.display="block"; ind.textContent="2+2=3!"; }
-    return;
-  }
-  const ct=document.getElementById("chatToggle");
-  const fp=document.getElementById("floatingPill");
-  const left=document.getElementById("floatingPillLeft");
-  if(ct) ct.classList.add("hasNewMessage");
-  if(fp) fp.classList.add("hasNewMessage");
-  if(left) left.classList.add("hasNewMessage");
-  setTimeout(()=>{
-    if(ct) ct.classList.remove("hasNewMessage");
-    if(fp) fp.classList.remove("hasNewMessage");
-    if(left) left.classList.remove("hasNewMessage");
-  },8000);
-}
-function initWheelPersistFeature(){
-  const modal = document.getElementById("wheelPersistModal");
-  const yesBtn = document.getElementById("wheelPersistYes");
-  const noBtn = document.getElementById("wheelPersistNo");
-  const textEl = document.getElementById("wheelPersistText");
-  let pendingSec = null;
-  window.showWheelPersistAsk = function(sec){
-    pendingSec = sec;
-    const label = sec < 3600 ? Math.round(sec/60) + " dakika" : sec < 86400 ? Math.round(sec/3600) + " saat" : "1 gün";
-    if(textEl) textEl.textContent = `Bundan sonraki girişlerde de ${label} sürenin sürekli sabit kalmasını istiyor musunuz?`;
-    if(modal){ modal.style.display = "flex"; modal.classList.add("show"); }
-  };
-  if(yesBtn){
-    yesBtn.onclick = function(){
-      if(pendingSec){
-        localStorage.setItem("gorgor_persistent_default", pendingSec.toString());
-        localStorage.setItem("gorgor_default_expire", pendingSec.toString());
-        showToast(`✅ Kalıcı varsayılan ${Math.round(pendingSec/3600)} saat olarak kaydedildi`);
-        const sel = document.getElementById("perMessageTimerSelect");
-        if(sel){
-          let opt = sel.querySelector('option[value="custom_persist"]');
-          if(!opt){ opt = document.createElement("option"); opt.value = "custom_persist"; sel.appendChild(opt); }
-          const h = Math.floor(pendingSec/3600); const m = Math.floor((pendingSec%3600)/60);
-          opt.textContent = `${h}sa ${m}dk (kalıcı)`;
-          opt.selected = true;
-        }
-      }
-      if(modal){ modal.style.display = "none"; modal.classList.remove("show"); }
-      pendingSec = null;
-    };
-  }
-  if(noBtn){
-    noBtn.onclick = function(){
-      if(pendingSec){
-        sessionStorage.setItem("gorgor_temp_expire", pendingSec.toString());
-        localStorage.setItem("gorgor_default_expire", "43200");
-        localStorage.removeItem("gorgor_persistent_default");
-        showToast(`⏰ Bu seferlik ${Math.round(pendingSec/3600)} saat, sonrası 12 saat varsayılan`);
-        const sel = document.getElementById("perMessageTimerSelect");
-        if(sel){
-          let opt = sel.querySelector('option[value="custom_temp"]');
-          if(!opt){ opt = document.createElement("option"); opt.value = "custom_temp"; sel.appendChild(opt); }
-          const h = Math.floor(pendingSec/3600); const m = Math.floor((pendingSec%3600)/60);
-          opt.textContent = `${h}sa ${m}dk (bu seferlik)`;
-          opt.selected = true;
-        }
-      }
-      if(modal){ modal.style.display = "none"; modal.classList.remove("show"); }
-      pendingSec = null;
-    };
-  }
-  if(modal){ modal.addEventListener("click", (e)=>{ if(e.target===modal){ modal.style.display="none"; modal.classList.remove("show"); } }); }
-}
+function applySecurityTriggers(cfg){ console.log("UYKU YOK - security triggers iptal"); return; }
 
 
 
@@ -1836,7 +1730,7 @@ function initBackgroundBlur(){
 
 // 9. OTO RECONNECT - mum yanarken oto baglan
 function initAutoReconnect(){
-  socket.on("user-last-seen",(data)=>{
+  socket.on("user-last-seen",(data)=>{ // FIX: benim son girisimi gosterme, karsi tarafin goster
   const user=data.user; const ts=data.ts;
   if(user===myRealUsername) return;
   lastSeenTimes[user]=ts;
@@ -3078,7 +2972,16 @@ function doKeepAlivePing(){
 // ===== V27 - GELISMIS ONLINE STATUS + GENEL MOD FIX =====
 let opponentLastSeen = null;
 // restore opponentLastSeen from localStorage if exists
-try{ const ls = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1")); if(ls){ const o=JSON.parse(ls); const keys=Object.keys(o); if(keys.length) opponentLastSeen=o[keys[0]]; } }catch(e){}
+try{ 
+  const ls = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1")); 
+  if(ls){ 
+    const o=JSON.parse(ls); 
+    const myNames = [(typeof myRealUsername!=="undefined"?myRealUsername:"").toLowerCase(), (typeof myUsername!=="undefined"?myUsername:"").toLowerCase()];
+    const filteredKeys = Object.keys(o).filter(k=> !myNames.includes((k||"").toLowerCase()));
+    const keyToUse = filteredKeys.length ? filteredKeys[0] : null;
+    if(keyToUse) opponentLastSeen=o[keyToUse]; 
+  } 
+}catch(e){}
 let myStatus = "online";
 let statusCheckInterval = null;
 
@@ -3641,6 +3544,61 @@ document.addEventListener('DOMContentLoaded', ()=>{
     try{ loadFaceModels(); }catch(e){}
   }, 800);
 });
+
+// ===== CHAT PANEL RESIZE - sadece mesaj panelini elle büyüt/küçült, WebRTC/yüz/parmak/2580 bozulmaz =====
+(function initChatPanelResize(){
+  const panel = document.getElementById("chatPanel");
+  const handle = document.getElementById("chatDragHandle");
+  if(!panel || !handle) return;
+  let isDragging = false, startY = 0, startHeight = 0;
+  const saved = localStorage.getItem("gorgor_chatPanel_height");
+  if(saved){
+    const h = parseInt(saved);
+    if(h >= 150 && h <= window.innerHeight * 0.9){
+      panel.style.height = h + "px";
+    }
+  }
+  function getY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
+  function onStart(e){
+    isDragging = true;
+    startY = getY(e);
+    startHeight = panel.offsetHeight;
+    document.body.style.userSelect = "none";
+    panel.style.transition = "none";
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!isDragging) return;
+    const curY = getY(e);
+    const delta = startY - curY;
+    let newH = startHeight + delta;
+    const minH = Math.min(200, window.innerHeight * 0.25);
+    const maxH = window.innerHeight * 0.9;
+    newH = Math.max(minH, Math.min(maxH, newH));
+    panel.style.height = newH + "px";
+    e.preventDefault();
+  }
+  function onEnd(){
+    if(!isDragging) return;
+    isDragging = false;
+    document.body.style.userSelect = "";
+    panel.style.transition = "";
+    localStorage.setItem("gorgor_chatPanel_height", panel.offsetHeight);
+  }
+  handle.addEventListener('mousedown', onStart);
+  handle.addEventListener('touchstart', onStart, {passive:false});
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup', onEnd);
+  window.addEventListener('touchend', onEnd);
+  handle.addEventListener('dblclick', ()=>{
+    panel.style.height = "52%";
+    localStorage.removeItem("gorgor_chatPanel_height");
+  });
+})();
+// ===== CHAT RESIZE SON =====
+
+
 // ==================== BIYOMETRIK SON ====================
 
 
