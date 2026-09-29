@@ -97,7 +97,8 @@ io.on('connection', socket=>{
   socket.on('checklist-toggle', data=>{ if(!socket.room) return; io.to(socket.room).emit('checklist-toggle', data); });
   socket.on('delete-message', data=>{ if(!socket.room) return; const room=socket.room; if(rooms[room]?.messages.has(data.msgId)) rooms[room].messages.delete(data.msgId); persistedMessages=persistedMessages.filter(m=>!(m.msgId===data.msgId&&m.room===room)); debouncedSave(); io.to(room).emit('delete-message', data); });
   socket.on('join-room', data=>{
-    const room=data.room; const count=Object.keys(rooms[room]?.users||{}).length+1;
+    const room=data.room; 
+    const count=Object.keys(rooms[room]?.users||{}).length+1;
     if(!rooms[room]){
       const saved = persistedLastSeenMap[room] ? {...persistedLastSeenMap[room]} : {};
       rooms[room]={users:{},messages:new Map(),lastSeen:saved};
@@ -110,6 +111,9 @@ io.on('connection', socket=>{
     rooms[room].lastSeen[data.username]=ts;
     saveLastSeen(room, data.username, ts);
     const otherUsers=Object.values(rooms[room].users).filter(u=>u.realUsername!==data.username);
+    // FIX: client joined-room bekliyor, bu emit olmazsa giris ekraninda kalir - taslaktaki gibi geri eklendi
+    const finalCount = Object.keys(rooms[room].users).length;
+    socket.emit('joined-room',{username:data.username,count:finalCount, otherUsers});
     socket.emit('room-users', otherUsers);
     socket.to(room).emit('user-connected',{username:data.username,realUsername:socket.realUsername});
     socket.emit('last-seen-list', rooms[room].lastSeen);
@@ -119,7 +123,7 @@ io.on('connection', socket=>{
     }
     const now2=Date.now(); const pending=persistedMessages.filter(m=>m.room===room && (m.deleteAt||m.expireAt||0)>now2);
     if(pending.length) socket.emit('pending-messages',pending);
-    console.log(`ODA: ${room} - ${data.username} girdi ${count} - lastSeen guncellendi kalici`);
+    console.log(`ODA: ${room} - ${data.username} girdi ${finalCount} - lastSeen guncellendi kalici - joined-room emit edildi`);
   });
   socket.on('chat-message', async data=>{
     const room=socket.room; if(!room||!rooms[room]) return; const now=Date.now();
