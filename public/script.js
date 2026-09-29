@@ -2,14 +2,31 @@
 console.log("V20 25TEMMUZ STABIL - V20 - Kurukafa + Flip Panik - Temel kurallar korunuyor - V19.0 FINAL - TUM OZELLIKLER - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim ortak");
 function triggerSecurityAction(source){ console.log("UYKU YOK - triggerSecurityAction iptal", source); return; }
 
-// ===== FAKE CALC - 0000 oda giris, 2580 gizli gorusme =====
+// ===== FAKE CALC - 0000 oda giris, 2580 gizli gorusme - FIX 4 sifir girilemiyor duzeltildi =====
 let calcBuf = "";
 function calcPress(v){
   const disp = document.getElementById("calcDisplay");
   if(!disp) return;
-  // Limit
   if(disp.value.length > 20) return;
-  if(disp.value === "0" || disp.value === "Hata") disp.value = "";
+  if(disp.value === "Hata"){
+    disp.value = "";
+    calcBuf = "";
+  }
+  if(!disp.value){
+    disp.value = v;
+    calcBuf = disp.value;
+    return;
+  }
+  if(disp.value === "0" && v === "0"){
+    disp.value += "0";
+    calcBuf = disp.value;
+    return;
+  }
+  if(disp.value === "0" && v !== "0" && v !== "."){
+    disp.value = v;
+    calcBuf = disp.value;
+    return;
+  }
   disp.value += v;
   calcBuf = disp.value;
 }
@@ -21,21 +38,27 @@ function calcClear(){
 function calcEqual(){
   const disp = document.getElementById("calcDisplay");
   if(!disp) return;
-  let val = disp.value.trim();
-  // Gizli kodlar
-  if(val === "0000" || val === "00" || val === "0"){
-    // Hesap makinesini kapat, oda ekranini ac
+  let val = (disp.value || calcBuf || "").trim();
+  console.log("[CALC] equal val:", val);
+  if(val === "0000" || val === "00" || val === "0" || val === "000"){
     const fakeCalcEl = document.getElementById("fakeCalc");
     if(fakeCalcEl) fakeCalcEl.style.display = "none";
     const roomScreenEl = document.getElementById("roomScreen");
     if(roomScreenEl) roomScreenEl.style.display = "flex";
     disp.value = "";
     calcBuf = "";
+    if(typeof showToast==="function") showToast("🔓 Oda girişine geçildi");
     return;
   }
-  if(val === "2580" || val === "0258" || val === "2580"){
-    // Gizli gorusme modu - 2580
-    enterHiddenMode();
+  if(val === "2580" || val === "0258"){
+    if(typeof enterHiddenMode==="function"){
+      enterHiddenMode();
+    } else {
+      const fakeCalcEl = document.getElementById("fakeCalc");
+      if(fakeCalcEl) fakeCalcEl.style.display = "none";
+      const roomScreenEl = document.getElementById("roomScreen");
+      if(roomScreenEl) roomScreenEl.style.display = "flex";
+    }
     disp.value = "";
     calcBuf = "";
     return;
@@ -334,7 +357,13 @@ let fakeNotifEnabled = true;
 let screenshotProtectionEnabled = false // FIX: siyah ekran yapmasin, default kapali;
 
 
-roomName.addEventListener("input",()=>{ const v=normalize(roomName.value); if(v.length>0){ if(fakeRoomsHint) fakeRoomsHint.style.display="block"; } else { if(fakeRoomsHint) fakeRoomsHint.style.display="none"; } if(v===REAL_ROOM || v.length>=2){ userName.style.display="block"; userListBox.style.display="block"; } else { userName.style.display="none"; userListBox.style.display="none"; } });
+roomName.addEventListener("input",()=>{ 
+  const v=normalize(roomName.value); 
+  if(v.length>0){ if(fakeRoomsHint) fakeRoomsHint.style.display="block"; } else { if(fakeRoomsHint) fakeRoomsHint.style.display="none"; } 
+  // FIX: kullanıcı adı alanı hep görünür kalsın, gizlenmesin - giriş sorunu çözüldü
+  if(userName) userName.style.display="block"; 
+  if(userListBox) userListBox.style.display="block"; 
+});
 
 // V19 PBKDF2 + backward compatibility
 async function deriveKeyLegacy(password){ const enc=new TextEncoder(); const hash=await crypto.subtle.digest('SHA-256', enc.encode(password)); return await crypto.subtle.importKey('raw', hash, { name:'AES-GCM' }, false, ['encrypt','decrypt']); }
@@ -497,16 +526,48 @@ function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=s
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
 
 joinBtn.onclick=async()=>{
-    const room=roomName.value.trim(); const password=roomPassword.value.trim(); const uname=userName.value.trim();
-    if(!room){ alert("Oda adı gir"); return; }
-    if(!uname){ alert("Kullanıcı adı gir"); return; }
-    if(!password){ alert("Şifre gerekli"); return; }
-    currentPassword=password; myUsername=normalize(uname); myRealUsername=uname;
-    currentRoom=room;
-    if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
-    try{ await startCamera(currentQuality); }catch(e){}
-    socket.emit("join-room",{room,password,username:uname});
+    try{
+      const roomEl = document.getElementById("roomName");
+      const passEl = document.getElementById("roomPassword");
+      const userEl = document.getElementById("userName");
+      const room = (roomEl?.value || "").trim();
+      const password = (passEl?.value || "").trim();
+      let uname = (userEl?.value || "").trim();
+      console.log("[JOIN] click room:", room, "user:", uname, "socket:", socket?.connected);
+      if(!room){ alert("Oda adı gir (ör: oda1)"); return; }
+      if(!uname){
+        if(room.toLowerCase()==="oda1"){
+          uname = "varım";
+          if(userEl) userEl.value = uname;
+        } else {
+          alert("Kullanıcı adı gir - varım veya yokum");
+          if(userEl){ userEl.style.display="block"; userEl.focus(); }
+          return;
+        }
+      }
+      if(!password){ alert("Şifre gerekli"); return; }
+      if(!socket || !socket.connected){
+        try{ socket.connect(); }catch(e){}
+        await new Promise(r=>setTimeout(r, 800));
+      }
+      currentPassword=password; 
+      myUsername=typeof normalize==="function"?normalize(uname):uname.toLowerCase(); 
+      myRealUsername=uname;
+      currentRoom=room;
+      localStorage.setItem("gorgor_last_room", room);
+      localStorage.setItem("gorgor_last_user", uname);
+      if(typeof myVideoContainer!=="undefined" && myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
+      try{ if(typeof startCamera==="function") await startCamera(currentQuality); }catch(e){}
+      socket.emit("join-room",{room,password,username:uname});
+      joinBtn.textContent="Giriliyor...";
+      joinBtn.disabled=true;
+      setTimeout(()=>{ joinBtn.textContent="Giriş"; joinBtn.disabled=false; }, 3000);
+    }catch(e){
+      console.error(e);
+      alert("Giriş hatası: "+e.message);
+    }
 };
+
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{ 
   roomScreen.style.display="none"; mainScreen.style.display="block";
