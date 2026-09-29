@@ -988,3 +988,23 @@ body { background:#000 !important; }
 #attachMenuBtn { order:1 !important; width:48px !important; min-width:48px !important; height:48px !important; }
 #messageInput { order:2 !important; flex:1 !important; }
 #sendBtn { order:3 !important; width:80px !important; min-width:80px !important; }
+
+#chatDragHandle{
+  width:100% !important;
+  height:18px !important;
+  cursor:ns-resize !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  background:#111 !important;
+  border-bottom:1px solid #333 !important;
+  touch-action:none !important;
+}
+#chatDragHandle div{
+  width:40px !important;
+  height:4px !important;
+  background:#555 !important;
+  border-radius:2px !important;
+}
+
+#privacyModeSelect{ margin-top:5px !important; }
