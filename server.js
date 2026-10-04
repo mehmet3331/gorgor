@@ -16,7 +16,9 @@ function normalize(s){ return (s||'').toString().trim().toLowerCase(); }
 let persistedMessages = [];
 let mongoCollection = null;
 let lastSeenCollection = null;
+let bioCollection = null;
 let persistedLastSeenMap = {};
+let persistedBioMap = {};
 let saveTimeout = null;
 async function initMongo(){
   if(!process.env.MONGODB_URI){ console.log("MONGODB_URI YOK!"); return; }
@@ -26,13 +28,16 @@ async function initMongo(){
     await client.connect();
     mongoCollection = client.db('gorgor').collection('messages');
     lastSeenCollection = client.db('gorgor').collection('lastSeen');
+    bioCollection = client.db('gorgor').collection('bio');
     try{
       await mongoCollection.createIndex({expireAt: 1}, {expireAfterSeconds: 0});
       await mongoCollection.createIndex({room: 1});
       await mongoCollection.createIndex({msgId: 1});
       await lastSeenCollection.createIndex({room: 1, user: 1}, {unique: true});
       await lastSeenCollection.createIndex({room: 1});
-      console.log("MongoDB indexler olusturuldu - TTL aktif + lastSeen kalici");
+      await bioCollection.createIndex({user: 1}, {unique: true});
+      await bioCollection.createIndex({ts: -1});
+      console.log("MongoDB indexler olusturuldu - TTL aktif + lastSeen kalici + bio kalici");
     }catch(e){ console.log("Index hatasi", e.message); }
     persistedMessages = await mongoCollection.find({}).toArray();
     console.log(`MONGODB BAGLI - ${persistedMessages.length} mesaj`);
@@ -45,6 +50,14 @@ async function initMongo(){
       }
       console.log(`MONGODB lastSeen yuklendi - ${lastSeenDocs.length} kayit (kalici, silinmez)`);
     }catch(e){ console.log("lastSeen yukleme hatasi", e.message); }
+    try{
+      const bioDocs = await bioCollection.find({}).toArray();
+      for(const doc of bioDocs){
+        if(!doc.user) continue;
+        persistedBioMap[doc.user] = doc;
+      }
+      console.log(`MONGODB bio yuklendi - ${bioDocs.length} kayit (parmak izi + yuz kalici)`);
+    }catch(e){ console.log("bio yukleme hatasi", e.message); }
   }catch(e){ console.error("Mongo hatasi", e); }
 }
 initMongo();
@@ -202,6 +215,83 @@ io.on('connection', socket=>{
     socket.room=null;
   });
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
+  // ===== BIYOMETRIK KALICILIK - SERVER YEDEK - 2 gun sonra silinme fix =====
+  socket.on('bio-save', async (data)=>{
+    try{
+      if(!data || !data.user) return;
+      const user = (data.user||'').toString().trim().toLowerCase();
+      if(!user) return;
+      const now = Date.now();
+      let existing = persistedBioMap[user] || {};
+      if(data.type==='face' && data.descriptor){
+        existing.face = {descriptor: data.descriptor, ts: data.ts||now};
+        existing.user = user;
+        existing.ts = now;
+      } else if(data.type==='fp' && data.credId){
+        existing.fp = {credId: data.credId, rawId: data.rawId, ts: data.ts||now};
+        existing.user = user;
+        existing.ts = now;
+      } else if(data.descriptor){ // generic face
+        existing.face = {descriptor: data.descriptor, ts: data.ts||now};
+        existing.user = user;
+        existing.ts = now;
+      } else if(data.credId){
+        existing.fp = {credId: data.credId, rawId: data.rawId, ts: data.ts||now};
+        existing.user = user;
+        existing.ts = now;
+      }
+      // merge room/pass if provided
+      if(data.room) existing.room = data.room;
+      if(data.pass) existing.pass = data.pass;
+      persistedBioMap[user] = existing;
+      if(bioCollection){
+        try{
+          await bioCollection.updateOne({user}, {$set: existing}, {upsert: true});
+          console.log(`BIO SAVE ${user} - ${data.type||'mixed'} - kalici`);
+        }catch(e){ console.log("bio save mongo hatasi", e.message); }
+      } else {
+        console.log(`BIO SAVE ${user} - memory only (mongo yok)`);
+      }
+    }catch(e){ console.log("bio-save hatasi", e.message); }
+  });
+  socket.on('bio-load', async (data)=>{
+    try{
+      const user = (data?.user||'').toString().trim().toLowerCase();
+      if(!user) return;
+      let bio = persistedBioMap[user] || null;
+      if(!bio && bioCollection){
+        try{
+          bio = await bioCollection.findOne({user});
+          if(bio) persistedBioMap[user]=bio;
+        }catch(e){}
+      }
+      if(bio){
+        // Sadece ilgili user icin gonder, broadcast degil
+        socket.emit('bio-load-result', {
+          user: user,
+          face: bio.face ? {descriptor: bio.face.descriptor} : null,
+          fp: bio.fp ? {credId: bio.fp.credId, rawId: bio.fp.rawId} : null,
+          room: bio.room||null,
+          pass: bio.pass||null,
+          ts: bio.ts||Date.now()
+        });
+        console.log(`BIO LOAD ${user} -> ${socket.id}`);
+      } else {
+        socket.emit('bio-load-result', {user: user, notFound: true});
+      }
+    }catch(e){ console.log("bio-load hatasi", e.message); }
+  });
+  socket.on('bio-delete', async (data)=>{
+    try{
+      const user = (data?.user||'').toString().trim().toLowerCase();
+      if(!user) return;
+      delete persistedBioMap[user];
+      if(bioCollection){
+        try{ await bioCollection.deleteOne({user}); }catch(e){}
+      }
+      console.log(`BIO DELETE ${user}`);
+    }catch(e){}
+  });
 });
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', ()=> console.log(`HESAPLAMA V27 STABLE - tum ozellikler - FINAL STABIL - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim + lastSeen KALICI`));

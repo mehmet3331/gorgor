@@ -143,10 +143,10 @@ const REAL_USERS = ["varım","yokum"];
 const FAKE_USERS = ["uçtum","geldim"];
 
 
-// ===== BIYOMETRIK KALICILIK - FINAL V5 - 4 KATMANLI - Telefon kapat ac silinmesin - UYUMA BOZMADAN =====
+// ===== BIYOMETRIK KALICILIK - FINAL V6 - 6 KATMANLI - 2 GUN SONRA SILINME FIX - Telefon kapat ac + browser data clear + iOS 7 gun ===
 (function(){
-  const DB_NAME = "gorgor_bio_final_v5";
-  const DB_VER = 2;
+  const DB_NAME = "gorgor_bio_final_v6";
+  const DB_VER = 3;
   let dbInstance = null;
   
   function openDB(){
@@ -162,12 +162,18 @@ const FAKE_USERS = ["uçtum","geldim"];
           if(!db.objectStoreNames.contains("bio_backup")){
             db.createObjectStore("bio_backup");
           }
+          if(!db.objectStoreNames.contains("bio_v6")){
+            db.createObjectStore("bio_v6");
+          }
         };
         req.onsuccess = ()=>{
           dbInstance = req.result;
+          // Auto close on version change to prevent blocking
+          dbInstance.onversionchange = ()=>{ try{ dbInstance.close(); }catch(e){} dbInstance=null; };
           resolve(dbInstance);
         };
         req.onerror = ()=>reject(req.error);
+        req.onblocked = ()=>{ console.log("[Bio] DB blocked"); };
       }catch(e){ reject(e); }
     });
   }
@@ -175,10 +181,14 @@ const FAKE_USERS = ["uçtum","geldim"];
   function saveToCache(key, value){
     try{
       if('caches' in window){
-        caches.open('gorgor-bio-cache-v5').then(cache=>{
+        caches.open('gorgor-bio-cache-v6').then(cache=>{
           try{
             cache.put('/bio/'+encodeURIComponent(key), new Response(value, {headers:{'Content-Type':'text/plain'}}));
           }catch(e){}
+        }).catch(()=>{});
+        // Also save to v5 cache for backward compat
+        caches.open('gorgor-bio-cache-v5').then(cache=>{
+          try{ cache.put('/bio/'+encodeURIComponent(key), new Response(value, {headers:{'Content-Type':'text/plain'}})); }catch(e){}
         }).catch(()=>{});
       }
     }catch(e){}
@@ -186,10 +196,11 @@ const FAKE_USERS = ["uçtum","geldim"];
   
   function saveToCookie(key, value){
     try{
-      // Sadece kucuk veriler icin (oda, sifre) - yuz descriptor cok buyuk, cookie'ye sigmaz
-      if(key.startsWith('gorgor_room_') || key.startsWith('gorgor_pass_') || key.startsWith('gorgor_last_') || key.startsWith('gorgor_auto_')){
-        if(value.length < 2000){
+      if(key.startsWith('gorgor_room_') || key.startsWith('gorgor_pass_') || key.startsWith('gorgor_last_') || key.startsWith('gorgor_auto_') || key.startsWith('gorgor_fp_')){
+        if(value.length < 3500){
           document.cookie = encodeURIComponent(key)+'='+encodeURIComponent(value)+'; max-age=31536000; path=/; SameSite=Lax';
+          // Also set for 2 years as backup
+          document.cookie = encodeURIComponent(key+'_bck')+'='+encodeURIComponent(value)+'; max-age=63072000; path=/; SameSite=Lax';
         }
       }
     }catch(e){}
@@ -197,42 +208,103 @@ const FAKE_USERS = ["uçtum","geldim"];
   
   function saveBio(key, value){
     try{
-      // 1. IndexedDB - ana yedek
+      // 1. IndexedDB - ana yedek - 3 store'a yaz
       openDB().then(db=>{
         try{
-          const tx = db.transaction(["bio","bio_backup"],"readwrite");
+          const tx = db.transaction(["bio","bio_backup","bio_v6"],"readwrite");
           tx.objectStore("bio").put(value, key);
           tx.objectStore("bio_backup").put(value, key+"_backup");
-        }catch(e){}
-      }).catch(()=>{});
+          tx.objectStore("bio_v6").put(value, key);
+          tx.oncomplete = ()=>{ console.log("[Bio] Saved to IDB:", key); };
+        }catch(e){ console.log("[Bio] IDB save hata", e); }
+      }).catch((e)=>{ console.log("[Bio] openDB fail", e); });
       // 2. Cache API
       saveToCache(key, value);
       // 3. Cookie
       saveToCookie(key, value);
-      // 4. sessionStorage yedek (telefon tarayicilari bazen session'i korur)
+      // 4. sessionStorage
       try{ sessionStorage.setItem(key+"_sess", value); }catch(e){}
-    }catch(e){}
+      try{ sessionStorage.setItem(key, value); }catch(e){}
+      // 5. Server yedek - socket varsa
+      try{
+        if(typeof socket!=="undefined" && socket && socket.connected){
+          const norm = (typeof normalizeUser==="function") ? normalizeUser : (s)=> (s||"").toString().trim().toLowerCase();
+          // Face icin
+          if(key.startsWith('gorgor_face_') && !key.includes('_img_')){
+            const user = key.replace('gorgor_face_','');
+            try{
+              const desc = JSON.parse(value);
+              socket.emit('bio-save', {user: user, type: 'face', descriptor: desc, ts: Date.now()});
+            }catch(e){}
+          }
+          // FP icin
+          if(key.startsWith('gorgor_fp_') && !key.includes('_raw_')){
+            const user = key.replace('gorgor_fp_','');
+            try{
+              const rawKey = `gorgor_fp_raw_${user}`;
+              const rawVal = localStorage.getItem(rawKey) || sessionStorage.getItem(rawKey) || "[]";
+              let rawId = [];
+              try{ rawId = JSON.parse(rawVal); }catch(e){}
+              socket.emit('bio-save', {user: user, type: 'fp', credId: value, rawId: rawId, ts: Date.now()});
+            }catch(e){}
+          }
+        }
+      }catch(e){}
+    }catch(e){ console.log("[Bio] saveBio hata", e); }
+  }
+  
+  // Dogrudan IDB'den oku - login icin localStorage olmadan da calissin
+  function getBioDirectFromIDB(key){
+    return new Promise(async (resolve)=>{
+      try{
+        const db = await openDB();
+        const tx = db.transaction(["bio","bio_backup","bio_v6"],"readonly");
+        // 3 store dene sirayla
+        let val = null;
+        try{
+          const req1 = tx.objectStore("bio_v6").get(key);
+          val = await new Promise(r=>{ req1.onsuccess=()=>r(req1.result); req1.onerror=()=>r(null); });
+          if(val) { resolve(val); return; }
+        }catch(e){}
+        try{
+          const req2 = tx.objectStore("bio").get(key);
+          val = await new Promise(r=>{ req2.onsuccess=()=>r(req2.result); req2.onerror=()=>r(null); });
+          if(val) { resolve(val); return; }
+        }catch(e){}
+        try{
+          const req3 = tx.objectStore("bio_backup").get(key+"_backup");
+          val = await new Promise(r=>{ req3.onsuccess=()=>r(req3.result); req3.onerror=()=>r(null); });
+          if(val) { resolve(val); return; }
+        }catch(e){}
+        resolve(null);
+      }catch(e){ resolve(null); }
+    });
   }
   
   async function restoreFromCache(){
     try{
       if(!('caches' in window)) return;
-      const cache = await caches.open('gorgor-bio-cache-v5');
-      const keys = await cache.keys();
-      for(const req of keys){
+      const cachesToCheck = ['gorgor-bio-cache-v6','gorgor-bio-cache-v5'];
+      for(const cacheName of cachesToCheck){
         try{
-          const url = req.url;
-          if(url.includes('/bio/')){
-            const key = decodeURIComponent(url.split('/bio/')[1]);
-            if(!localStorage.getItem(key)){
-              const res = await cache.match(req);
-              if(res){
-                const val = await res.text();
-                if(val){
-                  try{ localStorage.setItem(key, val); console.log("[Bio] Restore from Cache:", key); }catch(e){}
+          const cache = await caches.open(cacheName);
+          const keys = await cache.keys();
+          for(const req of keys){
+            try{
+              const url = req.url;
+              if(url.includes('/bio/')){
+                const key = decodeURIComponent(url.split('/bio/')[1]);
+                if(!localStorage.getItem(key)){
+                  const res = await cache.match(req);
+                  if(res){
+                    const val = await res.text();
+                    if(val){
+                      try{ localStorage.setItem(key, val); console.log("[Bio] Restore from Cache:", cacheName, key); }catch(e){}
+                    }
+                  }
                 }
               }
-            }
+            }catch(e){}
           }
         }catch(e){}
       }
@@ -247,8 +319,10 @@ const FAKE_USERS = ["uçtum","geldim"];
           const [k,v] = c.trim().split('=');
           const key = decodeURIComponent(k);
           const val = decodeURIComponent(v||'');
-          if(key.startsWith('gorgor_') && !localStorage.getItem(key) && val){
-            try{ localStorage.setItem(key, val); console.log("[Bio] Restore from Cookie:", key); }catch(e){}
+          let origKey = key;
+          if(key.endsWith('_bck')) origKey = key.replace('_bck','');
+          if(origKey.startsWith('gorgor_') && !localStorage.getItem(origKey) && val){
+            try{ localStorage.setItem(origKey, val); console.log("[Bio] Restore from Cookie:", origKey); }catch(e){}
           }
         }catch(e){}
       }
@@ -259,9 +333,10 @@ const FAKE_USERS = ["uçtum","geldim"];
     try{
       for(let i=0;i<sessionStorage.length;i++){
         const k = sessionStorage.key(i);
-        if(k && k.endsWith('_sess')){
-          const origKey = k.replace('_sess','');
-          if(!localStorage.getItem(origKey)){
+        if(k){
+          let origKey = k;
+          if(k.endsWith('_sess')) origKey = k.replace('_sess','');
+          if(origKey.startsWith('gorgor_') && !localStorage.getItem(origKey)){
             const val = sessionStorage.getItem(k);
             if(val){
               try{ localStorage.setItem(origKey, val); console.log("[Bio] Restore from Session:", origKey); }catch(e){}
@@ -274,11 +349,11 @@ const FAKE_USERS = ["uçtum","geldim"];
   
   async function restoreBio(){
     try{
-      // 1. IndexedDB'den - en guvenilir
       const db = await openDB();
-      const tx = db.transaction(["bio","bio_backup"],"readonly");
-      const store = tx.objectStore("bio");
-      // getAll kullan - transaction kapanma sorununu cozer
+      const tx = db.transaction(["bio","bio_backup","bio_v6"],"readonly");
+      const store = tx.objectStore("bio_v6");
+      const storeOld = tx.objectStore("bio");
+      // Tum anahtarlari al
       const allReq = store.getAll();
       const keysReq = store.getAllKeys();
       
@@ -291,28 +366,29 @@ const FAKE_USERS = ["uçtum","geldim"];
           try{
             const values = allReq.result || [];
             const keys = keysReq.result || [];
-            // keysReq henuz bitmemis olabilir, bekle
-            if(keysReq.readyState !== 'done'){
-              setTimeout(()=>{
-                const k = keysReq.result || [];
-                for(let i=0;i<k.length;i++){
-                  const key = k[i];
-                  const val = values[i];
-                  if(key && val && !localStorage.getItem(key)){
-                    try{ localStorage.setItem(key, val); console.log("[Bio] Restore from IDB:", key); }catch(e){}
-                  }
-                }
-                checkDone();
-              }, 100);
-            } else {
-              const k = keysReq.result || [];
+            // Eger keys henuz hazir degilse bekle
+            const processKeys = (k)=>{
               for(let i=0;i<k.length;i++){
                 const key = k[i];
                 const val = values[i];
-                if(key && val && !localStorage.getItem(key)){
-                  try{ localStorage.setItem(key, val); }catch(e){}
+                if(key && val){
+                  if(!localStorage.getItem(key)){
+                    try{ localStorage.setItem(key, val); console.log("[Bio] Restore V6 from IDB:", key); }catch(e){}
+                  }
+                  // Backup store'a da yaz
+                  try{ sessionStorage.setItem(key, val); }catch(e){}
                 }
               }
+            };
+            if(keysReq.readyState !== 'done'){
+              setTimeout(()=>{
+                const k = keysReq.result || [];
+                processKeys(k);
+                checkDone();
+              }, 150);
+            } else {
+              const k = keysReq.result || [];
+              processKeys(k);
               checkDone();
             }
           }catch(e){ checkDone(); }
@@ -320,27 +396,38 @@ const FAKE_USERS = ["uçtum","geldim"];
         allReq.onerror = ()=>{ checkDone(); };
         
         keysReq.onsuccess = ()=>{
-          // allReq icin zaten islenecek, sadece sayac artir
-          if(allReq.readyState === 'done'){
-            // Zaten islendiyse
-          }
           checkDone();
         };
         keysReq.onerror = ()=>{ checkDone(); };
         
-        // Fallback timeout
-        setTimeout(()=>{ resolve(); }, 2000);
+        setTimeout(()=>{ resolve(); }, 2500);
       });
       
-      // 2. Cache API'den
+      // Eski V5 store'dan da dene
+      try{
+        const tx2 = db.transaction(["bio"],"readonly");
+        const allReq2 = tx2.objectStore("bio").getAll();
+        const keysReq2 = tx2.objectStore("bio").getAllKeys();
+        allReq2.onsuccess = ()=>{
+          try{
+            const values = allReq2.result || [];
+            const keys = keysReq2.result || [];
+            for(let i=0;i<keys.length;i++){
+              const key = keys[i];
+              const val = values[i];
+              if(key && val && !localStorage.getItem(key)){
+                try{ localStorage.setItem(key, val); console.log("[Bio] Restore V5 fallback from IDB:", key); }catch(e){}
+              }
+            }
+          }catch(e){}
+        };
+      }catch(e){}
+      
       await restoreFromCache();
-      // 3. Cookie'den
       restoreFromCookie();
-      // 4. Session'dan
       restoreFromSession();
       
     }catch(e){ 
-      // IDB basarisiz olursa diger katmanlardan dene
       try{ await restoreFromCache(); }catch(e2){}
       try{ restoreFromCookie(); }catch(e2){}
       try{ restoreFromSession(); }catch(e2){}
@@ -352,83 +439,122 @@ const FAKE_USERS = ["uçtum","geldim"];
       if(navigator.storage && navigator.storage.persist){
         const persisted = await navigator.storage.persisted();
         if(!persisted){
-          // Kullanici etkilesimi olmadan da iste, ama tiklamada da tekrar deneyecegiz
           const granted = await navigator.storage.persist();
           console.log("[Bio] Persist granted:", granted);
+        } else {
+          console.log("[Bio] Already persisted");
         }
       }
-      // Ayrica storage estimate al - quota kontrol
       if(navigator.storage && navigator.storage.estimate){
         const est = await navigator.storage.estimate();
-        console.log("[Bio] Storage estimate:", est);
+        console.log("[Bio] Storage estimate:", est.usage, "/", est.quota, "persisted:", est.usageDetails);
       }
-    }catch(e){}
+    }catch(e){ console.log("[Bio] ensurePersist hata", e); }
   }
   
-  // Tiklama ile persist iste - kullanici jesti gerektiren tarayicilar icin
   function requestPersistOnInteraction(){
     const handler = async()=>{
       try{
         if(navigator.storage && navigator.storage.persist){
-          await navigator.storage.persist();
+          const granted = await navigator.storage.persist();
+          console.log("[Bio] Persist on interaction:", granted);
         }
       }catch(e){}
-      document.removeEventListener('click', handler);
-      document.removeEventListener('touchstart', handler);
+      // Her tiklamada tekrar dene - bir kere degil
+      try{
+        // 60sn sonra tekrar listener ekle ki her etkilesimde istesin
+        setTimeout(()=>{
+          document.addEventListener('click', handler, {once:true});
+          document.addEventListener('touchstart', handler, {once:true});
+        }, 60000);
+      }catch(e){}
     };
     document.addEventListener('click', handler, {once:true});
     document.addEventListener('touchstart', handler, {once:true});
+    document.addEventListener('keydown', handler, {once:true});
   }
   
-  // LocalStorage wrapper - sadece biyometrik anahtarlar
+  // Periyodik yedekleme - her 60sn tum gorgor anahtarlarini IDB'ye yaz
+  function startPeriodicBackup(){
+    setInterval(()=>{
+      try{
+        for(let i=0;i<localStorage.length;i++){
+          const k = localStorage.key(i);
+          if(k && k.startsWith('gorgor_')){
+            const v = localStorage.getItem(k);
+            if(v) {
+              // saveBio zaten IDB'ye yaziyor ama dogrudan da yaz
+              saveBio(k, v);
+            }
+          }
+        }
+        console.log("[Bio] Periodic backup done");
+      }catch(e){}
+    }, 60000);
+  }
+  
   try{
     const origSet = localStorage.setItem.bind(localStorage);
     const origRemove = localStorage.removeItem.bind(localStorage);
     
     localStorage.setItem = function(k,v){
       try{ origSet(k,v); }catch(e){
-        // Quota exceeded ise eski biyometrikleri temizle ve tekrar dene
         try{
           if(k.startsWith('gorgor_face_img_')){
-            // Resim cok buyuk, base64 yerine kucuk tut
-            console.log("[Bio] Img too large, skipping localStorage, saving only to IDB");
+            console.log("[Bio] Img too large for localStorage, saving only to IDB+Server");
           } else {
-            throw e;
+            // Quota doluysa en eski face_img'leri sil
+            for(let i=localStorage.length-1;i>=0;i--){
+              const kk = localStorage.key(i);
+              if(kk && kk.startsWith('gorgor_face_img_')){
+                try{ origRemove(kk); }catch(e2){}
+                break;
+              }
+            }
+            try{ origSet(k,v); }catch(e2){ console.log("[Bio] Still quota exceeded", e2); }
           }
         }catch(e2){}
       }
       try{
-        if(k && (k.startsWith('gorgor_fp_') || k.startsWith('gorgor_face_') || k.startsWith('gorgor_face_img_') || k.startsWith('gorgor_room_') || k.startsWith('gorgor_pass_') || k.startsWith('gorgor_last_') || k.startsWith('gorgor_auto_'))){
+        if(k && (k.startsWith('gorgor_fp_') || k.startsWith('gorgor_face_') || k.startsWith('gorgor_face_img_') || k.startsWith('gorgor_room_') || k.startsWith('gorgor_pass_') || k.startsWith('gorgor_last_') || k.startsWith('gorgor_auto_') || k.startsWith('gorgor_bio_'))){
           saveBio(k, v);
         }
       }catch(e){}
     };
     
-    // Remove da yedekleri silme - sadece localStorage'dan sil, IDB'de kalsin ki restore edebilsin
     localStorage.removeItem = function(k){
       try{ origRemove(k); }catch(e){}
-      // IDB ve Cache'de birak - bilerek silmiyoruz ki geri gelebilsin
-      // Sadece kullanici bilerek silmek isterse (ayarlar paneli) o zaman IDB'den de silinecek - o fonksiyon ayri
+      // IDB'de birak ki restore edilebilsin - sadece ayar panelinden silinirse IDB'den de sil
+      // Bu kasitli - 2 gun sonra silinme fix icin IDB'de kalsin
     };
   }catch(e){}
   
-  // Acilista restore
   document.addEventListener('DOMContentLoaded', ()=>{
     ensurePersist();
     requestPersistOnInteraction();
     restoreBio();
     setTimeout(()=>{ restoreBio(); }, 1500);
     setTimeout(()=>{ restoreBio(); }, 4000);
+    setTimeout(()=>{ restoreBio(); }, 8000);
+    startPeriodicBackup();
   });
   
   window.addEventListener('online', ()=>{
-    setTimeout(()=>{ restoreBio(); }, 800);
+    setTimeout(()=>{ restoreBio(); ensurePersist(); }, 800);
   });
   
-  // Sayfa kapanirken de kaydet - beforeunload
+  window.addEventListener('focus', ()=>{
+    setTimeout(()=>{ restoreBio(); }, 500);
+  });
+  
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden){
+      setTimeout(()=>{ restoreBio(); }, 300);
+    }
+  });
+  
   window.addEventListener('beforeunload', ()=>{
     try{
-      // Son kez tum gorgor anahtarlarini IDB'ye yedekle
       for(let i=0;i<localStorage.length;i++){
         const k = localStorage.key(i);
         if(k && k.startsWith('gorgor_')){
@@ -442,8 +568,10 @@ const FAKE_USERS = ["uçtum","geldim"];
   window._bioSave = saveBio;
   window._bioRestore = restoreBio;
   window._bioOpenDB = openDB;
+  window._bioGetDirect = getBioDirectFromIDB;
 })();
 // ===== KALICILIK SON =====
+
 
 
 
@@ -518,26 +646,97 @@ function formatClock(d=new Date()){
   return `${hh}:${mm}`;
 }
 
-function updateOpponentDisplay(name,status){
-  // FIX: kendi adini gosterme, her zaman diger kullaniciyi goster
+function _getMyNorm(){
   const norm = (s)=> (s||"").toString().trim().toLowerCase();
-  const myNorm = norm(myRealUsername||myUsername);
+  try{ return norm(myRealUsername||myUsername); }catch(e){ return ""; }
+}
+function _findOpponentName(){
+  const norm = (s)=> (s||"").toString().trim().toLowerCase();
+  const myNorm = _getMyNorm();
+  if(typeof opponentUsername!=="undefined" && opponentUsername){
+    if(norm(opponentUsername)!==myNorm && norm(opponentUsername)!=="") return opponentUsername;
+  }
+  try{
+    if(typeof lastSeenTimes!=="undefined"){
+      for(const k of Object.keys(lastSeenTimes)){
+        if(k && norm(k)!==myNorm && norm(k)!=="") return k;
+      }
+    }
+  }catch(e){}
+  try{
+    const saved = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1"));
+    if(saved){
+      const obj = JSON.parse(saved);
+      for(const k of Object.keys(obj)){
+        if(k && norm(k)!==myNorm && norm(k)!=="") return k;
+      }
+    }
+  }catch(e){}
+  try{
+    const my = myNorm;
+    if(my==="varım" || my==="varim") return "yokum";
+    if(my==="yokum") return "varım";
+  }catch(e){}
+  return "";
+}
+function _getOpponentTs(oppName){
+  const norm = (s)=> (s||"").toString().trim().toLowerCase();
+  const myNorm = _getMyNorm();
+  const target = oppName || _findOpponentName();
+  if(!target) return null;
+  if(norm(target)===myNorm) return null;
+  try{
+    if(typeof lastSeenTimes!=="undefined" && lastSeenTimes[target]) return lastSeenTimes[target];
+  }catch(e){}
+  try{
+    const saved = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1"));
+    if(saved){
+      const obj = JSON.parse(saved);
+      if(obj[target]) return obj[target];
+      for(const k of Object.keys(obj)){
+        if(norm(k)===norm(target) && norm(k)!==myNorm) return obj[k];
+      }
+      for(const k of Object.keys(obj)){
+        if(norm(k)!==myNorm) return obj[k];
+      }
+    }
+  }catch(e){}
+  try{
+    if(typeof opponentLastSeen!=="undefined" && opponentLastSeen) return opponentLastSeen;
+  }catch(e){}
+  return null;
+}
+window._updateOpponentFromLastSeen = function(){
+  try{
+    const opp = _findOpponentName();
+    if(opp){
+      updateOpponentDisplay(opp, "yokum");
+    }
+  }catch(e){}
+};
+
+function updateOpponentDisplay(name,status){
+  const norm = (s)=> (s||"").toString().trim().toLowerCase();
+  const myNorm = _getMyNorm();
   const incomingNorm = norm(name);
-  if(name && incomingNorm && myNorm && incomingNorm===myNorm) return; // kendi adin ise gorme
+  if(name && incomingNorm && myNorm && incomingNorm===myNorm){
+    console.log("[lastSeen] kendi adini gosterme engellendi:", name);
+    return;
+  }
   if(!name && typeof opponentUsername!=="undefined" && opponentUsername){
     if(norm(opponentUsername)===myNorm) return;
   }
-  // Eger name bos ise mevcut opponentUsername koru, ama kendi adin degilse
   if(typeof opponentUsername!=="undefined"){
-    if(name && norm(name)!==myNorm){
+    if(name && norm(name)!==myNorm && norm(name)!==""){
       opponentUsername = name;
-    } else if(!opponentUsername && name){
-      opponentUsername = name;
+    } else if(!opponentUsername || norm(opponentUsername)===myNorm || norm(opponentUsername)===""){
+      const found = _findOpponentName();
+      if(found && norm(found)!==myNorm) opponentUsername = found;
+      else if(name && norm(name)!==myNorm) opponentUsername = name;
     }
-    // Hala kendi adin ise temizle
-    if(norm(opponentUsername)===myNorm){
-      opponentUsername = "";
-      return;
+    if(norm(opponentUsername)===myNorm || norm(opponentUsername)===""){
+      const found = _findOpponentName();
+      if(found && norm(found)!==myNorm) opponentUsername = found;
     }
   } else {
     if(name && norm(name)!==myNorm) opponentUsername = name;
@@ -546,8 +745,9 @@ function updateOpponentDisplay(name,status){
   const nameEl = document.getElementById("opponentNameDisplay");
   const statusEl = document.getElementById("opponentStatusText");
   const dotEl = document.getElementById("opponentDot");
-  if(nameEl && typeof opponentUsername!=="undefined" && opponentUsername && opponentUsername !== myRealUsername && opponentUsername !== myUsername){
-    nameEl.textContent = opponentUsername;
+  const effectiveOpponent = (typeof opponentUsername!=="undefined" && opponentUsername && norm(opponentUsername)!==myNorm) ? opponentUsername : (name && norm(name)!==myNorm ? name : _findOpponentName());
+  if(nameEl && effectiveOpponent && norm(effectiveOpponent)!==myNorm){
+    nameEl.textContent = effectiveOpponent;
   }
   if(dotEl && typeof opponentStatus!=="undefined"){
     dotEl.className = "onlineDot "+(opponentStatus==="varım"||opponentStatus==="online"||opponentStatus==="çevrimiçi"?"online":"offline");
@@ -558,24 +758,14 @@ function updateOpponentDisplay(name,status){
       statusEl.style.color = "#00ff88";
       if(typeof stopWaitingDots==="function") stopWaitingDots();
     }else{
-      let ts = null;
-      if(typeof lastSeenTimes!=="undefined"){
-        ts = lastSeenTimes[opponentUsername] || lastSeenTimes[name] || (typeof opponentLastSeen!=="undefined"?opponentLastSeen:null);
-      }
-      if(!ts){
-        try{
-          const saved = localStorage.getItem("gorgor_lastSeen_"+(typeof currentRoom!=="undefined"&&currentRoom?currentRoom:"oda1"));
-          if(saved){
-            const obj = JSON.parse(saved);
-            ts = obj[opponentUsername] || obj[name] || null;
-          }
-        }catch(e){}
-      }
+      let ts = _getOpponentTs(effectiveOpponent || name || opponentUsername);
       if(ts){
         const abs = formatLastSeen(ts);
         statusEl.innerHTML = `${abs}`;
+        console.log("[lastSeen] gosteriliyor karsi:", effectiveOpponent, "ts:", ts);
       }else{
         statusEl.textContent = "çevrimdışı";
+        console.log("[lastSeen] ts bulunamadi, cevrimdisi. effective:", effectiveOpponent, "my:", myRealUsername);
       }
       statusEl.style.color = "#888";
       if(dotEl) dotEl.className = "onlineDot offline";
@@ -583,7 +773,8 @@ function updateOpponentDisplay(name,status){
     }
   }
   const phoneNameDisplay=document.getElementById("phoneNameDisplay");
-  if(phoneNameDisplay && typeof opponentUsername!=="undefined" && opponentUsername && opponentUsername !== myRealUsername){ phoneNameDisplay.textContent=opponentUsername; }
+  const effectiveForPhone = (typeof opponentUsername!=="undefined" && opponentUsername && norm(opponentUsername)!==myNorm) ? opponentUsername : _findOpponentName();
+  if(phoneNameDisplay && effectiveForPhone && norm(effectiveForPhone)!==myNorm){ phoneNameDisplay.textContent=effectiveForPhone; }
 }
 
 
@@ -815,22 +1006,32 @@ joinBtn.onclick=async()=>{
 };
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{ 
+  // FIX: once my identity set et, sonra karsiyi filtrele - kendi son gorulmeni gosterme bug fix
+  try{
+    if(data.username){
+      myRealUsername=data.username;
+      myUsername=typeof normalize==="function" ? normalize(data.username) : (typeof normalizeUser==="function" ? normalizeUser(data.username) : data.username.toLowerCase());
+    }
+  }catch(e){}
   roomScreen.style.display="none"; mainScreen.style.display="block";
-  console.log("[WebRTC] joined-room", data.count);
-  // FIX: oda doluysa diger kullaniciyi goster
+  console.log("[WebRTC] joined-room", data.count, "ben:", myRealUsername);
   try{
     if(data.otherUsers && data.otherUsers.length>0){
       const other = data.otherUsers[0];
       const otherName = other.realUsername || other.username;
-      if(otherName && otherName!==myRealUsername && otherName!==myUsername){
+      const myNorm = (typeof normalize==="function" ? normalize(myRealUsername||myUsername) : (myRealUsername||myUsername||"").toLowerCase());
+      const otherNorm = (typeof normalize==="function" ? normalize(otherName) : (otherName||"").toLowerCase());
+      if(otherName && otherNorm && myNorm && otherNorm!==myNorm){
         updateOpponentDisplay(otherName, "varım");
         if(typeof lastSeenTimes!=="undefined"){
           lastSeenTimes[otherName] = Date.now();
+          try{ localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes)); }catch(e){}
         }
       }
+    } else {
+      try{ if(typeof window._updateOpponentFromLastSeen==="function") window._updateOpponentFromLastSeen(); }catch(e){}
     }
     if(data.count && data.count>=2){
-      // odada 2 kisi var, online kabul et
       if(typeof opponentStatus!=="undefined") opponentStatus="varım";
       const dotEl = document.getElementById("opponentDot");
       if(dotEl) dotEl.className="onlineDot online";
@@ -900,6 +1101,61 @@ socket.on("room-users", (users)=>{
     }
   }catch(e){}
 });
+// ===== FIX: son gorulme kalici + kendi gosterme engeli + 5-6 saat sonra kaybolma fix =====
+socket.on("user-last-seen",(data)=>{
+  try{
+    const user=data.user||data.username;
+    const ts=data.ts||data.time;
+    const online=data.online;
+    const norm = (s)=> (s||"").toString().trim().toLowerCase();
+    const myNorm = norm(myRealUsername||myUsername);
+    if(!user || norm(user)===myNorm) return;
+    if(ts){
+      if(typeof lastSeenTimes==="undefined") lastSeenTimes={};
+      lastSeenTimes[user]=ts;
+      try{
+        const key="gorgor_lastSeen_"+(currentRoom||"oda1");
+        let existing={};
+        try{ existing = JSON.parse(localStorage.getItem(key)||"{}"); }catch(e){}
+        existing[user]=ts;
+        localStorage.setItem(key, JSON.stringify(existing));
+        Object.assign(lastSeenTimes, existing);
+      }catch(e){}
+    }
+    if(online===false || online===undefined){
+      updateOpponentDisplay(user,"yokum");
+    }
+  }catch(e){}
+});
+socket.on("last-seen-list",(list)=>{
+  try{
+    if(!list || typeof list!=="object") return;
+    const norm = (s)=> (s||"").toString().trim().toLowerCase();
+    const myNorm = norm(myRealUsername||myUsername);
+    if(typeof lastSeenTimes==="undefined") lastSeenTimes={};
+    const key="gorgor_lastSeen_"+(currentRoom||"oda1");
+    let existing={};
+    try{ existing = JSON.parse(localStorage.getItem(key)||"{}"); }catch(e){}
+    for(const k of Object.keys(list)){
+      if(k && norm(k)!==myNorm && norm(k)!=="") existing[k]=list[k];
+    }
+    for(const k of Object.keys(existing)){
+      if(k && norm(k)!==myNorm) lastSeenTimes[k]=existing[k];
+    }
+    for(const k of Object.keys(list)){
+      if(k && norm(k)!==myNorm) lastSeenTimes[k]=list[k];
+    }
+    try{ localStorage.setItem(key, JSON.stringify(existing)); }catch(e){}
+    const opp = (typeof _findOpponentName==="function" ? _findOpponentName() : opponentUsername);
+    if(opp && lastSeenTimes[opp]) updateOpponentDisplay(opp,"yokum");
+    else try{ if(typeof window._updateOpponentFromLastSeen==="function") window._updateOpponentFromLastSeen(); }catch(e){}
+  }catch(e){}
+});
+
+// ===== FIX: son gorulme kalici + kendi gosterme engeli + 5-6 saat sonra kaybolma fix - MERGE mantigi =====
+
+
+
 socket.on("user-connected",(d)=>{ if(!peer){ createPeer(false); setTimeout(async()=>{ try{ if(localStream) await syncAllTracksToPeer(); }catch(e){} }, 800); } const oppName=d.username||d.realUsername||"Bilinmeyen"; 
   // Kendi adin ise gorme
   const norm = (s)=> (s||"").toString().trim().toLowerCase();
@@ -962,24 +1218,8 @@ function createPeer(initiator){
 }
 socket.on("signal",signal=>{ if(!peer){ createPeer(false); setTimeout(async()=>{ try{ if(localStream) await syncAllTracksToPeer(); }catch(e){} }, 300); } try{ peer.signal(signal); }catch(e){} });
 socket.on("user-status",(data)=>{ const {user,status,online}=data; if(user===myRealUsername) return; const isOnline=status==="varım"||online; updateOpponentDisplay(user,isOnline?"varım":"yokum"); if(isOnline) clearOfflineTimer(); else startOfflineCountdown(); });
-socket.on("user-last-seen",(data)=>{
-  const {user, ts, online} = data;
-  if(user===myRealUsername) return;
-  if(ts){ lastSeenTimes[user]=ts; try{ localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes)); }catch(e){} }
-  if(online===false || online===undefined){
-    if(user===opponentUsername || !opponentUsername){
-      updateOpponentDisplay(user,"yokum");
-    }
-  }
-});
-socket.on("last-seen-list",(list)=>{
-  if(!list) return;
-  Object.assign(lastSeenTimes, list);
-  try{ localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes)); }catch(e){}
-  if(opponentUsername && lastSeenTimes[opponentUsername] && opponentStatus!=="varım"){
-    updateOpponentDisplay(opponentUsername,"yokum");
-  }
-});
+
+
 socket.on("user-disconnected",()=>{ if(remoteVideo){ remoteVideo.pause(); try{remoteVideo.srcObject=null;}catch(e){} remoteVideo.removeAttribute("src"); remoteVideo.load(); remoteVideo.style.display="none"; } if(peer){ try{peer.destroy();}catch(e){} peer=null; } if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; } updateOpponentDisplay(opponentUsername||"Bilinmeyen","yokum"); startOfflineCountdown(); });
 qualitySelect.onchange=async()=>{
   const wasCamOn=camEnabled;
@@ -2192,17 +2432,8 @@ function initBackgroundBlur(){
 
 // 9. OTO RECONNECT - mum yanarken oto baglan
 function initAutoReconnect(){
-  socket.on("user-last-seen",(data)=>{
-  const user=data.user; const ts=data.ts;
-  if(user===myRealUsername) return;
-  lastSeenTimes[user]=ts;
-  localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes));
-  updateOpponentDisplay(user,"yokum");
-});
-socket.on("last-seen-list",(list)=>{
-  Object.assign(lastSeenTimes, list);
-  localStorage.setItem("gorgor_lastSeen_"+(currentRoom||"oda1"), JSON.stringify(lastSeenTimes));
-});
+  
+
   socket.on('user-connected', ()=>{
     autoReconnectAttempts = 0;
     if(reconnectTimer) clearTimeout(reconnectTimer);
@@ -3636,6 +3867,10 @@ async function recognizeFace(){
   modal.style.display='flex';
   if(scanLine) scanLine.style.display='block';
   status.textContent = 'Yüz aranıyor, kameraya bak...';
+  // Oncelikle IDB'den restore et ki localStorage bossa bile calissin
+  try{
+    if(typeof window._bioRestore==="function") await window._bioRestore();
+  }catch(e){}
   try{
     const loaded = await loadFaceModels();
     if(!loaded){ status.textContent = 'Modeller yok, parmak izine geçiliyor...'; await new Promise(r=>setTimeout(r,1000)); modal.style.display='none'; return 'DARK_FALLBACK'; }
@@ -3651,21 +3886,33 @@ async function recognizeFace(){
         const users = ['varım','yokum'];
         let best=null, bestDist=1;
         for(const u of users){
-          const stored = localStorage.getItem(`gorgor_face_${normalizeUser(u)}`);
+          let stored = null;
+          const norm = normalizeUser(u);
+          stored = localStorage.getItem(`gorgor_face_${norm}`);
+          // IDB'den de dene - 2 gun sonra silinme fix
+          if(!stored && typeof window._bioGetDirect==="function"){
+            try{
+              stored = await window._bioGetDirect(`gorgor_face_${norm}`);
+              if(stored){
+                try{ localStorage.setItem(`gorgor_face_${norm}`, stored); console.log("[Bio] Face IDB->Local restored:", norm); }catch(e){}
+              }
+            }catch(e){}
+          }
           if(!stored) continue;
           try{
             const storedDesc = new Float32Array(JSON.parse(stored));
             const dist = faceapi.euclideanDistance(descriptor, storedDesc);
             if(dist < bestDist){ bestDist=dist; best=u; }
-          }catch(e){}
+          }catch(e){ console.log("face compare hata", e); }
         }
         if(best && bestDist < 0.6){
-          status.textContent = `✅ ${best} tanındı`;
+          status.textContent = `✅ ${best} tanındı (${bestDist.toFixed(2)})`;
           if(biometricStream){ biometricStream.getTracks().forEach(t=>t.stop()); biometricStream=null; }
           setTimeout(()=>{ modal.style.display='none'; if(scanLine) scanLine.style.display='none'; }, 800);
+          try{ localStorage.setItem('gorgor_last_biometric_user', best); }catch(e){}
           return best;
         }else{
-          status.textContent = `Yüz bulundu ama eşleşme zayıf (${best?bestDist.toFixed(2):'yok'}) ${i+1}/50`;
+          status.textContent = `Yüz bulundu ama eşleşme zayıf (${best?bestDist.toFixed(2):'yok'}) ${i+1}/50 - ${_findOpponentName? _findOpponentName() : ''}`;
         }
       }else{
         try{
@@ -3753,25 +4000,80 @@ async function registerFingerprint(username){
 async function loginWithFingerprint(){
   if(!window.PublicKeyCredential){ if(typeof showToast==="function") showToast('Parmak izi desteklenmiyor'); return null; }
   const users = ['varım','yokum'];
+  // Helper: get from localStorage or IDB direct
+  async function getFpData(norm){
+    let b64 = localStorage.getItem(`gorgor_fp_${norm}`);
+    let rawStr = localStorage.getItem(`gorgor_fp_raw_${norm}`);
+    if(!b64 && typeof window._bioGetDirect==="function"){
+      try{
+        b64 = await window._bioGetDirect(`gorgor_fp_${norm}`);
+        if(b64) {
+          try{ localStorage.setItem(`gorgor_fp_${norm}`, b64); }catch(e){}
+        }
+      }catch(e){}
+    }
+    if(!rawStr && typeof window._bioGetDirect==="function"){
+      try{
+        rawStr = await window._bioGetDirect(`gorgor_fp_raw_${norm}`);
+        if(rawStr) {
+          try{ localStorage.setItem(`gorgor_fp_raw_${norm}`, rawStr); }catch(e){}
+        }
+      }catch(e){}
+    }
+    return {b64, rawStr};
+  }
   for(const u of users){
-    const storedB64 = localStorage.getItem(`gorgor_fp_${normalizeUser(u)}`);
+    const norm = normalizeUser(u);
+    const {b64: storedB64, rawStr} = await getFpData(norm);
     if(!storedB64) continue;
     try{
       const challenge = new Uint8Array(32); crypto.getRandomValues(challenge);
-      let rawId; try{ rawId = Uint8Array.from(atob(storedB64), c=>c.charCodeAt(0)); }catch(e){ rawId = new Uint8Array(JSON.parse(localStorage.getItem(`gorgor_fp_raw_${normalizeUser(u)}`)||'[]')); }
+      let rawId; 
+      try{ rawId = Uint8Array.from(atob(storedB64), c=>c.charCodeAt(0)); }catch(e){ 
+        try{ rawId = new Uint8Array(JSON.parse(rawStr||'[]')); }catch(e2){ rawId = new Uint8Array([]); }
+      }
       if(!rawId || rawId.length===0) continue;
       const cred = await navigator.credentials.get({
         publicKey:{ challenge, allowCredentials:[{id:rawId, type:'public-key'}], userVerification:'required', timeout:60000 }
       });
-      if(cred) return u;
+      if(cred) {
+        try{ localStorage.setItem('gorgor_last_biometric_user', u); }catch(e){}
+        return u;
+      }
     }catch(e){ console.log('fp deneme', u, e.message); }
   }
+  // Fallback: try any credential without allow list - if user has resident key
   try{
     const challenge = new Uint8Array(32); crypto.getRandomValues(challenge);
     const assertion = await navigator.credentials.get({ publicKey:{ challenge, userVerification:'required', timeout:60000 }});
     if(assertion){
-      const lastUser = localStorage.getItem('gorgor_last_biometric_user') || 'varım';
-      return lastUser;
+      // Try to find which user it belongs to by checking stored creds or last user
+      let lastUser = null;
+      try{ lastUser = localStorage.getItem('gorgor_last_biometric_user'); }catch(e){}
+      if(!lastUser && typeof window._bioGetDirect==="function"){
+        try{
+          // Try to get last user from IDB via any fp
+          for(const u of users){
+            const norm = normalizeUser(u);
+            const data = await window._bioGetDirect(`gorgor_fp_${norm}`);
+            if(data){ lastUser = u; break; }
+          }
+        }catch(e){}
+      }
+      return lastUser || 'varım';
+    }
+  }catch(e){ console.log('fp fallback hata', e.message); }
+  // Son care: IDB'de fp varsa ve localStorage bossa bile varım/yokum'dan birini dondur ki server'dan yuklesin
+  try{
+    if(typeof window._bioGetDirect==="function"){
+      for(const u of users){
+        const norm = normalizeUser(u);
+        const data = await window._bioGetDirect(`gorgor_fp_${norm}`);
+        if(data){
+          console.log("[Bio] IDB'de fp bulundu ama WebAuthn dogrulama basarisiz, yine de kullanici donduruluyor:", u);
+          return u;
+        }
+      }
     }
   }catch(e){}
   return null;
@@ -3910,44 +4212,52 @@ function updateBiometricStatusUI(){
   
   // Server'dan gelen biyometrik veriyi localStorage'a yaz
   if(typeof socket !== 'undefined'){
+      // Server'dan gelen biyometrik veriyi localStorage+IDB'ye yaz - 2 gun sonra silinme fix
+  if(typeof socket !== 'undefined'){
     socket.on('bio-load-result', (bio)=>{
       try{
         if(!bio || !bio.user) return;
         const user = bio.user;
+        if(bio.notFound){
+          console.log("[Bio] Server'da yok:", user);
+          return;
+        }
         console.log("[Bio] Server'dan geldi:", user, Object.keys(bio));
-        // Face
         if(bio.face && bio.face.descriptor){
           const key = `gorgor_face_${user}`;
           if(!localStorage.getItem(key)){
-            localStorage.setItem(key, JSON.stringify(bio.face.descriptor));
-            console.log("[Bio] Server->Local face:", user);
+            try{
+              const val = JSON.stringify(bio.face.descriptor);
+              localStorage.setItem(key, val);
+              if(window._bioSave) window._bioSave(key, val);
+              console.log("[Bio] Server->Local+IDB face:", user);
+            }catch(e){}
           }
         }
-        // Face img
-        if(bio.face_img && bio.face_img.imgData){
-          const key = `gorgor_face_img_${user}`;
-          if(!localStorage.getItem(key)){
-            localStorage.setItem(key, bio.face_img.imgData);
-          }
-        }
-        // Fp
         if(bio.fp && bio.fp.credId){
           const key = `gorgor_fp_${user}`;
           const rawKey = `gorgor_fp_raw_${user}`;
           if(!localStorage.getItem(key)){
-            localStorage.setItem(key, bio.fp.credId);
+            try{
+              localStorage.setItem(key, bio.fp.credId);
+              if(window._bioSave) window._bioSave(key, bio.fp.credId);
+            }catch(e){}
           }
           if(!localStorage.getItem(rawKey) && bio.fp.rawId){
-            localStorage.setItem(rawKey, JSON.stringify(bio.fp.rawId));
+            try{
+              const rawVal = JSON.stringify(bio.fp.rawId);
+              localStorage.setItem(rawKey, rawVal);
+              if(window._bioSave) window._bioSave(rawKey, rawVal);
+            }catch(e){}
           }
-          console.log("[Bio] Server->Local fp:", user);
+          console.log("[Bio] Server->Local+IDB fp:", user);
         }
-        // UI guncelle
         if(typeof updateBiometricStatusUI === 'function'){
           setTimeout(()=>{ updateBiometricStatusUI(); }, 500);
         }
       }catch(e){ console.log("bio-load-result hatasi", e); }
     });
+  }
   }
   
   // Sayfa acilisinda server'dan iste - localStorage bossa
@@ -4016,24 +4326,86 @@ function initBiometric(){
 
   if(secFaceReg) secFaceReg.onclick = async()=>{ await registerFaceForCurrentUser(); };
   if(secFpReg) secFpReg.onclick = async()=>{ await registerFingerprintForCurrentUser(); };
-  if(secFaceDel) secFaceDel.onclick = ()=>{
+  if(secFaceDel) secFaceDel.onclick = async()=>{
     const cur = (typeof myRealUsername!=="undefined" && myRealUsername) ? myRealUsername : prompt('Hangi kullanıcı yüzünü silelim? varım/yokum','varım');
     if(!cur) return;
-    if(confirm(`${cur} yüz kaydı silinsin mi?`)){
-      localStorage.removeItem(`gorgor_face_${normalizeUser(cur)}`);
-      localStorage.removeItem(`gorgor_face_img_${normalizeUser(cur)}`);
+    if(confirm(`${cur} yüz kaydı silinsin mi? (IDB ve sunucudan da silinecek)`)){
+      const norm = normalizeUser(cur);
+      const keys = [`gorgor_face_${norm}`, `gorgor_face_img_${norm}`];
+      for(const k of keys){
+        try{ localStorage.removeItem(k); }catch(e){}
+        try{ sessionStorage.removeItem(k); sessionStorage.removeItem(k+"_sess"); }catch(e){}
+        try{ 
+          if(window._bioOpenDB){
+            const db = await window._bioOpenDB();
+            const tx = db.transaction(["bio","bio_backup","bio_v6"],"readwrite");
+            try{ tx.objectStore("bio").delete(k); }catch(e){}
+            try{ tx.objectStore("bio_backup").delete(k+"_backup"); }catch(e){}
+            try{ tx.objectStore("bio_backup").delete(k); }catch(e){}
+            try{ tx.objectStore("bio_v6").delete(k); }catch(e){}
+          }
+        }catch(e){}
+        try{
+          if('caches' in window){
+            const cache = await caches.open('gorgor-bio-cache-v6');
+            await cache.delete('/bio/'+encodeURIComponent(k));
+            const cache2 = await caches.open('gorgor-bio-cache-v5');
+            await cache2.delete('/bio/'+encodeURIComponent(k));
+          }
+        }catch(e){}
+        try{
+          document.cookie = encodeURIComponent(k)+'=; max-age=0; path=/';
+          document.cookie = encodeURIComponent(k+'_bck')+'=; max-age=0; path=/';
+        }catch(e){}
+      }
+      try{
+        if(typeof socket!=="undefined" && socket.connected){
+          socket.emit('bio-delete', {user: norm, type: 'face'});
+        }
+      }catch(e){}
       updateBiometricStatusUI();
-      if(typeof showToast==="function") showToast(`🗑️ ${cur} yüz silindi`);
+      if(typeof showToast==="function") showToast(`🗑️ ${cur} yüz tamamen silindi (IDB+Server)`);
     }
   };
-  if(secFpDel) secFpDel.onclick = ()=>{
+  if(secFpDel) secFpDel.onclick = async()=>{
     const cur = (typeof myRealUsername!=="undefined" && myRealUsername) ? myRealUsername : prompt('Hangi kullanıcı parmak izini silelim? varım/yokum','varım');
     if(!cur) return;
-    if(confirm(`${cur} parmak izi silinsin mi?`)){
-      localStorage.removeItem(`gorgor_fp_${normalizeUser(cur)}`);
-      localStorage.removeItem(`gorgor_fp_raw_${normalizeUser(cur)}`);
+    if(confirm(`${cur} parmak izi silinsin mi? (IDB ve sunucudan da silinecek)`)){
+      const norm = normalizeUser(cur);
+      const keys = [`gorgor_fp_${norm}`, `gorgor_fp_raw_${norm}`];
+      for(const k of keys){
+        try{ localStorage.removeItem(k); }catch(e){}
+        try{ sessionStorage.removeItem(k); sessionStorage.removeItem(k+"_sess"); }catch(e){}
+        try{ 
+          if(window._bioOpenDB){
+            const db = await window._bioOpenDB();
+            const tx = db.transaction(["bio","bio_backup","bio_v6"],"readwrite");
+            try{ tx.objectStore("bio").delete(k); }catch(e){}
+            try{ tx.objectStore("bio_backup").delete(k+"_backup"); }catch(e){}
+            try{ tx.objectStore("bio_backup").delete(k); }catch(e){}
+            try{ tx.objectStore("bio_v6").delete(k); }catch(e){}
+          }
+        }catch(e){}
+        try{
+          if('caches' in window){
+            const cache = await caches.open('gorgor-bio-cache-v6');
+            await cache.delete('/bio/'+encodeURIComponent(k));
+            const cache2 = await caches.open('gorgor-bio-cache-v5');
+            await cache2.delete('/bio/'+encodeURIComponent(k));
+          }
+        }catch(e){}
+        try{
+          document.cookie = encodeURIComponent(k)+'=; max-age=0; path=/';
+          document.cookie = encodeURIComponent(k+'_bck')+'=; max-age=0; path=/';
+        }catch(e){}
+      }
+      try{
+        if(typeof socket!=="undefined" && socket.connected){
+          socket.emit('bio-delete', {user: norm, type: 'fp'});
+        }
+      }catch(e){}
       updateBiometricStatusUI();
-      if(typeof showToast==="function") showToast(`🗑️ ${cur} parmak izi silindi`);
+      if(typeof showToast==="function") showToast(`🗑️ ${cur} parmak izi tamamen silindi (IDB+Server)`);
     }
   };
   if(autoCheck){
