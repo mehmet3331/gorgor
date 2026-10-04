@@ -15,6 +15,8 @@ app.get('/api/ping', (req,res)=>{ res.json({status:'alive', time: Date.now()}); 
 function normalize(s){ return (s||'').toString().trim().toLowerCase(); }
 let persistedMessages = [];
 let mongoCollection = null;
+let lastSeenCollection = null;
+let persistedLastSeenMap = {};
 let saveTimeout = null;
 async function initMongo(){
   if(!process.env.MONGODB_URI){ console.log("MONGODB_URI YOK!"); return; }
@@ -23,29 +25,55 @@ async function initMongo(){
     const client = new MongoClient(process.env.MONGODB_URI);
     await client.connect();
     mongoCollection = client.db('gorgor').collection('messages');
-    // V19 - TTL index ile oto silme - teknik temizlik
+    lastSeenCollection = client.db('gorgor').collection('lastSeen');
     try{
       await mongoCollection.createIndex({expireAt: 1}, {expireAfterSeconds: 0});
       await mongoCollection.createIndex({room: 1});
       await mongoCollection.createIndex({msgId: 1});
-      console.log("MongoDB indexler olusturuldu - TTL aktif");
+      await lastSeenCollection.createIndex({room: 1, user: 1}, {unique: true});
+      await lastSeenCollection.createIndex({room: 1});
+      console.log("MongoDB indexler olusturuldu - TTL aktif + lastSeen kalici");
     }catch(e){ console.log("Index hatasi", e.message); }
     persistedMessages = await mongoCollection.find({}).toArray();
     console.log(`MONGODB BAGLI - ${persistedMessages.length} mesaj`);
+    try{
+      const lastSeenDocs = await lastSeenCollection.find({}).toArray();
+      for(const doc of lastSeenDocs){
+        if(!doc.room || !doc.user) continue;
+        if(!persistedLastSeenMap[doc.room]) persistedLastSeenMap[doc.room] = {};
+        persistedLastSeenMap[doc.room][doc.user] = doc.ts;
+      }
+      console.log(`MONGODB lastSeen yuklendi - ${lastSeenDocs.length} kayit (kalici, silinmez)`);
+    }catch(e){ console.log("lastSeen yukleme hatasi", e.message); }
   }catch(e){ console.error("Mongo hatasi", e); }
 }
 initMongo();
 function debouncedSave(){ if(saveTimeout) clearTimeout(saveTimeout); saveTimeout=setTimeout(saveDisk,1000); }
 async function saveDisk(){ if(!mongoCollection) return; try{ await mongoCollection.deleteMany({}); if(persistedMessages.length) await mongoCollection.insertMany(persistedMessages); }catch(e){ console.error(e.message); } }
+async function saveLastSeen(room, user, ts){
+  if(!room || !user) return;
+  const now = ts || Date.now();
+  if(!persistedLastSeenMap[room]) persistedLastSeenMap[room] = {};
+  persistedLastSeenMap[room][user] = now;
+  if(rooms[room] && rooms[room].lastSeen){
+    rooms[room].lastSeen[user] = now;
+  }
+  if(!lastSeenCollection) return;
+  try{
+    await lastSeenCollection.updateOne({room, user}, {$set:{room, user, ts: now}}, {upsert: true});
+  }catch(e){ console.log("saveLastSeen hatasi", e.message); }
+}
 setInterval(async()=>{ const now=Date.now(); const before=persistedMessages.length; persistedMessages=persistedMessages.filter(m=>{ const del=m.deleteAt||m.expireAt||0; return del>now; }); if(before!==persistedMessages.length){ console.log(`AUTO DELETE ${before-persistedMessages.length} mesaj - suresi doldu`); await saveDisk(); } },60000);
 let rooms={};
 io.on('connection', socket=>{
   socket.on('ping-check', ts=>{ socket.emit('pong-check', ts); });
   socket.on('status-change', ({user,status})=>{ 
     if(status==='yokum' && socket.room && rooms[socket.room]){
+      const ts = Date.now();
       if(!rooms[socket.room].lastSeen) rooms[socket.room].lastSeen={};
-      rooms[socket.room].lastSeen[user]=Date.now();
-      io.to(socket.room).emit('user-last-seen',{user, ts: Date.now(), online:false});
+      rooms[socket.room].lastSeen[user]=ts;
+      saveLastSeen(socket.room, user, ts);
+      io.to(socket.room).emit('user-last-seen',{user, ts, online:false});
     }
     io.emit('user-status',{user,status,online:status==='varım'}); 
   });
@@ -57,12 +85,11 @@ io.on('connection', socket=>{
   socket.on('draw-clear', ()=>{ if(!socket.room) return; io.to(socket.room).emit('draw-clear'); });
   socket.on('voice-start', data=>{ if(!socket.room) return; socket.to(socket.room).emit('voice-start',{from:socket.realUsername}); });
   socket.on('background-blur', data=>{ if(!socket.room) return; socket.to(socket.room).emit('background-blur',data); });
-  socket.on('keepalive-ping', data=>{ if(socket.room && rooms[socket.room]){ if(!rooms[socket.room].lastSeen) rooms[socket.room].lastSeen={}; rooms[socket.room].lastSeen[data.from||socket.realUsername]=Date.now(); rooms[socket.room].lastSeen[socket.realUsername]=Date.now(); } socket.emit('keepalive-pong', {time: Date.now()}); });
-  socket.on('keepalive', data=>{ if(socket.room && rooms[socket.room]){ rooms[socket.room].lastSeen[data.user||socket.realUsername]=Date.now(); } });
+  socket.on('keepalive-ping', data=>{ if(socket.room && rooms[socket.room]){ const ts=Date.now(); if(!rooms[socket.room].lastSeen) rooms[socket.room].lastSeen={}; const u1=data.from||socket.realUsername; rooms[socket.room].lastSeen[u1]=ts; saveLastSeen(socket.room, u1, ts); rooms[socket.room].lastSeen[socket.realUsername]=ts; saveLastSeen(socket.room, socket.realUsername, ts); } socket.emit('keepalive-pong', {time: Date.now()}); });
+  socket.on('keepalive', data=>{ if(socket.room && rooms[socket.room]){ const ts=Date.now(); const u=data.user||socket.realUsername; rooms[socket.room].lastSeen[u]=ts; saveLastSeen(socket.room, u, ts); } });
   socket.on('user-busy', data=>{ if(!socket.room) return; io.to(socket.room).emit('user-busy', {user: data.user||socket.realUsername, busy: data.busy, ts: Date.now()}); });
-  socket.on('user-active', data=>{ if(!socket.room) return; if(rooms[socket.room]) rooms[socket.room].lastSeen[data.user||socket.realUsername]=Date.now(); io.to(socket.room).emit('user-active', {user: data.user||socket.realUsername, ts: Date.now()}); });
+  socket.on('user-active', data=>{ if(!socket.room) return; if(rooms[socket.room]){ const ts=Date.now(); const u=data.user||socket.realUsername; rooms[socket.room].lastSeen[u]=ts; saveLastSeen(socket.room, u, ts); io.to(socket.room).emit('user-active', {user: u, ts}); } });
 
-  // V22.1 HARMAN - 41-54 events - ViewOnce pasif
   socket.on('chat-edit', data=>{ if(!socket.room) return; const room=socket.room; if(rooms[room]?.messages.has(data.msgId)){ const m=rooms[room].messages.get(data.msgId); m.enc=data.enc; } let idx=persistedMessages.findIndex(m=>m.msgId===data.msgId&&m.room===room); if(idx>=0) persistedMessages[idx].enc=data.enc; debouncedSave(); socket.to(room).emit('chat-edit', data); io.to(room).emit('message-edit', data); });
   socket.on('message-edit', data=>{ if(!socket.room) return; const room=socket.room; if(rooms[room]?.messages.has(data.msgId)){ const m=rooms[room].messages.get(data.msgId); m.enc=data.enc; } let idx=persistedMessages.findIndex(m=>m.msgId===data.msgId&&m.room===room); if(idx>=0) persistedMessages[idx].enc=data.enc; debouncedSave(); socket.to(room).emit('chat-edit', data); socket.to(room).emit('message-edit', data); });
   socket.on('pin-message', data=>{ if(!socket.room) return; io.to(socket.room).emit('pin-message', data); });
@@ -70,39 +97,33 @@ io.on('connection', socket=>{
   socket.on('checklist-toggle', data=>{ if(!socket.room) return; io.to(socket.room).emit('checklist-toggle', data); });
   socket.on('delete-message', data=>{ if(!socket.room) return; const room=socket.room; if(rooms[room]?.messages.has(data.msgId)) rooms[room].messages.delete(data.msgId); persistedMessages=persistedMessages.filter(m=>!(m.msgId===data.msgId&&m.room===room)); debouncedSave(); io.to(room).emit('delete-message', data); });
   socket.on('join-room', data=>{
-    const room=data.room; const requestedUsername=data.username;
-    if(!rooms[room]) rooms[room]={users:{},messages:new Map(), lastSeen:{}};
-    if(!rooms[room].lastSeen) rooms[room].lastSeen={};
-    for(const [sid, uname] of Object.entries(rooms[room].users)){
-      const alive = io.sockets.sockets.get(sid);
-      if(normalize(uname)===normalize(requestedUsername) || !alive){
-        delete rooms[room].users[sid];
-      }
+    const room=data.room; 
+    const count=Object.keys(rooms[room]?.users||{}).length+1;
+    if(!rooms[room]){
+      const saved = persistedLastSeenMap[room] ? {...persistedLastSeenMap[room]} : {};
+      rooms[room]={users:{},messages:new Map(),lastSeen:saved};
     }
-    const currentCount=Object.keys(rooms[room].users).length;
-    if(currentCount>=2){ socket.emit('room-error','Oda dolu - sadece 2 kişi'); return; }
-    socket.room=room; socket.username=requestedUsername; socket.realUsername=data.realUsername||requestedUsername;
-    rooms[room].users[socket.id]=socket.username; 
-    rooms[room].lastSeen[socket.realUsername]=Date.now();
+    if(!rooms[room].lastSeen) rooms[room].lastSeen = persistedLastSeenMap[room] ? {...persistedLastSeenMap[room]} : {};
+    rooms[room].users[socket.id]={username:data.username,realUsername:data.username};
+    socket.room=room; socket.username=data.username; socket.realUsername=data.username;
     socket.join(room);
-    const count=Object.keys(rooms[room].users).length;
-    // FIX: mevcut kullanicilari yeni girene gonder
-    const otherUsers = Object.entries(rooms[room].users).filter(([sid])=>sid!==socket.id).map(([sid,uname])=>{ 
-      const s = io.sockets.sockets.get(sid); 
-      return {username: uname, realUsername: s ? s.realUsername : uname}; 
-    });
-    socket.emit('joined-room',{username:data.username,count, otherUsers});
+    const ts=Date.now();
+    rooms[room].lastSeen[data.username]=ts;
+    saveLastSeen(room, data.username, ts);
+    const otherUsers=Object.values(rooms[room].users).filter(u=>u.realUsername!==data.username);
+    // FIX: client joined-room bekliyor, bu emit olmazsa giris ekraninda kalir - taslaktaki gibi geri eklendi
+    const finalCount = Object.keys(rooms[room].users).length;
+    socket.emit('joined-room',{username:data.username,count:finalCount, otherUsers});
     socket.emit('room-users', otherUsers);
     socket.to(room).emit('user-connected',{username:data.username,realUsername:socket.realUsername});
     socket.emit('last-seen-list', rooms[room].lastSeen);
     socket.to(room).emit('user-last-seen',{user:socket.realUsername, ts: Date.now(), online:true});
-    // Yeni girene mevcut online kullanicilari da user-connected olarak gonder
     for(const ou of otherUsers){
       socket.emit('user-connected',{username:ou.username, realUsername:ou.realUsername});
     }
     const now2=Date.now(); const pending=persistedMessages.filter(m=>m.room===room && (m.deleteAt||m.expireAt||0)>now2);
     if(pending.length) socket.emit('pending-messages',pending);
-    console.log(`ODA: ${room} - ${data.username} girdi ${count} - lastSeen guncellendi`);
+    console.log(`ODA: ${room} - ${data.username} girdi ${finalCount} - lastSeen guncellendi kalici - joined-room emit edildi`);
   });
   socket.on('chat-message', async data=>{
     const room=socket.room; if(!room||!rooms[room]) return; const now=Date.now();
@@ -138,9 +159,11 @@ io.on('connection', socket=>{
     const room=socket.room;
     if(room&&rooms[room]){ 
       if(socket.realUsername){
+        const ts=Date.now();
         if(!rooms[room].lastSeen) rooms[room].lastSeen={};
-        rooms[room].lastSeen[socket.realUsername]=Date.now();
-        io.to(room).emit('user-last-seen',{user:socket.realUsername, ts: Date.now(), online:false});
+        rooms[room].lastSeen[socket.realUsername]=ts;
+        saveLastSeen(room, socket.realUsername, ts);
+        io.to(room).emit('user-last-seen',{user:socket.realUsername, ts, online:false});
       }
       delete rooms[room].users[socket.id]; 
       socket.to(room).emit('user-disconnected'); 
@@ -166,9 +189,11 @@ io.on('connection', socket=>{
   socket.on('leave-room', room=>{ 
     if(room&&rooms[room]){ 
       if(socket.realUsername){
+        const ts=Date.now();
         if(!rooms[room].lastSeen) rooms[room].lastSeen={};
-        rooms[room].lastSeen[socket.realUsername]=Date.now();
-        io.to(room).emit('user-last-seen',{user:socket.realUsername, ts: Date.now(), online:false});
+        rooms[room].lastSeen[socket.realUsername]=ts;
+        saveLastSeen(room, socket.realUsername, ts);
+        io.to(room).emit('user-last-seen',{user:socket.realUsername, ts, online:false});
       }
       delete rooms[room].users[socket.id]; 
       socket.leave(room); 
@@ -179,4 +204,4 @@ io.on('connection', socket=>{
   socket.on('panic', async ()=>{ if(socket.room){ const r=rooms[socket.room]; if(r) r.messages.clear(); persistedMessages=persistedMessages.filter(m=>m.room!==socket.room); await saveDisk(); io.to(socket.room).emit('panic'); } });
 });
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', ()=> console.log(`HESAPLAMA V27 STABLE - tum ozellikler - FINAL STABIL - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim`));
+server.listen(PORT, '0.0.0.0', ()=> console.log(`HESAPLAMA V27 STABLE - tum ozellikler - FINAL STABIL - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim + lastSeen KALICI`));

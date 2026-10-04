@@ -2,7 +2,30 @@
 console.log("V20 25TEMMUZ STABIL - V20 - Kurukafa + Flip Panik - Temel kurallar korunuyor - V19.0 FINAL - TUM OZELLIKLER - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim ortak");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
-const socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
+let socket;
+try{
+  if(typeof io !== 'undefined'){
+    socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
+    console.log("[SOCKET] io connected, attempting");
+    socket.on('connect', ()=>{ console.log("[SOCKET] connected id:", socket.id); });
+    socket.on('connect_error', (err)=>{ console.error("[SOCKET] connect_error", err); });
+  } else {
+    console.error("[SOCKET] io undefined - /socket.io/socket.io.js yuklenemedi, sunucu calisiyor mu?");
+    socket = {
+      connected: false,
+      emit: function(){ console.warn("[SOCKET] dummy emit", arguments); alert("Sunucuya bağlanılamadı - /socket.io/socket.io.js yüklenemedi. Sunucuyu başlat ve sayfayı yenile."); },
+      on: function(){},
+      to: function(){ return { emit: function(){} } }
+    };
+  }
+}catch(e){
+  console.error("[SOCKET] init hatasi", e);
+  socket = {
+    connected: false,
+    emit: function(){ alert("Socket hatasi: "+e.message); },
+    on: function(){}
+  };
+}
 
 const myVideo = document.getElementById("myVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -118,6 +141,311 @@ const REAL_ROOM = "oda1";
 const FAKE_ROOMS = ["oda","oda2"];
 const REAL_USERS = ["varım","yokum"];
 const FAKE_USERS = ["uçtum","geldim"];
+
+
+// ===== BIYOMETRIK KALICILIK - FINAL V5 - 4 KATMANLI - Telefon kapat ac silinmesin - UYUMA BOZMADAN =====
+(function(){
+  const DB_NAME = "gorgor_bio_final_v5";
+  const DB_VER = 2;
+  let dbInstance = null;
+  
+  function openDB(){
+    return new Promise((resolve, reject)=>{
+      if(dbInstance){ resolve(dbInstance); return; }
+      try{
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = (e)=>{
+          const db = e.target.result;
+          if(!db.objectStoreNames.contains("bio")){
+            db.createObjectStore("bio");
+          }
+          if(!db.objectStoreNames.contains("bio_backup")){
+            db.createObjectStore("bio_backup");
+          }
+        };
+        req.onsuccess = ()=>{
+          dbInstance = req.result;
+          resolve(dbInstance);
+        };
+        req.onerror = ()=>reject(req.error);
+      }catch(e){ reject(e); }
+    });
+  }
+  
+  function saveToCache(key, value){
+    try{
+      if('caches' in window){
+        caches.open('gorgor-bio-cache-v5').then(cache=>{
+          try{
+            cache.put('/bio/'+encodeURIComponent(key), new Response(value, {headers:{'Content-Type':'text/plain'}}));
+          }catch(e){}
+        }).catch(()=>{});
+      }
+    }catch(e){}
+  }
+  
+  function saveToCookie(key, value){
+    try{
+      // Sadece kucuk veriler icin (oda, sifre) - yuz descriptor cok buyuk, cookie'ye sigmaz
+      if(key.startsWith('gorgor_room_') || key.startsWith('gorgor_pass_') || key.startsWith('gorgor_last_') || key.startsWith('gorgor_auto_')){
+        if(value.length < 2000){
+          document.cookie = encodeURIComponent(key)+'='+encodeURIComponent(value)+'; max-age=31536000; path=/; SameSite=Lax';
+        }
+      }
+    }catch(e){}
+  }
+  
+  function saveBio(key, value){
+    try{
+      // 1. IndexedDB - ana yedek
+      openDB().then(db=>{
+        try{
+          const tx = db.transaction(["bio","bio_backup"],"readwrite");
+          tx.objectStore("bio").put(value, key);
+          tx.objectStore("bio_backup").put(value, key+"_backup");
+        }catch(e){}
+      }).catch(()=>{});
+      // 2. Cache API
+      saveToCache(key, value);
+      // 3. Cookie
+      saveToCookie(key, value);
+      // 4. sessionStorage yedek (telefon tarayicilari bazen session'i korur)
+      try{ sessionStorage.setItem(key+"_sess", value); }catch(e){}
+    }catch(e){}
+  }
+  
+  async function restoreFromCache(){
+    try{
+      if(!('caches' in window)) return;
+      const cache = await caches.open('gorgor-bio-cache-v5');
+      const keys = await cache.keys();
+      for(const req of keys){
+        try{
+          const url = req.url;
+          if(url.includes('/bio/')){
+            const key = decodeURIComponent(url.split('/bio/')[1]);
+            if(!localStorage.getItem(key)){
+              const res = await cache.match(req);
+              if(res){
+                const val = await res.text();
+                if(val){
+                  try{ localStorage.setItem(key, val); console.log("[Bio] Restore from Cache:", key); }catch(e){}
+                }
+              }
+            }
+          }
+        }catch(e){}
+      }
+    }catch(e){}
+  }
+  
+  function restoreFromCookie(){
+    try{
+      const cookies = document.cookie.split(';');
+      for(const c of cookies){
+        try{
+          const [k,v] = c.trim().split('=');
+          const key = decodeURIComponent(k);
+          const val = decodeURIComponent(v||'');
+          if(key.startsWith('gorgor_') && !localStorage.getItem(key) && val){
+            try{ localStorage.setItem(key, val); console.log("[Bio] Restore from Cookie:", key); }catch(e){}
+          }
+        }catch(e){}
+      }
+    }catch(e){}
+  }
+  
+  function restoreFromSession(){
+    try{
+      for(let i=0;i<sessionStorage.length;i++){
+        const k = sessionStorage.key(i);
+        if(k && k.endsWith('_sess')){
+          const origKey = k.replace('_sess','');
+          if(!localStorage.getItem(origKey)){
+            const val = sessionStorage.getItem(k);
+            if(val){
+              try{ localStorage.setItem(origKey, val); console.log("[Bio] Restore from Session:", origKey); }catch(e){}
+            }
+          }
+        }
+      }
+    }catch(e){}
+  }
+  
+  async function restoreBio(){
+    try{
+      // 1. IndexedDB'den - en guvenilir
+      const db = await openDB();
+      const tx = db.transaction(["bio","bio_backup"],"readonly");
+      const store = tx.objectStore("bio");
+      // getAll kullan - transaction kapanma sorununu cozer
+      const allReq = store.getAll();
+      const keysReq = store.getAllKeys();
+      
+      await new Promise((resolve)=>{
+        let done = 0;
+        let total = 2;
+        function checkDone(){ done++; if(done>=total) resolve(); }
+        
+        allReq.onsuccess = ()=>{
+          try{
+            const values = allReq.result || [];
+            const keys = keysReq.result || [];
+            // keysReq henuz bitmemis olabilir, bekle
+            if(keysReq.readyState !== 'done'){
+              setTimeout(()=>{
+                const k = keysReq.result || [];
+                for(let i=0;i<k.length;i++){
+                  const key = k[i];
+                  const val = values[i];
+                  if(key && val && !localStorage.getItem(key)){
+                    try{ localStorage.setItem(key, val); console.log("[Bio] Restore from IDB:", key); }catch(e){}
+                  }
+                }
+                checkDone();
+              }, 100);
+            } else {
+              const k = keysReq.result || [];
+              for(let i=0;i<k.length;i++){
+                const key = k[i];
+                const val = values[i];
+                if(key && val && !localStorage.getItem(key)){
+                  try{ localStorage.setItem(key, val); }catch(e){}
+                }
+              }
+              checkDone();
+            }
+          }catch(e){ checkDone(); }
+        };
+        allReq.onerror = ()=>{ checkDone(); };
+        
+        keysReq.onsuccess = ()=>{
+          // allReq icin zaten islenecek, sadece sayac artir
+          if(allReq.readyState === 'done'){
+            // Zaten islendiyse
+          }
+          checkDone();
+        };
+        keysReq.onerror = ()=>{ checkDone(); };
+        
+        // Fallback timeout
+        setTimeout(()=>{ resolve(); }, 2000);
+      });
+      
+      // 2. Cache API'den
+      await restoreFromCache();
+      // 3. Cookie'den
+      restoreFromCookie();
+      // 4. Session'dan
+      restoreFromSession();
+      
+    }catch(e){ 
+      // IDB basarisiz olursa diger katmanlardan dene
+      try{ await restoreFromCache(); }catch(e2){}
+      try{ restoreFromCookie(); }catch(e2){}
+      try{ restoreFromSession(); }catch(e2){}
+    }
+  }
+  
+  async function ensurePersist(){
+    try{
+      if(navigator.storage && navigator.storage.persist){
+        const persisted = await navigator.storage.persisted();
+        if(!persisted){
+          // Kullanici etkilesimi olmadan da iste, ama tiklamada da tekrar deneyecegiz
+          const granted = await navigator.storage.persist();
+          console.log("[Bio] Persist granted:", granted);
+        }
+      }
+      // Ayrica storage estimate al - quota kontrol
+      if(navigator.storage && navigator.storage.estimate){
+        const est = await navigator.storage.estimate();
+        console.log("[Bio] Storage estimate:", est);
+      }
+    }catch(e){}
+  }
+  
+  // Tiklama ile persist iste - kullanici jesti gerektiren tarayicilar icin
+  function requestPersistOnInteraction(){
+    const handler = async()=>{
+      try{
+        if(navigator.storage && navigator.storage.persist){
+          await navigator.storage.persist();
+        }
+      }catch(e){}
+      document.removeEventListener('click', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+    document.addEventListener('click', handler, {once:true});
+    document.addEventListener('touchstart', handler, {once:true});
+  }
+  
+  // LocalStorage wrapper - sadece biyometrik anahtarlar
+  try{
+    const origSet = localStorage.setItem.bind(localStorage);
+    const origRemove = localStorage.removeItem.bind(localStorage);
+    
+    localStorage.setItem = function(k,v){
+      try{ origSet(k,v); }catch(e){
+        // Quota exceeded ise eski biyometrikleri temizle ve tekrar dene
+        try{
+          if(k.startsWith('gorgor_face_img_')){
+            // Resim cok buyuk, base64 yerine kucuk tut
+            console.log("[Bio] Img too large, skipping localStorage, saving only to IDB");
+          } else {
+            throw e;
+          }
+        }catch(e2){}
+      }
+      try{
+        if(k && (k.startsWith('gorgor_fp_') || k.startsWith('gorgor_face_') || k.startsWith('gorgor_face_img_') || k.startsWith('gorgor_room_') || k.startsWith('gorgor_pass_') || k.startsWith('gorgor_last_') || k.startsWith('gorgor_auto_'))){
+          saveBio(k, v);
+        }
+      }catch(e){}
+    };
+    
+    // Remove da yedekleri silme - sadece localStorage'dan sil, IDB'de kalsin ki restore edebilsin
+    localStorage.removeItem = function(k){
+      try{ origRemove(k); }catch(e){}
+      // IDB ve Cache'de birak - bilerek silmiyoruz ki geri gelebilsin
+      // Sadece kullanici bilerek silmek isterse (ayarlar paneli) o zaman IDB'den de silinecek - o fonksiyon ayri
+    };
+  }catch(e){}
+  
+  // Acilista restore
+  document.addEventListener('DOMContentLoaded', ()=>{
+    ensurePersist();
+    requestPersistOnInteraction();
+    restoreBio();
+    setTimeout(()=>{ restoreBio(); }, 1500);
+    setTimeout(()=>{ restoreBio(); }, 4000);
+  });
+  
+  window.addEventListener('online', ()=>{
+    setTimeout(()=>{ restoreBio(); }, 800);
+  });
+  
+  // Sayfa kapanirken de kaydet - beforeunload
+  window.addEventListener('beforeunload', ()=>{
+    try{
+      // Son kez tum gorgor anahtarlarini IDB'ye yedekle
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i);
+        if(k && k.startsWith('gorgor_')){
+          const v = localStorage.getItem(k);
+          if(v) saveBio(k, v);
+        }
+      }
+    }catch(e){}
+  });
+  
+  window._bioSave = saveBio;
+  window._bioRestore = restoreBio;
+  window._bioOpenDB = openDB;
+})();
+// ===== KALICILIK SON =====
+
+
 
 function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
 
@@ -447,15 +775,43 @@ function startPingMonitor(){ if(pingTimer) clearInterval(pingTimer); pingTimer=s
 socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.textContent=ping+" ms"; if(!connectionQuality) return; if(ping<100){ connectionQuality.textContent="Mükemmel"; connectionQuality.className="good"; } else if(ping<200){ connectionQuality.textContent="İyi"; connectionQuality.className="medium"; } else { connectionQuality.textContent="Zayıf"; connectionQuality.className="bad"; } });
 
 joinBtn.onclick=async()=>{
-    const room=roomName.value.trim(); const password=roomPassword.value.trim(); const uname=userName.value.trim();
-    if(!room){ alert("Oda adı gir"); return; }
-    if(!uname){ alert("Kullanıcı adı gir"); return; }
-    if(!password){ alert("Şifre gerekli"); return; }
-    currentPassword=password; myUsername=normalize(uname); myRealUsername=uname;
-    currentRoom=room;
-    if(myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
-    try{ await startCamera(currentQuality); }catch(e){}
-    socket.emit("join-room",{room,password,username:uname});
+    try{
+      console.log("[JOIN] tiklandi");
+      const roomEl = document.getElementById("roomName");
+      const passEl = document.getElementById("roomPassword");
+      const userEl = document.getElementById("userName");
+      const room = (roomEl?.value || roomName?.value || "").trim();
+      const password = (passEl?.value || roomPassword?.value || "").trim();
+      const uname = (userEl?.value || userName?.value || "").trim();
+      console.log("[JOIN] degerler room:", room, "user:", uname, "pass len:", password.length);
+      if(!room){ alert("Oda adı gir (ör: oda1)"); roomEl?.focus(); return; }
+      if(!uname){ alert("Kullanıcı adı gir - varım veya yokum yaz"); userEl?.focus(); if(userEl) userEl.style.display="block"; if(typeof userListBox!=="undefined" && userListBox) userListBox.style.display="block"; return; }
+      if(!password){ alert("Şifre gerekli"); passEl?.focus(); return; }
+      if(typeof socket==="undefined" || !socket){
+        alert("Socket yok, sayfayi yenile");
+        return;
+      }
+      if(!socket.connected){
+        console.warn("[JOIN] socket bagli degil, baglanmaya calisiliyor...");
+        try{ if(socket.connect) socket.connect(); }catch(e){}
+        await new Promise(r=>setTimeout(r, 800));
+      }
+      currentPassword=password; 
+      myUsername = (typeof normalize==="function") ? normalize(uname) : uname.toLowerCase(); 
+      myRealUsername=uname;
+      currentRoom=room;
+      try{ localStorage.setItem("gorgor_last_room", room); localStorage.setItem("gorgor_last_user", uname); }catch(e){}
+      if(typeof myVideoContainer!=="undefined" && myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
+      try{ if(typeof startCamera==="function") await startCamera(typeof currentQuality!=="undefined"?currentQuality:720); }catch(e){ console.log("[JOIN] camera fail", e); }
+      console.log("[JOIN] emit join-room", room, uname);
+      socket.emit("join-room",{room,password,username:uname});
+      joinBtn.textContent="Giriliyor...";
+      joinBtn.disabled=true;
+      setTimeout(()=>{ joinBtn.textContent="Giriş"; joinBtn.disabled=false; }, 3000);
+    }catch(e){
+      console.error("[JOIN] hata", e);
+      alert("Giriş hatası: "+(e.message||e));
+    }
 };
 socket.on("room-error", msg=>alert(msg));
 socket.on("joined-room", data=>{ 
@@ -930,7 +1286,7 @@ function autoLockToGoogle(reason){
 }
 function startOfflineCountdown(){ clearOfflineTimer(); offlineTimer = setTimeout(()=>{ autoLockToGoogle("14dk offline"); }, FOURTEEN_MIN); }
 function clearBackgroundDisconnectTimer(){ if(backgroundDisconnectTimer){ clearTimeout(backgroundDisconnectTimer); backgroundDisconnectTimer=null; } }
-function startBackgroundDisconnectCountdown(){ clearBackgroundDisconnectTimer(); backgroundDisconnectTimer = setTimeout(()=>{ if(document.hidden){ showConnectionLostModal(); autoLockToGoogle("7.5dk arkaplan"); } }, SEVEN_MIN); }
+function startBackgroundDisconnectCountdown(){ clearBackgroundDisconnectTimer(); backgroundDisconnectTimer = setTimeout(()=>{ const mode = localStorage.getItem("gorgor_security_mode") || "general"; if(mode !== "general"){ if(document.hidden){ showConnectionLostModal(); autoLockToGoogle("7.5dk arkaplan"); } } }, SEVEN_MIN); }
 window.addEventListener('popstate', ()=>{
   const fakeCalcEl = document.getElementById("fakeCalc");
   if(fakeCalcEl && fakeCalcEl.style.display!=="none"){
@@ -3231,6 +3587,14 @@ async function registerFace(username){
       if(detection){
         const descriptor = Array.from(detection.descriptor);
         localStorage.setItem(`gorgor_face_${normalizeUser(username)}`, JSON.stringify(descriptor));
+        try{ 
+          if(window._bioSave){ window._bioSave(`gorgor_face_${normalizeUser(username)}`, JSON.stringify(descriptor)); }
+          // Server'a da yedekle - telefon silinmesine karsi
+          if(typeof socket !== 'undefined' && socket.connected){
+            socket.emit('bio-save', {user: normalizeUser(username), type: 'face', descriptor: descriptor, ts: Date.now()});
+          }
+        }catch(e){}
+        try{ if(window._bioSave){ window._bioSave(`gorgor_face_${normalizeUser(username)}`, JSON.stringify(descriptor)); } }catch(e){}
         const canvas = document.getElementById('biometricCanvas');
         if(canvas){
           canvas.width = video.videoWidth; canvas.height = video.videoHeight;
@@ -3353,7 +3717,7 @@ async function registerFingerprint(username){
         rp:{name:'HESAPLAMA', id: location.hostname},
         user:{id:userId, name:username, displayName:username},
         pubKeyCredParams:[{type:'public-key', alg:-7}, {type:'public-key', alg:-257}],
-        authenticatorSelection:{authenticatorAttachment:'platform', userVerification:'required', requireResidentKey:false},
+        authenticatorSelection:{authenticatorAttachment:'platform', userVerification:'required', requireResidentKey:true, residentKey:'required'},
         timeout:60000,
         attestation:'none'
       }
@@ -3362,6 +3726,13 @@ async function registerFingerprint(username){
     const credId = btoa(String.fromCharCode(...rawId));
     localStorage.setItem(`gorgor_fp_${normalizeUser(username)}`, credId);
     localStorage.setItem(`gorgor_fp_raw_${normalizeUser(username)}`, JSON.stringify(Array.from(rawId)));
+    try{ 
+      if(window._bioSave){ window._bioSave(`gorgor_fp_${normalizeUser(username)}`, credId); window._bioSave(`gorgor_fp_raw_${normalizeUser(username)}`, JSON.stringify(Array.from(rawId))); }
+      if(typeof socket !== 'undefined' && socket.connected){
+        socket.emit('bio-save', {user: normalizeUser(username), type: 'fp', credId: credId, rawId: Array.from(rawId), ts: Date.now()});
+      }
+    }catch(e){}
+    try{ if(window._bioSave){ window._bioSave(`gorgor_fp_${normalizeUser(username)}`, credId); window._bioSave(`gorgor_fp_raw_${normalizeUser(username)}`, JSON.stringify(Array.from(rawId))); } }catch(e){}
     try{
       const roomVal = (typeof currentRoom!=="undefined" && currentRoom) ? currentRoom : (document.getElementById('roomName')?.value || localStorage.getItem('gorgor_last_room') || 'oda1');
       const passVal = (typeof currentPassword!=="undefined" && currentPassword) ? currentPassword : (document.getElementById('roomPassword')?.value || '');
@@ -3524,6 +3895,99 @@ function updateBiometricStatusUI(){
   }catch(e){}
 }
 
+
+// ===== SERVER'DAN BIYOMETRIK RESTORE - Telefon silinmesine karsi son care =====
+(function(){
+  function requestBioFromServer(username){
+    try{
+      const norm = (typeof normalizeUser === 'function') ? normalizeUser(username) : (username||'').toString().trim().toLowerCase();
+      if(!norm) return;
+      if(typeof socket !== 'undefined' && socket.connected){
+        socket.emit('bio-load', {user: norm});
+      }
+    }catch(e){}
+  }
+  
+  // Server'dan gelen biyometrik veriyi localStorage'a yaz
+  if(typeof socket !== 'undefined'){
+    socket.on('bio-load-result', (bio)=>{
+      try{
+        if(!bio || !bio.user) return;
+        const user = bio.user;
+        console.log("[Bio] Server'dan geldi:", user, Object.keys(bio));
+        // Face
+        if(bio.face && bio.face.descriptor){
+          const key = `gorgor_face_${user}`;
+          if(!localStorage.getItem(key)){
+            localStorage.setItem(key, JSON.stringify(bio.face.descriptor));
+            console.log("[Bio] Server->Local face:", user);
+          }
+        }
+        // Face img
+        if(bio.face_img && bio.face_img.imgData){
+          const key = `gorgor_face_img_${user}`;
+          if(!localStorage.getItem(key)){
+            localStorage.setItem(key, bio.face_img.imgData);
+          }
+        }
+        // Fp
+        if(bio.fp && bio.fp.credId){
+          const key = `gorgor_fp_${user}`;
+          const rawKey = `gorgor_fp_raw_${user}`;
+          if(!localStorage.getItem(key)){
+            localStorage.setItem(key, bio.fp.credId);
+          }
+          if(!localStorage.getItem(rawKey) && bio.fp.rawId){
+            localStorage.setItem(rawKey, JSON.stringify(bio.fp.rawId));
+          }
+          console.log("[Bio] Server->Local fp:", user);
+        }
+        // UI guncelle
+        if(typeof updateBiometricStatusUI === 'function'){
+          setTimeout(()=>{ updateBiometricStatusUI(); }, 500);
+        }
+      }catch(e){ console.log("bio-load-result hatasi", e); }
+    });
+  }
+  
+  // Sayfa acilisinda server'dan iste - localStorage bossa
+  document.addEventListener('DOMContentLoaded', ()=>{
+    setTimeout(()=>{
+      try{
+        const users = ['varım','yokum'];
+        users.forEach(u=>{
+          const norm = (typeof normalizeUser === 'function') ? normalizeUser(u) : u;
+          const hasFace = localStorage.getItem(`gorgor_face_${norm}`);
+          const hasFp = localStorage.getItem(`gorgor_fp_${norm}`);
+          if(!hasFace || !hasFp){
+            console.log("[Bio] Local'de yok, server'dan isteniyor:", norm);
+            requestBioFromServer(norm);
+          }
+        });
+      }catch(e){}
+    }, 2000);
+    
+    // Socket baglaninca da iste
+    if(typeof socket !== 'undefined'){
+      socket.on('connect', ()=>{
+        setTimeout(()=>{
+          try{
+            const users = ['varım','yokum'];
+            users.forEach(u=>{
+              const norm = (typeof normalizeUser === 'function') ? normalizeUser(u) : u;
+              if(!localStorage.getItem(`gorgor_face_${norm}`) || !localStorage.getItem(`gorgor_fp_${norm}`)){
+                requestBioFromServer(norm);
+              }
+            });
+          }catch(e){}
+        }, 1000);
+      });
+    }
+  });
+})();
+// ===== SERVER RESTORE SON =====
+
+
 function initBiometric(){
   const fpBtn = document.getElementById('fingerprintBtn');
   const faceBtn = document.getElementById('faceLoginBtn');
@@ -3641,6 +4105,57 @@ document.addEventListener('DOMContentLoaded', ()=>{
     try{ loadFaceModels(); }catch(e){}
   }, 800);
 });
+// ===== CHAT PANEL RESIZE - sadece mesaj panelini elle büyüt/küçült, WebRTC/yüz/parmak/2580 bozulmaz =====
+(function initChatPanelResize(){
+  const panel = document.getElementById("chatPanel");
+  const handle = document.getElementById("chatDragHandle");
+  if(!panel || !handle) return;
+  let isDragging = false, startY = 0, startHeight = 0;
+  const saved = localStorage.getItem("gorgor_chatPanel_height");
+  if(saved){
+    const h = parseInt(saved);
+    if(h >= 150 && h <= window.innerHeight * 0.9){
+      panel.style.height = h + "px";
+    }
+  }
+  function getY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
+  function onStart(e){
+    isDragging = true;
+    startY = getY(e);
+    startHeight = panel.offsetHeight;
+    document.body.style.userSelect = "none";
+    panel.style.transition = "none";
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!isDragging) return;
+    const curY = getY(e);
+    const delta = startY - curY;
+    let newH = startHeight + delta;
+    const minH = Math.min(200, window.innerHeight * 0.25);
+    const maxH = window.innerHeight * 0.9;
+    newH = Math.max(minH, Math.min(maxH, newH));
+    panel.style.height = newH + "px";
+    e.preventDefault();
+  }
+  function onEnd(){
+    if(!isDragging) return;
+    isDragging = false;
+    document.body.style.userSelect = "";
+    panel.style.transition = "";
+    localStorage.setItem("gorgor_chatPanel_height", panel.offsetHeight);
+  }
+  handle.addEventListener('mousedown', onStart);
+  handle.addEventListener('touchstart', onStart, {passive:false});
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup', onEnd);
+  window.addEventListener('touchend', onEnd);
+  handle.addEventListener('dblclick', ()=>{
+    panel.style.height = "52%";
+    localStorage.removeItem("gorgor_chatPanel_height");
+  });
+})();
+// ===== CHAT RESIZE SON =====
+
 // ==================== BIYOMETRIK SON ====================
-
-
