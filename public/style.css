@@ -1008,3 +1008,193 @@ body { background:#000 !important; }
 }
 
 #privacyModeSelect{ margin-top:5px !important; }
+
+
+/* ==================== D - TELEGRAM DARK THEME ==================== */
+/* Telegram Dark - birebir uygulanabilir, hiçbir özellik silinmedi, sadece renkler */
+:root{
+  --tg-bg: #17212b;
+  --tg-bg2: #0e1621;
+  --tg-card: #182533;
+  --tg-card2: #242f3d;
+  --tg-my: #2b5278;
+  --tg-my-hover: #336b9c;
+  --tg-other: #182533;
+  --tg-accent: #5288c1;
+  --tg-accent2: #6ab2f2;
+  --tg-text: #f5f5f5;
+  --tg-text2: #aab8c2;
+  --tg-border: #242f3d;
+  --tg-online: #0ac630;
+}
+
+body { background: var(--tg-bg) !important; color: var(--tg-text) !important; }
+#fakeCalc { background: var(--tg-bg) !important; }
+.calc-container { background: var(--tg-card) !important; border:1px solid var(--tg-border) !important; }
+.calc-container h3 { color: var(--tg-text) !important; }
+.calc-container input { background: var(--tg-bg2) !important; color: var(--tg-accent2) !important; border:1px solid var(--tg-border) !important; }
+.calc-grid button { background: var(--tg-card2) !important; color: var(--tg-text) !important; border:1px solid var(--tg-border) !important; }
+.calc-grid button:hover { background: var(--tg-my) !important; }
+
+#roomScreen { background: var(--tg-bg) !important; }
+#roomScreen h2 { color: var(--tg-text) !important; }
+#roomScreen input { background: var(--tg-card2) !important; color: var(--tg-text) !important; border:1px solid var(--tg-border) !important; }
+#roomScreen button#joinBtn { background: var(--tg-accent) !important; color:#fff !important; }
+#roomScreen button#joinBtn:hover { background: var(--tg-my-hover) !important; }
+.userTag { background: var(--tg-card) !important; border:1px solid var(--tg-border) !important; color: var(--tg-text2) !important; }
+.userTag:hover { background: var(--tg-card2) !important; color: var(--tg-text) !important; border-color: var(--tg-accent) !important; }
+
+#mainScreen { background: var(--tg-bg) !important; }
+#remoteVideo { background: var(--tg-bg2) !important; }
+#myVideoContainer { border:2px solid var(--tg-border) !important; background: var(--tg-bg2) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.6) !important; }
+.cameraOverlayBtn { background: rgba(24,37,51,0.9) !important; border:1px solid var(--tg-border) !important; }
+.qualitySelect { background: rgba(24,37,51,0.95) !important; color: var(--tg-text) !important; border:1px solid var(--tg-border) !important; }
+
+/* Floating pill - Telegram üst bar */
+#floatingPill{
+  background: var(--tg-card) !important;
+  border:1px solid var(--tg-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4) !important;
+  backdrop-filter: none !important;
+}
+#floatingPillLeft .opponentName { color: var(--tg-text) !important; font-weight:600 !important; }
+#opponentStatusText { color: var(--tg-text2) !important; }
+#phoneModeBtn, #camBtn, #soundBtn, #lightModeBtn, #mediaBtn, #nudgeBtn, #emojiBtn, #securityBtn, #panicBtn, #skullPanicBtn, #statusBar button {
+  background: var(--tg-card2) !important;
+  color: var(--tg-text) !important;
+  border:1px solid var(--tg-border) !important;
+}
+#phoneModeBtn:hover, #camBtn:hover { background: var(--tg-my) !important; border-color: var(--tg-accent) !important; }
+#volumeSlider, #phoneVolumeSlider { accent-color: var(--tg-accent) !important; }
+#privacyModeSelect { background: var(--tg-card2) !important; color: var(--tg-text2) !important; border:1px solid var(--tg-border) !important; }
+
+/* Chat panel */
+#chatPanel { background: var(--tg-bg) !important; border-top:1px solid var(--tg-border) !important; }
+#messages { background: var(--tg-bg) !important; }
+#chatDragHandle{ background: var(--tg-card) !important; border-bottom:1px solid var(--tg-border) !important; }
+#chatDragHandle div{ background: var(--tg-card2) !important; }
+
+/* Mesaj baloncuklari - Telegram stili */
+.myMessage .msgBubble{
+  background: var(--tg-my) !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  border-bottom-right-radius: 4px !important;
+  border: none !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+}
+.otherMessage .msgBubble{
+  background: var(--tg-card) !important;
+  color: var(--tg-text) !important;
+  border-radius: 12px !important;
+  border-bottom-left-radius: 4px !important;
+  border:1px solid var(--tg-border) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+}
+.myMessage .msgAvatar { background: var(--tg-accent) !important; }
+.otherMessage .msgAvatar { background: var(--tg-card2) !important; color: var(--tg-text2) !important; }
+.msgText { font-size: 14px !important; line-height: 1.4 !important; font-weight:400 !important; }
+.msgBubble .expireInfo { font-size:9px !important; color: rgba(255,255,255,0.6) !important; }
+.otherMessage .msgBubble .expireInfo { color: var(--tg-text2) !important; }
+.msgBubble .ticks { color: var(--tg-accent2) !important; }
+
+/* Input area */
+#inputArea { background: var(--tg-bg) !important; border-top:1px solid var(--tg-border) !important; }
+.inputTopRow select { background: var(--tg-card2) !important; color: var(--tg-text) !important; border:1px solid var(--tg-border) !important; }
+#messageInput{
+  background: var(--tg-card2) !important;
+  color: var(--tg-text) !important;
+  border:1px solid var(--tg-border) !important;
+  border-radius: 22px !important;
+}
+#messageInput::placeholder { color: var(--tg-text2) !important; }
+#attachMenuBtn{
+  background: var(--tg-card2) !important;
+  border:1px solid var(--tg-border) !important;
+  color: var(--tg-text2) !important;
+}
+#sendBtn{
+  background: var(--tg-accent) !important;
+  color:#fff !important;
+  border:none !important;
+  border-radius: 22px !important;
+  font-weight:600 !important;
+}
+#sendBtn:hover { background: var(--tg-my-hover) !important; }
+
+/* Attach menu */
+#attachMenu { background: var(--tg-card) !important; border:1px solid var(--tg-border) !important; border-radius:12px !important; box-shadow:0 8px 24px rgba(0,0,0,0.5) !important; }
+#attachMenu button { background: transparent !important; color: var(--tg-text) !important; border-bottom:1px solid var(--tg-border) !important; }
+#attachMenu button:hover { background: var(--tg-card2) !important; }
+
+/* 3 nokta menü */
+.msgDotBtn{
+  background: var(--tg-card) !important;
+  border:1px solid var(--tg-border) !important;
+  color: var(--tg-text2) !important;
+  box-shadow:0 2px 8px rgba(0,0,0,0.4) !important;
+}
+#msgActionMenu{
+  background: var(--tg-card) !important;
+  border:1px solid var(--tg-border) !important;
+  border-radius:12px !important;
+  box-shadow:0 12px 40px rgba(0,0,0,0.7) !important;
+}
+#msgActionMenu::before{ color: var(--tg-text2) !important; border-bottom:1px solid var(--tg-border) !important; }
+#msgActionMenu button{ color: var(--tg-text) !important; border-bottom:1px solid var(--tg-border) !important; }
+#msgActionMenu button:hover{ background: var(--tg-card2) !important; color:#fff !important; }
+
+/* Chat toggle */
+#chatToggle{ background: var(--tg-accent) !important; box-shadow:0 4px 12px rgba(82,136,193,0.4) !important; }
+
+/* Phone call UI - Telegram arama ekranı */
+#phoneCallUI{
+  background: radial-gradient(circle at center, #1a3248 0%, var(--tg-bg2) 85%) !important;
+}
+.phoneAvatar, #phoneAvatar{ background: linear-gradient(135deg, var(--tg-my), var(--tg-card)) !important; border:3px solid rgba(82,136,193,0.3) !important; }
+#phoneVolumeContainer, .phoneControls { background: var(--tg-card) !important; border:1px solid var(--tg-border) !important; border-radius:16px !important; }
+.phoneControlBtn{ background: var(--tg-card2) !important; border:1px solid var(--tg-border) !important; color: var(--tg-text) !important; }
+.phoneControlBtn.endCall{ background:#e53935 !important; border-color:#e53935 !important; color:#fff !important; }
+
+/* Online dot - Telegram */
+.onlineDot.online{ background: var(--tg-online) !important; box-shadow:0 0 8px var(--tg-online) !important; }
+.onlineDot.offline{ background: #6c7883 !important; }
+.onlineDot.busy{ background: #ff9500 !important; }
+
+/* Modals */
+#connectionLostModal{ background: rgba(14,22,33,0.92) !important; }
+#connectionLostModal .lostBox{ background: var(--tg-card) !important; border:1px solid var(--tg-border) !important; }
+#biometricModal, #biometricLoginConfirmModal{ background: rgba(14,22,33,0.92) !important; }
+
+/* Scrollbar Telegram */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-thumb { background: var(--tg-card2); border-radius:3px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Link renkleri */
+.msgBubble a { color: var(--tg-accent2) !important; }
+
+/* Son görülme kırmızı blink - Telegram uyumlu */
+.hc-blink{ background:#e53935 !important; box-shadow:0 0 12px #e53935 !important; animation:hcRedBlink 0.6s infinite alternate!important; }
+#hiddenNewMsgIndicator{ background: var(--tg-accent) !important; box-shadow:0 0 12px var(--tg-accent) !important; }
+
+/* Emoji panel */
+#emojiPanel{ background: var(--tg-card) !important; border:1px solid var(--tg-border) !important; }
+
+/* Search bar */
+#searchBar{ background: var(--tg-card) !important; border-bottom:1px solid var(--tg-border) !important; }
+#searchInput{ background: var(--tg-card2) !important; color: var(--tg-text) !important; border:1px solid var(--tg-border) !important; }
+
+/* Poll / checklist */
+.pollOption{ background: var(--tg-card2) !important; border:1px solid var(--tg-border) !important; }
+.pollOptionBar{ background: var(--tg-accent) !important; }
+
+/* Xiaomi Mi 13 HyperOS için ek optimize */
+@media (max-width: 480px){
+  #floatingPill{ background: var(--tg-card) !important; }
+  #myVideoContainer{ border-color: var(--tg-border) !important; }
+  .msgText{ font-size:13px !important; }
+}
+
+/* Hiçbir özellik gizlenmedi, sadece renk - tüm fonksiyonlar çalışır */
