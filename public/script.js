@@ -1353,6 +1353,15 @@ socket.on('fly-emoji',(data)=>createFlyingEmoji(data.emoji,data.effect,false));
 function createFlyingEmoji(emoji,effect,isMine){ const startX=isMine?window.innerWidth-120:80; const baseY=140; if(effect==='big-kiss'){ const big=document.createElement('div'); big.className='big-kiss-mark'; big.textContent='💋'; big.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;z-index:9999;animation:explodeBoom 1s forwards;'; document.body.appendChild(big); setTimeout(()=>big.remove(),1000); return; } if(effect==='water'){ for(let i=0;i<10;i++){ setTimeout(()=>{ const d=document.createElement('div'); d.className='flying-emoji water'; d.textContent='💧'; d.style.left=(window.innerWidth/2+Math.random()*200-100)+'px'; d.style.bottom='50%'; d.style.fontSize='40px'; d.style.animation='fireRainFall 1.5s forwards'; document.body.appendChild(d); setTimeout(()=>d.remove(),1500); }, i*60); } return; } let count=1; let animClass=effect||'heart'; if(effect==='heart'||effect==='kiss') count=8; else if(['kiss-rain','heart-rain','money-rain','star-rain','fire-rain','laugh-rain','angry-rain','emoji-rain'].includes(effect)) count=14; else if(['flower','sparkle','star'].includes(effect)) count=6; else if(['fire','explode'].includes(effect)) count=3; else if(['party','confetti'].includes(effect)) count=20; else if(['money','thumbs','wow','skull','heart-burst'].includes(effect)) count=1; for(let i=0;i<count;i++){ setTimeout(()=>{ const fly=document.createElement('div'); fly.className='flying-emoji '+animClass; fly.textContent=emoji; fly.style.left=(startX+Math.random()*180-90+i*12)+'px'; fly.style.bottom=(baseY+Math.random()*60)+'px'; fly.style.fontSize=(effect==='explode'||effect==='heart-burst')?'90px':(effect==='fire'?'72px':(52+Math.random()*28)+'px'); document.body.appendChild(fly); setTimeout(()=>fly.remove(),3500); }, i*80); } if(['fire','explode','party','confetti','rocket','rocket-fly'].includes(effect)){ document.body.classList.add('mega-shake'); setTimeout(()=>document.body.classList.remove('mega-shake'),700); } }
 micBtn.onclick=async()=>{
   try{
+    // YENİ: Telefon veya görüntülü değilken sor
+    if(!isPhoneMode && !camEnabled && !micEnabled){
+      const onay = confirm("🎤 Mikrofon açılsın mı?\n\nŞu an telefon veya görüntülü aramada değilsin.\nSesin karşı tarafa gidecek.\n\nTamam = Aç\nİptal = Açma");
+      if(!onay){
+        if(typeof showToast==="function") showToast("🔇 Mikrofon kapalı kaldı");
+        return;
+      }
+    }
+
     if(!localStream || localStream.getAudioTracks().length===0){
       if(!(await ensureAudioTrack())) return;
     }
@@ -1360,10 +1369,10 @@ micBtn.onclick=async()=>{
     if(localStream){ localStream.getAudioTracks().forEach(t=>{ try{ t.enabled=micEnabled; }catch(e){} }); }
     micBtn.classList.toggle("offIcon",!micEnabled);
     micBtn.textContent=micEnabled?"🎤":"🔇";
-    await syncAllTracksToPeer();
+    try{ await syncAllTracksToPeer(); }catch(e){}
     setTimeout(async()=>{ try{ await syncAllTracksToPeer(); }catch(e){} }, 400);
     if(typeof showToast==="function") showToast(micEnabled?"🎤 Mikrofon açık":"🔇 Mikrofon kapalı");
-  }catch(e){}
+  }catch(e){ console.log("micBtn hata", e); }
 };
 
 camBtn.onclick=async()=>{
