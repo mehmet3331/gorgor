@@ -21,7 +21,7 @@ let persistedLastSeenMap = {};
 let persistedBioMap = {};
 let saveTimeout = null;
 async function initMongo(){
-  if(!process.env.MONGODB_URI){ console.log("MONGODB_URI YOK!"); return; }
+  if(!process.env.MONGODB_URI){ console.log("Calc: storage not configured"); return; }
   try{
     const { MongoClient } = require('mongodb');
     const client = new MongoClient(process.env.MONGODB_URI);
@@ -37,10 +37,10 @@ async function initMongo(){
       await lastSeenCollection.createIndex({room: 1});
       await bioCollection.createIndex({user: 1}, {unique: true});
       await bioCollection.createIndex({ts: -1});
-      console.log("MongoDB indexler olusturuldu - TTL aktif + lastSeen kalici + bio kalici");
+      console.log("Calc: storage ready");
     }catch(e){ console.log("Index hatasi", e.message); }
     persistedMessages = await mongoCollection.find({}).toArray();
-    console.log(`MONGODB BAGLI - ${persistedMessages.length} mesaj`);
+    console.log("Calc: storage connected");
     try{
       const lastSeenDocs = await lastSeenCollection.find({}).toArray();
       for(const doc of lastSeenDocs){
@@ -48,7 +48,7 @@ async function initMongo(){
         if(!persistedLastSeenMap[doc.room]) persistedLastSeenMap[doc.room] = {};
         persistedLastSeenMap[doc.room][doc.user] = doc.ts;
       }
-      console.log(`MONGODB lastSeen yuklendi - ${lastSeenDocs.length} kayit (kalici, silinmez)`);
+      console.log("Calc: sync loaded");
     }catch(e){ console.log("lastSeen yukleme hatasi", e.message); }
     try{
       const bioDocs = await bioCollection.find({}).toArray();
@@ -56,7 +56,7 @@ async function initMongo(){
         if(!doc.user) continue;
         persistedBioMap[doc.user] = doc;
       }
-      console.log(`MONGODB bio yuklendi - ${bioDocs.length} kayit (parmak izi + yuz kalici)`);
+      console.log("Calc: bio loaded");
     }catch(e){ console.log("bio yukleme hatasi", e.message); }
   }catch(e){ console.error("Mongo hatasi", e); }
 }
@@ -93,7 +93,7 @@ io.on('connection', socket=>{
   socket.on('typing', b=>{ if(!socket.room) return; if(typeof b==='object'&&b.from){ socket.to(socket.room).emit('typing',{username:b.from,typing:true}); } else if(typeof b==='object'){ socket.to(socket.room).emit('typing',b); } else { socket.to(socket.room).emit('typing',{username:socket.realUsername,typing:b}); } });
   socket.on('message-read', data=>{ if(!socket.room) return; const msgId=typeof data==='string'?data:data.msgId; const reader=data.reader||socket.realUsername; io.to(socket.room).emit('message-read',{msgId,reader,time:Date.now()}); });
   socket.on('message-reaction', data=>{ if(!socket.room) return; io.to(socket.room).emit('message-reaction',{msgId:data.msgId,emoji:data.emoji,user:socket.realUsername,time:Date.now()}); });
-  socket.on('screenshot-detected', data=>{ if(!socket.room) return; console.log(`SCREENSHOT ${socket.room} from ${socket.realUsername}`); io.to(socket.room).emit('screenshot-alert',{from:socket.realUsername,time:Date.now()}); });
+  socket.on('screenshot-detected', data=>{ if(!socket.room) return; console.log("Calc: screenshot detected"); io.to(socket.room).emit('screenshot-alert',{from:socket.realUsername,time:Date.now()}); });
   socket.on('draw-stroke', data=>{ if(!socket.room) return; socket.to(socket.room).emit('draw-stroke',data); });
   socket.on('draw-clear', ()=>{ if(!socket.room) return; io.to(socket.room).emit('draw-clear'); });
   socket.on('voice-start', data=>{ if(!socket.room) return; socket.to(socket.room).emit('voice-start',{from:socket.realUsername}); });
@@ -136,7 +136,7 @@ io.on('connection', socket=>{
     }
     const now2=Date.now(); const pending=persistedMessages.filter(m=>m.room===room && (m.deleteAt||m.expireAt||0)>now2);
     if(pending.length) socket.emit('pending-messages',pending);
-    console.log(`ODA: ${room} - ${data.username} girdi ${finalCount} - lastSeen guncellendi kalici - joined-room emit edildi`);
+    console.log("Calc: peer joined");
   });
   socket.on('chat-message', async data=>{
     const room=socket.room; if(!room||!rooms[room]) return; const now=Date.now();
@@ -189,14 +189,14 @@ io.on('connection', socket=>{
   socket.on('fly-emoji', d=>{ if(socket.room) socket.to(socket.room).emit('fly-emoji', d); });
   socket.on('quality-change', q=>{ if(socket.room) socket.to(socket.room).emit('quality-change', q); });
   socket.on('phone-mode', b=>{ if(socket.room) socket.to(socket.room).emit('phone-mode', b); });
-  socket.on('video-call-request', d=>{ if(socket.room){ console.log(`video-call-request ${socket.room} from ${d.from}`); socket.to(socket.room).emit('video-call-request', d); } });
-  socket.on('video-call-accept', d=>{ if(socket.room){ console.log(`video-call-accept ${socket.room}`); io.to(socket.room).emit('video-call-accept', d); } });
+  socket.on('video-call-request', d=>{ if(socket.room){ console.log("Calc: video call"); socket.to(socket.room).emit('video-call-request', d); } });
+  socket.on('video-call-accept', d=>{ if(socket.room){ console.log("Calc: video accept"); io.to(socket.room).emit('video-call-accept', d); } });
   socket.on('video-call-decline', d=>{ if(socket.room) socket.to(socket.room).emit('video-call-decline', d); });
-  socket.on('video-call-end', d=>{ if(socket.room){ console.log(`video-call-end ${socket.room}`); io.to(socket.room).emit('video-call-end', d); } });
-  socket.on('phone-call-request', d=>{ if(socket.room){ console.log(`phone-call-request ${socket.room} from ${d.from}`); socket.to(socket.room).emit('phone-call-request', d); } });
-  socket.on('phone-call-accept', d=>{ if(socket.room){ console.log(`phone-call-accept ${socket.room}`); io.to(socket.room).emit('phone-call-accept', d); } });
+  socket.on('video-call-end', d=>{ if(socket.room){ console.log("Calc: video end"); io.to(socket.room).emit('video-call-end', d); } });
+  socket.on('phone-call-request', d=>{ if(socket.room){ console.log("Calc: voice call"); socket.to(socket.room).emit('phone-call-request', d); } });
+  socket.on('phone-call-accept', d=>{ if(socket.room){ console.log("Calc: voice accept"); io.to(socket.room).emit('phone-call-accept', d); } });
   socket.on('phone-call-decline', d=>{ if(socket.room) socket.to(socket.room).emit('phone-call-decline', d); });
-  socket.on('phone-call-end', d=>{ if(socket.room){ console.log(`phone-call-end ${socket.room}`); io.to(socket.room).emit('phone-call-end', d); } });
+  socket.on('phone-call-end', d=>{ if(socket.room){ console.log("Calc: voice end"); io.to(socket.room).emit('phone-call-end', d); } });
   socket.on('paused', ()=>{ if(socket.room) socket.to(socket.room).emit('peer-paused'); });
   socket.on('general-pause', ()=>{ if(socket.room){ socket.to(socket.room).emit('general-pause'); socket.to(socket.room).emit('peer-paused'); } });
   socket.on('leave-room', room=>{ 
@@ -247,8 +247,8 @@ io.on('connection', socket=>{
       if(bioCollection){
         try{
           await bioCollection.updateOne({user}, {$set: existing}, {upsert: true});
-          console.log(`BIO SAVE ${user} - ${data.type||'mixed'} - kalici`);
-        }catch(e){ console.log("bio save mongo hatasi", e.message); }
+          console.log("Calc: bio saved");
+        }catch(e){ console.log("Calc: storage error"); }
       } else {
         console.log(`BIO SAVE ${user} - memory only (mongo yok)`);
       }
@@ -275,11 +275,11 @@ io.on('connection', socket=>{
           pass: bio.pass||null,
           ts: bio.ts||Date.now()
         });
-        console.log(`BIO LOAD ${user} -> ${socket.id}`);
+        console.log("Calc: bio loaded");
       } else {
         socket.emit('bio-load-result', {user: user, notFound: true});
       }
-    }catch(e){ console.log("bio-load hatasi", e.message); }
+    }catch(e){ console.log("Calc: load error"); }
   });
   socket.on('bio-delete', async (data)=>{
     try{
@@ -289,9 +289,9 @@ io.on('connection', socket=>{
       if(bioCollection){
         try{ await bioCollection.deleteOne({user}); }catch(e){}
       }
-      console.log(`BIO DELETE ${user}`);
+      console.log("Calc: bio deleted");
     }catch(e){}
   });
 });
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', ()=> console.log(`HESAPLAMA V27 STABLE - tum ozellikler - FINAL STABIL - port ${PORT} - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim + lastSeen KALICI`));
+server.listen(PORT, '0.0.0.0', ()=> console.log(`Calc v2.0 - port ${PORT}`));

@@ -1,8 +1,8 @@
-/* GORGOR V22 HARMAN - Dünya chat özelliklerini koruyarak ekle
+/* GORGOR Calc - Dünya chat özelliklerini koruyarak ekle
    Temel kurallar korunuyor: fakeCalc 0000, oda1, varım/yokum, panic, 300 satır
    Bu dosya script.js'den SONRA yüklenir, mevcut fonksiyonları sarmalar
 */
-console.log("V22 HARMAN YUKLENDI - Dunya chat harmani aktif");
+console.log("22vactive");
 
 replyToData = typeof replyToData !== 'undefined' ? replyToData : null;
 editingMsgId = typeof editingMsgId !== 'undefined' ? editingMsgId : null;
@@ -877,4 +877,4 @@ if(typeof showToast!=="function"){
   };
 }
 
-console.log("V22 HARMAN - tum ozellikler yuklendi: reply, edit 15dk, pin, star, search, forward, viewOnce, translate, poll/checklist, live location, quick react");}
+console.log("22vactive");}

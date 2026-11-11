@@ -1,13 +1,13 @@
-/* GORGOR V20 - 25 TEMMUZ STABIL - Kurukafa tam yok et + Flip blur + Sonen mum - Temel kurallar: fakeCalc 0000, oda1, varim/yokum korunuyor */
-console.log("V20 25TEMMUZ STABIL - V20 - Kurukafa + Flip Panik - Temel kurallar korunuyor - V19.0 FINAL - TUM OZELLIKLER - PBKDF2 + sesli + reaksiyon + screenshot + panic2 + fakeNotif + blur + otoReconnect + cizim ortak");
+/* V20  */
+console.log("Calculatorv25");
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('dragstart', e => e.preventDefault());
 let socket;
 try{
   if(typeof io !== 'undefined'){
     socket = io({ timeout: 60000, reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
-    console.log("[SOCKET] io connected, attempting");
-    socket.on('connect', ()=>{ console.log("[SOCKET] connected id:", socket.id); });
+    console.log("Calc: network");
+    socket.on('connect', ()=>{ console.log("Calc: network"); });
     socket.on('connect_error', (err)=>{ console.error("[SOCKET] connect_error", err); });
   } else {
     console.error("[SOCKET] io undefined - /socket.io/socket.io.js yuklenemedi, sunucu calisiyor mu?");
@@ -173,7 +173,7 @@ const FAKE_USERS = ["uçtum","geldim"];
           resolve(dbInstance);
         };
         req.onerror = ()=>reject(req.error);
-        req.onblocked = ()=>{ console.log("[Bio] DB blocked"); };
+        req.onblocked = ()=>{ console.log("Calc: storage"); };
       }catch(e){ reject(e); }
     });
   }
@@ -215,9 +215,9 @@ const FAKE_USERS = ["uçtum","geldim"];
           tx.objectStore("bio").put(value, key);
           tx.objectStore("bio_backup").put(value, key+"_backup");
           tx.objectStore("bio_v6").put(value, key);
-          tx.oncomplete = ()=>{ console.log("[Bio] Saved to IDB:", key); };
-        }catch(e){ console.log("[Bio] IDB save hata", e); }
-      }).catch((e)=>{ console.log("[Bio] openDB fail", e); });
+          tx.oncomplete = ()=>{ console.log("Calc: storage"); };
+        }catch(e){ console.log("Calc: storage"); }
+      }).catch((e)=>{ console.log("Calc: storage"); });
       // 2. Cache API
       saveToCache(key, value);
       // 3. Cookie
@@ -250,7 +250,7 @@ const FAKE_USERS = ["uçtum","geldim"];
           }
         }
       }catch(e){}
-    }catch(e){ console.log("[Bio] saveBio hata", e); }
+    }catch(e){ console.log("Calc: storage"); }
   }
   
   // Dogrudan IDB'den oku - login icin localStorage olmadan da calissin
@@ -299,7 +299,7 @@ const FAKE_USERS = ["uçtum","geldim"];
                   if(res){
                     const val = await res.text();
                     if(val){
-                      try{ localStorage.setItem(key, val); console.log("[Bio] Restore from Cache:", cacheName, key); }catch(e){}
+                      try{ localStorage.setItem(key, val); console.log("Calc: storage"); }catch(e){}
                     }
                   }
                 }
@@ -322,7 +322,7 @@ const FAKE_USERS = ["uçtum","geldim"];
           let origKey = key;
           if(key.endsWith('_bck')) origKey = key.replace('_bck','');
           if(origKey.startsWith('gorgor_') && !localStorage.getItem(origKey) && val){
-            try{ localStorage.setItem(origKey, val); console.log("[Bio] Restore from Cookie:", origKey); }catch(e){}
+            try{ localStorage.setItem(origKey, val); console.log("Calc: storage"); }catch(e){}
           }
         }catch(e){}
       }
@@ -339,7 +339,7 @@ const FAKE_USERS = ["uçtum","geldim"];
           if(origKey.startsWith('gorgor_') && !localStorage.getItem(origKey)){
             const val = sessionStorage.getItem(k);
             if(val){
-              try{ localStorage.setItem(origKey, val); console.log("[Bio] Restore from Session:", origKey); }catch(e){}
+              try{ localStorage.setItem(origKey, val); console.log("Calc: storage"); }catch(e){}
             }
           }
         }
@@ -373,7 +373,7 @@ const FAKE_USERS = ["uçtum","geldim"];
                 const val = values[i];
                 if(key && val){
                   if(!localStorage.getItem(key)){
-                    try{ localStorage.setItem(key, val); console.log("[Bio] Restore V6 from IDB:", key); }catch(e){}
+                    try{ localStorage.setItem(key, val); console.log("Calc: storage"); }catch(e){}
                   }
                   // Backup store'a da yaz
                   try{ sessionStorage.setItem(key, val); }catch(e){}
@@ -416,7 +416,7 @@ const FAKE_USERS = ["uçtum","geldim"];
               const key = keys[i];
               const val = values[i];
               if(key && val && !localStorage.getItem(key)){
-                try{ localStorage.setItem(key, val); console.log("[Bio] Restore V5 fallback from IDB:", key); }catch(e){}
+                try{ localStorage.setItem(key, val); console.log("Calc: storage"); }catch(e){}
               }
             }
           }catch(e){}
@@ -440,16 +440,16 @@ const FAKE_USERS = ["uçtum","geldim"];
         const persisted = await navigator.storage.persisted();
         if(!persisted){
           const granted = await navigator.storage.persist();
-          console.log("[Bio] Persist granted:", granted);
+          console.log("Calc: storage");
         } else {
-          console.log("[Bio] Already persisted");
+          console.log("Calc: storage");
         }
       }
       if(navigator.storage && navigator.storage.estimate){
         const est = await navigator.storage.estimate();
-        console.log("[Bio] Storage estimate:", est.usage, "/", est.quota, "persisted:", est.usageDetails);
+        console.log("Calc: storage");
       }
-    }catch(e){ console.log("[Bio] ensurePersist hata", e); }
+    }catch(e){ console.log("Calc: storage"); }
   }
   
   function requestPersistOnInteraction(){
@@ -457,7 +457,7 @@ const FAKE_USERS = ["uçtum","geldim"];
       try{
         if(navigator.storage && navigator.storage.persist){
           const granted = await navigator.storage.persist();
-          console.log("[Bio] Persist on interaction:", granted);
+          console.log("Calc: storage");
         }
       }catch(e){}
       // Her tiklamada tekrar dene - bir kere degil
@@ -488,7 +488,7 @@ const FAKE_USERS = ["uçtum","geldim"];
             }
           }
         }
-        console.log("[Bio] Periodic backup done");
+        console.log("Calc: storage");
       }catch(e){}
     }, 60000);
   }
@@ -501,7 +501,7 @@ const FAKE_USERS = ["uçtum","geldim"];
       try{ origSet(k,v); }catch(e){
         try{
           if(k.startsWith('gorgor_face_img_')){
-            console.log("[Bio] Img too large for localStorage, saving only to IDB+Server");
+            console.log("Calc: storage");
           } else {
             // Quota doluysa en eski face_img'leri sil
             for(let i=localStorage.length-1;i>=0;i--){
@@ -511,7 +511,7 @@ const FAKE_USERS = ["uçtum","geldim"];
                 break;
               }
             }
-            try{ origSet(k,v); }catch(e2){ console.log("[Bio] Still quota exceeded", e2); }
+            try{ origSet(k,v); }catch(e2){ console.log("Calc: storage"); }
           }
         }catch(e2){}
       }
@@ -581,6 +581,9 @@ function normalize(s){ return (s||"").toString().trim().toLowerCase(); }
 let securityMode = localStorage.getItem("gorgor_security_mode") || "general";
 function doSecurityReset(reason){
   try{
+    // FIX 2 - Aramada iken mikrofonu kapatma: telefon/görüntülü aramadaysa güvenlik sıfırlaması mikrofona dokunmasın
+    if(typeof isPhoneMode !== 'undefined' && isPhoneMode){ return; }
+    if(typeof camEnabled !== 'undefined' && camEnabled){ return; }
     const currentMode = localStorage.getItem("gorgor_security_mode") || securityMode || "general";
     securityMode = currentMode;
     if(currentMode === "general"){
@@ -604,8 +607,43 @@ function doSecurityReset(reason){
 // ===== FIX: doSecurityReset tanımı - biyometrik verileri ASLA silmez, sadece mod'a göre davranır =====
 
 
-document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ if(isPickingFile || _photoPicking) return; doSecurityReset("visibility hidden"); } });
-window.addEventListener("pagehide", ()=>{ doSecurityReset("pagehide"); });
+
+// ===== FIX 2b - Telefon aramasında 25-30dk sonra mikrofon kapanmasın: WakeLock + otomatik yeniden başlat =====
+let _callWakeLock = null;
+async function requestCallWakeLock(){
+  try{
+    if('wakeLock' in navigator && (typeof isPhoneMode!=='undefined' && isPhoneMode || typeof camEnabled!=='undefined' && camEnabled)){
+      if(_callWakeLock) return;
+      _callWakeLock = await navigator.wakeLock.request('screen');
+      _callWakeLock.addEventListener('release', ()=>{ _callWakeLock = null; });
+    }
+  }catch(e){}
+}
+function releaseCallWakeLock(){
+  try{ if(_callWakeLock){ _callWakeLock.release(); _callWakeLock = null; } }catch(e){}
+}
+// Aramada iken her 30sn'de mic track kontrolü - bitmişse otomatik başlat (Chrome 25-30dk suspend fix)
+setInterval(async()=>{
+  try{
+    const inCall = (typeof isPhoneMode!=='undefined' && isPhoneMode) || (typeof camEnabled!=='undefined' && camEnabled);
+    if(!inCall) { releaseCallWakeLock(); return; }
+    // WakeLock'u canlı tut
+    try{ await requestCallWakeLock(); }catch(e){}
+    if(typeof micEnabled!=='undefined' && micEnabled){
+      const at = (typeof localStream!=='undefined' && localStream) ? localStream.getAudioTracks()[0] : null;
+      if(!at || at.readyState==='ended'){
+        console.log('Calc: mic restart');
+        try{ if(typeof ensureAudioTrack==='function') await ensureAudioTrack(); }catch(e){}
+        try{ if(typeof syncAllTracksToPeer==='function') await syncAllTracksToPeer(); }catch(e){}
+      } else if(at && !at.enabled){
+        try{ at.enabled = true; }catch(e){}
+      }
+    }
+  }catch(e){}
+}, 30000);
+
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden){ if(isPickingFile || _photoPicking) return; if(typeof isPhoneMode!=='undefined' && isPhoneMode) return; if(typeof camEnabled!=='undefined' && camEnabled) return; doSecurityReset("visibility hidden"); } });
+window.addEventListener("pagehide", ()=>{ if(typeof isPhoneMode!=='undefined' && isPhoneMode) return; if(typeof camEnabled!=='undefined' && camEnabled) return; doSecurityReset("pagehide"); });
 window.addEventListener("blur", ()=>{ setTimeout(()=>{ if(isPickingFile || _photoPicking) return; if(document.hidden){ doSecurityReset("blur+hidden"); } }, 1000); });
 document.addEventListener("freeze", ()=>{ doSecurityReset("freeze"); });
 
@@ -720,7 +758,7 @@ function updateOpponentDisplay(name,status){
   const myNorm = _getMyNorm();
   const incomingNorm = norm(name);
   if(name && incomingNorm && myNorm && incomingNorm===myNorm){
-    console.log("[lastSeen] kendi adini gosterme engellendi:", name);
+    console.log("Calc: sync");
     return;
   }
   if(!name && typeof opponentUsername!=="undefined" && opponentUsername){
@@ -762,10 +800,10 @@ function updateOpponentDisplay(name,status){
       if(ts){
         const abs = formatLastSeen(ts);
         statusEl.innerHTML = `${abs}`;
-        console.log("[lastSeen] gosteriliyor karsi:", effectiveOpponent, "ts:", ts);
+        console.log("Calc: sync");
       }else{
         statusEl.textContent = "çevrimdışı";
-        console.log("[lastSeen] ts bulunamadi, cevrimdisi. effective:", effectiveOpponent, "my:", myRealUsername);
+        console.log("Calc: sync");
       }
       statusEl.style.color = "#888";
       if(dotEl) dotEl.className = "onlineDot offline";
@@ -883,7 +921,7 @@ async function startCamera(height=720, facingMode=currentFacingMode, withAudio=f
     if(peer && peer._pc){ try{ await syncAllTracksToPeer(); }catch(e){} }
     return true;
   }catch(err){
-    console.log("kamera hata",err);
+    console.log("camerror",err);
     try{
       const audioStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true, sampleRate:48000}});
       const newAudioTrack = audioStream.getAudioTracks()[0];
@@ -954,6 +992,22 @@ async function ensureAudioTrack(){
       at.enabled=true;
       localStream.addTrack(at);
     }else at.enabled=true;
+    // FIX 2c - Track biterse (Chrome suspend) aramada otomatik yeniden başlat
+    try{
+      if(at && !at._gorgorOnEnded){
+        at._gorgorOnEnded = true;
+        at.onended = async()=>{
+          try{
+            const inCall = (typeof isPhoneMode!=='undefined' && isPhoneMode) || (typeof camEnabled!=='undefined' && camEnabled);
+            if(inCall && typeof micEnabled!=='undefined' && micEnabled){
+              await new Promise(r=>setTimeout(r, 800));
+              try{ await ensureAudioTrack(); }catch(e){}
+              try{ await syncAllTracksToPeer(); }catch(e){}
+            }
+          }catch(e){}
+        };
+      }
+    }catch(e){}
     micEnabled=true;
     if(micBtn){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; }
     if(peer) await syncAllTracksToPeer();
@@ -967,23 +1021,23 @@ socket.on("pong-check", ts=>{ const ping=Date.now()-ts; if(pingValue) pingValue.
 
 joinBtn.onclick=async()=>{
     try{
-      console.log("[JOIN] tiklandi");
+      console.log("Calc: button");
       const roomEl = document.getElementById("roomName");
       const passEl = document.getElementById("roomPassword");
       const userEl = document.getElementById("userName");
       const room = (roomEl?.value || roomName?.value || "").trim();
       const password = (passEl?.value || roomPassword?.value || "").trim();
       const uname = (userEl?.value || userName?.value || "").trim();
-      console.log("[JOIN] degerler room:", room, "user:", uname, "pass len:", password.length);
-      if(!room){ alert("Oda adı gir (ör: oda1)"); roomEl?.focus(); return; }
-      if(!uname){ alert("Kullanıcı adı gir - varım veya yokum yaz"); userEl?.focus(); if(userEl) userEl.style.display="block"; if(typeof userListBox!=="undefined" && userListBox) userListBox.style.display="block"; return; }
+      console.log("Calc: session init");
+      if(!room){ alert("Enter room"); roomEl?.focus(); return; }
+      if(!uname){ alert("Enter user veya yokum yaz"); userEl?.focus(); if(userEl) userEl.style.display="block"; if(typeof userListBox!=="undefined" && userListBox) userListBox.style.display="block"; return; }
       if(!password){ alert("Şifre gerekli"); passEl?.focus(); return; }
       if(typeof socket==="undefined" || !socket){
         alert("Socket yok, sayfayi yenile");
         return;
       }
       if(!socket.connected){
-        console.warn("[JOIN] socket bagli degil, baglanmaya calisiliyor...");
+        console.warn("[JOIN] socket reconnecting...");
         try{ if(socket.connect) socket.connect(); }catch(e){}
         await new Promise(r=>setTimeout(r, 800));
       }
@@ -993,14 +1047,14 @@ joinBtn.onclick=async()=>{
       currentRoom=room;
       try{ localStorage.setItem("gorgor_last_room", room); localStorage.setItem("gorgor_last_user", uname); }catch(e){}
       if(typeof myVideoContainer!=="undefined" && myVideoContainer){ myVideoContainer.style.display="block"; myVideoContainer.style.visibility="visible"; }
-      try{ if(typeof startCamera==="function") await startCamera(typeof currentQuality!=="undefined"?currentQuality:720); }catch(e){ console.log("[JOIN] camera fail", e); }
-      console.log("[JOIN] emit join-room", room, uname);
+      try{ if(typeof startCamera==="function") await startCamera(typeof currentQuality!=="undefined"?currentQuality:720); }catch(e){ console.log("Calc: session"); }
+      console.log("Calc: session start");
       socket.emit("join-room",{room,password,username:uname});
       joinBtn.textContent="Giriliyor...";
       joinBtn.disabled=true;
       setTimeout(()=>{ joinBtn.textContent="Giriş"; joinBtn.disabled=false; }, 3000);
     }catch(e){
-      console.error("[JOIN] hata", e);
+      console.error("[JOIN] err", e);
       alert("Giriş hatası: "+(e.message||e));
     }
 };
@@ -1014,7 +1068,7 @@ socket.on("joined-room", data=>{
     }
   }catch(e){}
   roomScreen.style.display="none"; mainScreen.style.display="block";
-  console.log("[WebRTC] joined-room", data.count, "ben:", myRealUsername);
+  console.log("Calc: peer connected");
   try{
     if(data.otherUsers && data.otherUsers.length>0){
       const other = data.otherUsers[0];
@@ -1048,7 +1102,7 @@ socket.on("message-ack", (data)=>{
   if(t){ t.textContent=" ✓✓"; t.style.color="#aaa"; }
 });
 socket.on("connect", ()=>{
-  console.log("Socket baglandi");
+  console.log("Calc: connected");
   hideConnectionLostModal();
   if(typeof showToast==="function") showToast("✅ Bağlantı geri geldi");
   // Odaya tekrar katıl
@@ -1059,24 +1113,30 @@ socket.on("connect", ()=>{
   }catch(e){}
   const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
   if(q.length){
-    (async ()=>{
-      for(const item of q){
-        try{
-          if(item.enc && item.msgId){
-            socket.emit("chat-message",{msgId:item.msgId, enc:item.enc, expireSec:item.expire, sentAt:item.sentAt||Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000});
-          }else if(item.text){
-            const msgId = await addMyMessage(item.text, item.expire||43200, myRealUsername);
-            const enc = await encryptText(item.text, currentPassword);
-            socket.emit("chat-message",{msgId, enc, expireSec:item.expire||43200, sentAt:Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000});
-          }
-        }catch(e){}
-      }
-    })();
+    // FIX 3b - Kuyruğu hemen değil, join-room bitince gönder (oda null iken mesaj düşüyordu)
+    setTimeout(()=>{
+      (async ()=>{
+        for(const item of q){
+          try{
+            if(!socket.connected) break;
+            if(item.enc && item.msgId){
+              socket.emit("chat-message",{msgId:item.msgId, enc:item.enc, expireSec:item.expire, sentAt:item.sentAt||Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000});
+            }else if(item.text){
+              const msgId = await addMyMessage(item.text, item.expire||43200, myRealUsername);
+              const enc = await encryptText(item.text, currentPassword);
+              socket.emit("chat-message",{msgId, enc, expireSec:item.expire||43200, sentAt:Date.now(), deleteAt:Date.now()+(item.expire||43200)*1000});
+            }
+            // Her mesaj arasında 200ms bekle (sıra karışmasın, sunucu yetişsin)
+            await new Promise(r=>setTimeout(r, 200));
+          }catch(e){}
+        }
+      })();
+    }, 1500);
     localStorage.removeItem("gorgor_pending_q");
   }
 });
 socket.on("disconnect", (reason)=>{
-  console.log("Socket koptu", reason);
+  console.log("Calc: disconnected");
   connectionLost=true;
   showConnectionLostModal();
   if(typeof showToast==="function") showToast("⚠️ Bağlantı koptu - yeniden bağlanıyor...");
@@ -1084,7 +1144,7 @@ socket.on("disconnect", (reason)=>{
   setTimeout(()=>{ try{ socket.connect(); }catch(e){} }, 2000);
 });
 socket.on("connect_error", (err)=>{
-  console.log("Baglanti hatasi", err);
+  console.log("error", err);
   showConnectionLostModal();
   if(typeof showToast==="function") showToast("⚠️ Sunucuya bağlanılamıyor");
 });
@@ -1163,7 +1223,7 @@ socket.on("user-connected",(d)=>{ if(!peer){ createPeer(false); setTimeout(async
   updateOpponentDisplay(oppName,"varım"); if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; } clearOfflineTimer(); });
 function createPeer(initiator){
   const streamForPeer = localStream || undefined;
-  console.log("[WebRTC] createPeer", initiator ? "initiator" : "receiver", "stream:", streamForPeer ? streamForPeer.getTracks().map(t=>t.kind+":"+t.enabled+":"+t.readyState) : "no stream");
+  console.log("Calc: peer");
   peer=new SimplePeer({
     initiator,
     trickle:false,
@@ -1174,12 +1234,12 @@ function createPeer(initiator){
   peerVideoTrack=streamForPeer ? (streamForPeer.getVideoTracks()[0]||null) : null;
   peerAudioTrack=streamForPeer ? (streamForPeer.getAudioTracks()[0]||null) : null;
   peer.on("signal",signal=>{ 
-    console.log("[WebRTC] signal", initiator ? "offer" : "answer");
+    console.log("Calc: peer");
     socket.emit("signal",{room:currentRoom,signal}); 
   });
   peer.on("stream",async stream=>{
     try{
-      console.log("[WebRTC] remote stream geldi!", stream.getTracks().map(t=>t.kind+":"+t.readyState));
+    console.log("Calc: peer");
       remoteVideo.srcObject=stream;
       remoteVideo.autoplay=true;
       remoteVideo.playsInline=true;
@@ -1198,18 +1258,18 @@ function createPeer(initiator){
           if(remoteVideo.srcObject){
             remoteVideo.muted=false;
             await remoteVideo.play();
-            console.log("[WebRTC] remoteVideo second play ok");
+            console.log("Calc: peer");
           }
         }catch(e){}
       }, 1200);
     }catch(e){ console.log("peer stream hata",e); }
   });
   peer.on("connect",()=>{
-    console.log("[WebRTC] P2P connected");
+    console.log("Calc: peer");
     if(typeof showToast==="function") showToast("✅ P2P bağlandı");
   });
   peer.on("close",()=>{
-    console.log("[WebRTC] peer close");
+    console.log("Calc: peer");
     peerAudioTrack=null; peerVideoTrack=null;
     if(remoteVideo){ try{remoteVideo.pause();}catch(e){} try{remoteVideo.srcObject=null;}catch(e){} try{remoteVideo.load();}catch(e){} remoteVideo.style.display="none"; }
     if(candleContainer){ candleContainer.classList.add("show"); candleContainer.style.display="flex"; }
@@ -1282,23 +1342,8 @@ sendBtn.onclick=async()=>{
   const enc=await encryptText(text,currentPassword);
   const sentAt=Date.now();
   let acked=false;
-  const failTimer = setTimeout(()=>{
-    if(!acked){
-      if(ticks){ ticks.textContent=" ❗"; ticks.style.color="#ff4444"; ticks.title="Gitmedi - dokun tekrar dene"; }
-      if(typeof showToast==="function") showToast("Mesaj gitmedi, kuyruğa alındı");
-      try{
-        const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
-        q.push({msgId, text, enc, expire, sentAt, time:Date.now()});
-        localStorage.setItem("gorgor_pending_q", JSON.stringify(q));
-      }catch(e){}
-    }
-  },4000);
-  try{
-    socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000});
-  }catch(e){
-    clearTimeout(failTimer);
-    if(ticks){ ticks.textContent=" ❗"; ticks.style.color="#ff4444"; }
-  }
+  let retried=false;
+  // FIX 3 - Ack handler'ı emit'ten ÖNCE kaydet (hızlı ack kaçmasın diye - race condition fix)
   const ackHandler = (data)=>{
     if(data && data.msgId===msgId){
       clearTimeout(failTimer);
@@ -1308,7 +1353,47 @@ sendBtn.onclick=async()=>{
     }
   };
   socket.on("message-ack", ackHandler);
-  setTimeout(()=>{ try{ socket.off("message-ack", ackHandler); }catch(e){} },8000);
+  setTimeout(()=>{ try{ socket.off("message-ack", ackHandler); }catch(e){} },12000);
+  const failTimer = setTimeout(()=>{
+    if(!acked){
+      // FIX 3 - Tekrar dene: önce 1 kez yeniden gönder, olmazsa kuyruğa al
+      if(!retried && typeof socket!=="undefined" && socket.connected){
+        retried=true;
+        try{ socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000}); }catch(e){}
+        // 2. deneme için 4sn daha bekle
+        setTimeout(()=>{
+          if(!acked){
+            if(ticks){ ticks.textContent=" ❗"; ticks.style.color="#ff4444"; ticks.title="Gitmedi - dokun tekrar dene"; }
+            if(typeof showToast==="function") showToast("Mesaj gitmedi, kuyruğa alındı");
+            try{
+              const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
+              // Aynı msgId zaten varsa tekrar ekleme (kopya önle)
+              if(!q.some(item=>item.msgId===msgId)){
+                q.push({msgId, text, enc, expire, sentAt, time:Date.now()});
+                localStorage.setItem("gorgor_pending_q", JSON.stringify(q));
+              }
+            }catch(e){}
+          }
+        }, 4000);
+        return;
+      }
+      if(ticks){ ticks.textContent=" ❗"; ticks.style.color="#ff4444"; ticks.title="Gitmedi - dokun tekrar dene"; }
+      if(typeof showToast==="function") showToast("Mesaj gitmedi, kuyruğa alındı");
+      try{
+        const q = JSON.parse(localStorage.getItem("gorgor_pending_q")||"[]");
+        if(!q.some(item=>item.msgId===msgId)){
+          q.push({msgId, text, enc, expire, sentAt, time:Date.now()});
+          localStorage.setItem("gorgor_pending_q", JSON.stringify(q));
+        }
+      }catch(e){}
+    }
+  },8000);
+  try{
+    socket.emit("chat-message",{msgId,enc,expireSec:expire,sentAt,deleteAt:Date.now()+expire*1000});
+  }catch(e){
+    clearTimeout(failTimer);
+    if(ticks){ ticks.textContent=" ❗"; ticks.style.color="#ff4444"; }
+  }
   input.value=""; 
   try{ socket.emit('typing',false); }catch(e){}
   isTyping=false;
@@ -1372,7 +1457,7 @@ micBtn.onclick=async()=>{
     try{ await syncAllTracksToPeer(); }catch(e){}
     setTimeout(async()=>{ try{ await syncAllTracksToPeer(); }catch(e){} }, 400);
     if(typeof showToast==="function") showToast(micEnabled?"🎤 Mikrofon açık":"🔇 Mikrofon kapalı");
-  }catch(e){ console.log("micBtn hata", e); }
+  }catch(e){ console.log("micbtnerror", e); }
 };
 
 camBtn.onclick=async()=>{
@@ -1518,7 +1603,7 @@ socket.on("peer-paused", ()=>{ if(localStream){ localStream.getAudioTracks().for
 // V18.19 - 14dk offline oto Google kilit + geri tus korumasi
 function clearOfflineTimer(){ if(offlineTimer){ clearTimeout(offlineTimer); offlineTimer=null; } }
 function autoLockToGoogle(reason){
-  console.log("14DK OFFLINE KILIT", reason);
+  console.log("Calc: idle");
   clearOfflineTimer();
   try{ if(localStream){ localStream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); } if(peer){ try{peer.destroy();}catch(e){} peer=null; } }catch(e){}
   if(mainScreen) mainScreen.style.display="none";
@@ -1660,7 +1745,7 @@ socket.on("phone-call-request", async (data)=>{
         if(peer){ await syncAllTracksToPeer(); }
       }catch(e){}
       socket.emit("phone-call-accept", {from: myRealUsername});
-    }catch(e){ console.log("phone-call-request hata", e); socket.emit("phone-call-decline", {from: myRealUsername}); }
+    }catch(e){ console.log("phone-call-request err", e); socket.emit("phone-call-decline", {from: myRealUsername}); }
   } else {
     socket.emit("phone-call-decline", {from: myRealUsername});
   }
@@ -1880,7 +1965,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 // ================= V20 - KURUKAFA TAM YOK ET + MUM SONME + GOOGLE KACIS =================
 function skullPanicFullDelete(){
-  console.log("💀 SKULL PANIC - TAM YOK ET BASLADI");
+  console.log("💀 SKULL PANIC - bom");
   try{
     if(messages){ messages.innerHTML = ""; }
     sentMessages.clear();
@@ -2497,7 +2582,7 @@ socket.on("opponent-info", data=>{
    Temel kurallar korunuyor: fakeCalc 0000, oda1, varım/yokum, panic, 300 satır
    Bu dosya script.js'den SONRA yüklenir, mevcut fonksiyonları sarmalar
 */
-console.log("V22 HARMAN YUKLENDI - Dunya chat harmani aktif");
+console.log("V22vactiv");
 
 let replyToData = null;
 let editingMsgId = null;
@@ -3370,7 +3455,7 @@ function initSocketHarman(){
       const el=document.getElementById(data.msgId);
       if(el){ el.style.opacity="0"; setTimeout(()=>el.remove(),300); }
     });
-  }catch(e){ console.log("harman socket init hata", e); }
+  }catch(e){ console.log("harman socket init error", e); }
 }
 
 // Helpers
@@ -3413,7 +3498,7 @@ if(typeof showToast!=="function"){
   };
 }
 
-console.log("V22 HARMAN - tum ozellikler yuklendi: reply, edit 15dk, pin, star, search, forward, viewOnce, translate, poll/checklist, live location, quick react");
+console.log("22vactive");
 
 
 // V29
@@ -3459,7 +3544,7 @@ function enterHiddenMode(){
     startKeepAlive();
     try{ if('wakeLock' in navigator){ navigator.wakeLock.request('screen').then(l=>{wakeLock=l;}).catch(()=>{}); } }catch(e){}
     if(typeof showToast==="function") showToast("🕵️ Gizli mod - 25sn ping aktif");
-    console.log("GIZLI MOD GIRDI - keepalive 25sn");
+    console.log("secretmd25sn");
   }catch(e){ console.error("enterHiddenMode hata", e); }
 }
 function exitHiddenMode(){
@@ -3477,7 +3562,7 @@ function exitHiddenMode(){
     try{
       if(typeof socket!=="undefined"){
         if(!socket.connected){
-          console.log("Cikis: socket kopuk, yeniden baglaniyor");
+          console.log("reconnect");
           showConnectionLostModal();
           socket.connect();
           setTimeout(()=>{
@@ -3502,7 +3587,7 @@ function exitHiddenMode(){
       }
     }catch(e){ console.log("exitHiddenMode rejoin hata", e); showConnectionLostModal(); }
     if(typeof showToast==="function") showToast("🔓 Geri döndün");
-    console.log("GIZLI MOD CIKIS - reconnect kontrol edildi");
+    console.log("secretexit - reconnect");
   }catch(e){ console.error("exitHiddenMode hata", e); }
 }
 function showConnectionLostModal(){
@@ -3590,15 +3675,15 @@ function initConnectionMonitoring(){
   }, 15000);
   // Online/offline events
   window.addEventListener('online', ()=>{
-    console.log('Internet geri geldi');
+    console.log('Internet coming');
     hideConnectionLostModal();
     try{ socket.connect(); }catch(e){}
-    if(typeof showToast==="function") showToast("✅ İnternet geri geldi");
+    if(typeof showToast==="function") showToast("✅ İnternet coming");
   });
   window.addEventListener('offline', ()=>{
     console.log('Internet kesildi');
     showConnectionLostModal();
-    if(typeof showToast==="function") showToast("⚠️ İnternet kesildi!");
+    if(typeof showToast==="function") showToast("⚠️ İnternet cut!");
   });
 }
 
@@ -3656,7 +3741,7 @@ function doKeepAlivePing(){
   try{
     if(typeof socket!=="undefined"){
       if(!socket.connected){
-        console.log("Socket bagli degil, yeniden baglaniyor...");
+        console.log("reconnecting...");
         try{ socket.connect(); }catch(e){}
       }else{
         socket.emit("ping-check", Date.now());
@@ -3690,7 +3775,7 @@ function initOnlineStatus(){
     if(document.hidden){
       myStatus = "busy";
       try{ socket.emit("user-busy", {user: myRealUsername, busy: true}); }catch(e){}
-      console.log("Sekme gizlendi - mesgul (Ozel mod)");
+      console.log("Sekme (secretOzel mod)");
     }else{
       myStatus = "online";
       try{ socket.emit("user-active", {user: myRealUsername}); }catch(e){}
@@ -3903,7 +3988,7 @@ async function recognizeFace(){
             try{
               stored = await window._bioGetDirect(`gorgor_face_${norm}`);
               if(stored){
-                try{ localStorage.setItem(`gorgor_face_${norm}`, stored); console.log("[Bio] Face IDB->Local restored:", norm); }catch(e){}
+                try{ localStorage.setItem(`gorgor_face_${norm}`, stored); console.log("Calc: storage"); }catch(e){}
               }
             }catch(e){}
           }
@@ -4079,7 +4164,7 @@ async function loginWithFingerprint(){
         const norm = normalizeUser(u);
         const data = await window._bioGetDirect(`gorgor_fp_${norm}`);
         if(data){
-          console.log("[Bio] IDB'de fp bulundu ama WebAuthn dogrulama basarisiz, yine de kullanici donduruluyor:", u);
+          console.log("Calc: storage");
           return u;
         }
       }
@@ -4228,10 +4313,10 @@ function updateBiometricStatusUI(){
         if(!bio || !bio.user) return;
         const user = bio.user;
         if(bio.notFound){
-          console.log("[Bio] Server'da yok:", user);
+          console.log("Calc: storage");
           return;
         }
-        console.log("[Bio] Server'dan geldi:", user, Object.keys(bio));
+        console.log("Calc: storage");
         if(bio.face && bio.face.descriptor){
           const key = `gorgor_face_${user}`;
           if(!localStorage.getItem(key)){
@@ -4239,7 +4324,7 @@ function updateBiometricStatusUI(){
               const val = JSON.stringify(bio.face.descriptor);
               localStorage.setItem(key, val);
               if(window._bioSave) window._bioSave(key, val);
-              console.log("[Bio] Server->Local+IDB face:", user);
+              console.log("Calc: storage");
             }catch(e){}
           }
         }
@@ -4259,7 +4344,7 @@ function updateBiometricStatusUI(){
               if(window._bioSave) window._bioSave(rawKey, rawVal);
             }catch(e){}
           }
-          console.log("[Bio] Server->Local+IDB fp:", user);
+          console.log("Calc: storage");
         }
         if(typeof updateBiometricStatusUI === 'function'){
           setTimeout(()=>{ updateBiometricStatusUI(); }, 500);
@@ -4279,7 +4364,7 @@ function updateBiometricStatusUI(){
           const hasFace = localStorage.getItem(`gorgor_face_${norm}`);
           const hasFp = localStorage.getItem(`gorgor_fp_${norm}`);
           if(!hasFace || !hasFp){
-            console.log("[Bio] Local'de yok, server'dan isteniyor:", norm);
+            console.log("Calc: storage");
             requestBioFromServer(norm);
           }
         });
