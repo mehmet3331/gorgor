@@ -1244,7 +1244,7 @@ function createPeer(initiator){
       remoteVideo.autoplay=true;
       remoteVideo.playsInline=true;
       remoteVideo.muted=false;
-      remoteVideo.volume=isPhoneMode?0.15:0.6;
+      remoteVideo.volume=isPhoneMode?0.15:0.1;
       if(volumeSlider) volumeSlider.value=remoteVideo.volume;
       if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
       if(isPhoneMode) remoteVideo.style.display="none"; else remoteVideo.style.display="block";
@@ -1484,7 +1484,7 @@ camBtn.onclick=async()=>{
       if(phoneCallUI) phoneCallUI.style.display="none";
       socket.emit("video-call-request", {from: myRealUsername, withMic: true});
       if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-      if(remoteVideo){ remoteVideo.style.display="block"; remoteVideo.muted=false; remoteVideo.volume=0.6; try{ await remoteVideo.play(); }catch(e){} }
+      if(remoteVideo){ remoteVideo.style.display="block"; remoteVideo.muted=false; remoteVideo.volume=0.1; try{ await remoteVideo.play(); }catch(e){} }
       if(myVideoContainer) myVideoContainer.style.display="block";
       if(typeof showToast==="function") showToast("📹 Kamera açıldı");
     }catch(err){ alert("Kamera açılamadı: "+(err.message||err.name)); }
@@ -1501,7 +1501,7 @@ camBtn.onclick=async()=>{
 if(switchCameraBtn){ switchCameraBtn.onclick=async()=>{ try{ const wasCamOn=camEnabled; const wasMicOn=micEnabled; currentFacingMode=currentFacingMode==="user"?"environment":"user"; await startCamera(currentQuality,currentFacingMode); if(localStream){ localStream.getVideoTracks().forEach(t=>{ t.enabled=wasCamOn; }); localStream.getAudioTracks().forEach(t=>{ t.enabled=wasMicOn; }); myVideo.srcObject=localStream; myVideo.play().catch(()=>{}); myVideo.style.transform=currentFacingMode==="user"?"scaleX(-1)":"scaleX(1)"; } camEnabled=wasCamOn; micEnabled=wasMicOn; if(camEnabled) camBtn.classList.remove("offIcon"); else camBtn.classList.add("offIcon"); if(micEnabled){ micBtn.classList.remove("offIcon"); micBtn.textContent="🎤"; } else { micBtn.classList.add("offIcon"); micBtn.textContent="🔇"; } if(peer){ await syncAllTracksToPeer(); } }catch(err){ alert("Ikinci kamera yok"); currentFacingMode="user"; try{ await startCamera(currentQuality,"user"); }catch(e){} } }; }
 remoteVideo.muted=false; remoteVideo.volume=0.1; volumeSlider.value=0.1;
 volumeSlider.oninput=()=>{ const v=parseFloat(volumeSlider.value); remoteVideo.volume=v; remoteVideo.muted=v<=0; soundBtn.textContent=v<=0?"🔇":"🔊"; };
-soundBtn.onclick=()=>{ remoteVideo.muted=!remoteVideo.muted; if(!remoteVideo.muted&&parseFloat(volumeSlider.value)===0){ volumeSlider.value=0.5; remoteVideo.volume=0.5; } soundBtn.textContent=remoteVideo.muted?"🔇":"🔊"; };
+soundBtn.onclick=()=>{ remoteVideo.muted=!remoteVideo.muted; if(!remoteVideo.muted&&parseFloat(volumeSlider.value)===0){ volumeSlider.value=0.1; remoteVideo.volume=0.1; } soundBtn.textContent=remoteVideo.muted?"🔇":"🔊"; };
 changePasswordBtn.onclick=()=>{ const p=prompt("Yeni sifre"); if(!p) return; currentPassword=p; socket.emit("change-password",p); };
 const changePasswordBtnSecurity = document.getElementById("changePasswordBtnSecurity");
 if(changePasswordBtnSecurity){
@@ -1802,7 +1802,7 @@ socket.on("video-call-request", async (data)=>{
         if(phoneModeBtn) phoneModeBtn.classList.remove("active");
         if(phoneCallUI) phoneCallUI.style.display="none";
         if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-        if(remoteVideo){ remoteVideo.style.display="block"; remoteVideo.muted=false; remoteVideo.volume=0.6; try{ await remoteVideo.play(); }catch(e){} }
+        if(remoteVideo){ remoteVideo.style.display="block"; remoteVideo.muted=false; remoteVideo.volume=0.1; try{ await remoteVideo.play(); }catch(e){} }
         if(myVideoContainer) myVideoContainer.style.display="block";
         socket.emit("video-call-accept", {from: myRealUsername, withMic: true});
       }catch(e){ socket.emit("video-call-decline", {from: myRealUsername}); }
@@ -1827,7 +1827,7 @@ socket.on("video-call-accept", async (data)=>{
       if(phoneModeBtn) phoneModeBtn.classList.remove("active");
       if(phoneCallUI) phoneCallUI.style.display="none";
       if(candleContainer){ candleContainer.classList.remove("show"); candleContainer.style.display="none"; }
-      if(remoteVideo){ remoteVideo.style.display="block"; remoteVideo.muted=false; remoteVideo.volume=0.6; try{ await remoteVideo.play(); }catch(e){} }
+      if(remoteVideo){ remoteVideo.style.display="block"; remoteVideo.muted=false; remoteVideo.volume=0.1; try{ await remoteVideo.play(); }catch(e){} }
       if(myVideoContainer) myVideoContainer.style.display="block";
       await syncAllTracksToPeer();
       setTimeout(async()=>{
